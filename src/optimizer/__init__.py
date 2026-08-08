@@ -1,6 +1,6 @@
 """Model 3 — Relocation Optimizer, greedy theo severity (§5.4, task T3).
 
-Sẽ chứa (ARCHITECTURE.md §7):
+Sẽ chứa (docs/design/ARCHITECTURE.md §7):
     greedy.py       §5.4 · xếp hotspot theo severity giảm dần rồi ghép nguồn gần nhất
     constraints.py  §5.4 · budget_cap / max_distance / max_supply_move_pct /
                     min_supply_per_zone / cooldown_minutes

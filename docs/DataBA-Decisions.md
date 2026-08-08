@@ -13,9 +13,17 @@
 
 **Vấn đề:** SPEC gốc để ngỏ 2 phương án — NYC TLC/Didi GAIA + rain injection, hoặc synthetic thuần. Deadline chốt theo kế hoạch ban đầu là cuối ngày 3 tuần 1.
 
-**Quyết định: Synthetic thuần, tham số hóa từ research** (không dùng NYC TLC/Didi GAIA).
+**Quyết định (2026-08-02): Synthetic thuần, tham số hóa từ research** (không dùng NYC TLC/Didi GAIA).
 
-**Lý do:**
+> **⚠️ ĐÃ SỬA ĐỔI 2026-08-08 — quyết định D3.** Nguồn dữ liệu hiện là **lai**, không còn synthetic thuần: cột `rain_mm_h` lấy từ **NASA POWER 2025 thật** (file tĩnh `data/external/rain_hanoi_2025.csv`, cộng biến thiên không gian theo zone ở T0.4); **mọi cột còn lại giữ nguyên synthetic** đúng như quyết định gốc bên dưới.
+>
+> Lý do đổi: chuỗi mưa synthetic không tái tạo được **cụm mưa, thời lượng và phân bố cường độ** — mà chính ba đặc tính đó quyết định số sự kiện `rain_peak`, thước đo thành công chính của dự án. Mưa synthetic cho ra các đợt mưa rời rạc, đều đặn, không có đuôi cường độ cao; hệ quả là `heavy_rain_mm_h = 5.0` gần như không bao giờ chạm (xem D11).
+>
+> **C-02 không bị vi phạm:** file mưa là input tĩnh nằm trong repo, hệ thống **không gọi API thời tiết lúc chạy**. Ranh giới "không tích hợp vận hành/người dùng thật" vẫn nguyên vẹn — dữ liệu khí tượng công khai không phải dữ liệu vận hành hay dữ liệu người dùng.
+>
+> Ba lập luận gốc bên dưới **vẫn đúng** cho phần còn lại: chúng bác bỏ NYC TLC/Didi GAIA (dữ liệu *chuyến đi* của thành phố khác), không bác bỏ dữ liệu khí tượng Hà Nội. Chi tiết: [DATA_CONTRACT.md §9 D3](design/DATA_CONTRACT.md#9-nợ-dữ-liệu--12-điểm-lệch-giữa-tài-liệu-và-đĩa).
+
+**Lý do (của quyết định gốc):**
 - C-02 đã xác định rõ: synthetic data, không tích hợp vận hành/người dùng thật — dùng dữ liệu ngoài (NYC/Didi) không giúp đúng hơn cho bài toán Hà Nội, chỉ tốn thời gian làm sạch/ánh xạ định dạng khác biệt (múi giờ, đơn vị zone, không có rain data đồng bộ theo phút).
 - Nguyên tắc đánh giá 4 regime (`normal/peak/rain/rain_peak`, mục 3.2 SPEC) đòi hỏi gán nhãn chính xác — với synthetic, ta **kiểm soát hoàn toàn** injection mưa theo đúng hệ số research (Brodeur & Nield +19–22%; Liu et al. 0.59%/mm/h; Kamga & Yazici giảm cung chiều mưa), đảm bảo signal `rain × peak` đủ mạnh để model học được — dữ liệu thật không đảm bảo điều này trong 30 zone Hà Nội giả lập.
 - Rủi ro lớn nhất theo bảng rủi ro gốc là "dữ liệu kéo dài quá 3 ngày đầu" — loại bỏ hẳn phương án dữ liệu ngoài giúp loại luôn rủi ro này thay vì chỉ có phương án dự phòng.
@@ -158,7 +166,7 @@ Giả định (1) đặc biệt đáng ngờ theo hướng ngược lại với 
 
 | # | Mục | Trạng thái |
 |---|---|---|
-| 1 | Nguồn dữ liệu | ✅ Đã chốt (synthetic thuần) — đã cập nhật vào SPEC chính |
+| 1 | Nguồn dữ liệu | ✅ Đã chốt — **sửa đổi 2026-08-08 (D3): nguồn lai**, `rain_mm_h` từ NASA POWER 2025 thật, phần còn lại synthetic. Đã cập nhật vào SPEC chính |
 | 2 | `price_index` | ✅ Đã chốt (không dùng làm feature) — đã cập nhật vào SPEC chính |
 | 3 | Công thức `avg_wait_proxy`/`est_cancel_rate` | ✅ Đã chốt (tham số cụ thể) — đã cập nhật vào SPEC chính |
 | 4 | Baseline no-action + test set | ✅ Đã chốt phương pháp — cần Data team thực thi trước cuối W2 |

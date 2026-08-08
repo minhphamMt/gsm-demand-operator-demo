@@ -12,12 +12,12 @@ Repo là dự án **GSM-14 · NovaFour** (VinUni AI20K Build Phase), khởi tạ
 
 | Loại việc | Mở trước |
 |---|---|
-| Bất kỳ việc gì | [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) — tìm task ID (T0.1–T11), đọc **Acceptance Criteria** của nó |
-| Hiểu hệ thống / thêm module mới | [ARCHITECTURE.md](ARCHITECTURE.md) §3 diagram, §4 trách nhiệm, §6 dependency |
-| Viết/sửa endpoint | [API_CONTRACT.md](API_CONTRACT.md) — endpoint, schema, mã lỗi, `warnings[]` |
-| Viết/sửa Pydantic model, schema DB, config | [DATA_CONTRACT.md](DATA_CONTRACT.md) — 9 entity, DDL, `policy.yaml` 19 key, ASSUMPTION register |
-| Viết state machine, router, fallback, xử lý lỗi | [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md) |
-| Viết test, báo cáo số liệu | [EVALUATION_PLAN.md](EVALUATION_PLAN.md) |
+| Bất kỳ việc gì | [IMPLEMENTATION_PLAN.md](docs/design/IMPLEMENTATION_PLAN.md) — tìm task ID (T0.1–T11), đọc **Acceptance Criteria** của nó |
+| Hiểu hệ thống / thêm module mới | [ARCHITECTURE.md](docs/design/ARCHITECTURE.md) §3 diagram, §4 trách nhiệm, §6 dependency |
+| Viết/sửa endpoint | [API_CONTRACT.md](docs/design/API_CONTRACT.md) — endpoint, schema, mã lỗi, `warnings[]` |
+| Viết/sửa Pydantic model, schema DB, config | [DATA_CONTRACT.md](docs/design/DATA_CONTRACT.md) — 9 entity, DDL, `policy.yaml` 19 key, ASSUMPTION register |
+| Viết state machine, router, fallback, xử lý lỗi | [AGENT_WORKFLOW.md](docs/design/AGENT_WORKFLOW.md) |
+| Viết test, báo cáo số liệu | [EVALUATION_PLAN.md](docs/design/EVALUATION_PLAN.md) |
 | Chi tiết nghiệp vụ mà 6 file trên không nói | [docs/SPEC-GSM14-NovaFour-Unified.md](docs/SPEC-GSM14-NovaFour-Unified.md) — mục §5.x tương ứng |
 
 ### 1.1. Thứ tự ưu tiên khi tài liệu mâu thuẫn
@@ -32,13 +32,13 @@ SPEC Unified §10  >  SPEC Unified (phần còn lại)  >  ARCHITECTURE / API_CO
 
 `docs/SPEC-AI-Agent-Phan-Bo-Xe-Gio-Cao-Diem.md` là spec v1.0 **đã bị thay thế** — chỉ tra cứu, không làm căn cứ.
 
-**Code hiện có xếp cuối.** Nếu code mâu thuẫn tài liệu, code sai — trừ khi tài liệu đã ghi nhận đó là nợ dữ liệu ([DATA_CONTRACT.md §9](DATA_CONTRACT.md#9-nợ-dữ-liệu--12-điểm-lệch-giữa-tài-liệu-và-đĩa), D1–D12).
+**Code hiện có xếp cuối.** Nếu code mâu thuẫn tài liệu, code sai — trừ khi tài liệu đã ghi nhận đó là nợ dữ liệu ([DATA_CONTRACT.md §9](docs/design/DATA_CONTRACT.md#9-nợ-dữ-liệu--12-điểm-lệch-giữa-tài-liệu-và-đĩa), D1–D12).
 
 ### 1.2. Trạng thái repo
 
-- `docs/` + 6 tài liệu thiết kế ở root: **đã chốt**, là nguồn sự thật.
-- `src/`: **vẫn nguyên boilerplate template** (`example_node.py`, `example_tool.py`, `ChatRequest/ChatResponse`, LangGraph chat demo). Đây **không** phải kiến trúc mục tiêu. **Đừng bắt chước nó, đừng mở rộng nó** — nó bị xóa ở task T0.5.
-- `config/policy.yaml`, `src/simulation/metrics.py`, `config/driver_registry.json`: **chưa tồn tại**, là task chặn T0.1/T0.3/T0.6.
+- `docs/` + `docs/design/` (6 tài liệu thiết kế): **đã chốt**, là nguồn sự thật.
+- `src/`: **boilerplate template đã bị xóa xong ở T0.5**. Hiện là skeleton rỗng — `src/main.py` (chỉ `GET /health`), `src/config.py`, và 11 package `__init__.py` mô tả module sẽ có. Không còn `example_node.py`, `ChatRequest/ChatResponse`, LangGraph.
+- `config/policy.yaml`, `src/simulation/metrics.py`, `config/driver_registry.json`: **chưa tồn tại**, là task chặn T0.1/T0.3/T0.6. `GET /health` trả **503** cho tới khi T0.1 xong — đúng thiết kế, không phải lỗi.
 
 ---
 
@@ -159,15 +159,15 @@ format.quote-style = "double"                 format.indent-style = "space"
 |---|---|
 | Ngôn ngữ định danh | **Tên hàm/biến/class tiếng Anh**, `snake_case` / `PascalCase` (ruff `N`) |
 | Comment & docstring | **Tiếng Việt**, giải thích **vì sao**, không mô tả lại code |
-| Layout module | Đúng cây `src/` ở [ARCHITECTURE.md §7](ARCHITECTURE.md#7-cây-thư-mục-mục-tiêu). Không tạo thư mục mới ngoài cây đó |
-| Contract | Pydantic **v2**, 1 file/entity trong `src/contracts/`, tên file theo [DATA_CONTRACT.md §2](DATA_CONTRACT.md#2-message-contract--9-entity) |
+| Layout module | Đúng cây `src/` ở [ARCHITECTURE.md §7](docs/design/ARCHITECTURE.md#7-cây-thư-mục-mục-tiêu). Không tạo thư mục mới ngoài cây đó |
+| Contract | Pydantic **v2**, 1 file/entity trong `src/contracts/`, tên file theo [DATA_CONTRACT.md §2](docs/design/DATA_CONTRACT.md#2-message-contract--9-entity) |
 | Type hints | Bắt buộc cho **public function** (tham số + return) |
 | Ngưỡng | Truyền vào qua tham số, đọc từ `src/common/policy.py`. **Cấm literal ngưỡng trong module** |
 | Số học metric | Chỉ ở `src/simulation/metrics.py`. Cấm cài lại ở nơi khác |
 | Regime | Chỉ ở `src/common/regime.py`. Cấm `rain_mm_h > 0` rải rác |
 | Haversine | Chỉ ở `src/common/haversine.py`, tính **on-the-fly**, không precompute ma trận 30×30 |
 | ID | Sinh ở `src/common/ids.py`: `plan_id` UUID4, `H-nnnnnn`, `OF-nnnnnn`, `ACT-YYYYMMDD-HHMM-nn`, `DRV-nnnn` |
-| Lỗi | Exception dự án ở `src/common/errors.py`, mang `error_code` khớp [API_CONTRACT.md §1.2](API_CONTRACT.md#12-error-response--thống-nhất-toàn-api) |
+| Lỗi | Exception dự án ở `src/common/errors.py`, mang `error_code` khớp [API_CONTRACT.md §1.2](docs/design/API_CONTRACT.md#12-error-response--thống-nhất-toàn-api) |
 | Datetime | ISO-8601 **có offset `+07:00`**. Cấm naive datetime |
 | Tiền | `int` VNĐ. Cấm float cho tiền |
 | Import | Tuyệt đối (`from src.simulation.metrics import ...`); ruff `I` sắp xếp |
@@ -213,7 +213,7 @@ format.quote-style = "double"                 format.indent-style = "space"
 
 ### 7.2. Phân tầng test
 
-Cây test theo [ARCHITECTURE.md §7](ARCHITECTURE.md#7-cây-thư-mục-mục-tiêu) — **không tạo thư mục test ngoài cây này**.
+Cây test theo [ARCHITECTURE.md §7](docs/design/ARCHITECTURE.md#7-cây-thư-mục-mục-tiêu) — **không tạo thư mục test ngoài cây này**.
 
 | Tầng | Ở đâu | Nội dung |
 |---|---|---|
@@ -221,7 +221,7 @@ Cây test theo [ARCHITECTURE.md §7](ARCHITECTURE.md#7-cây-thư-mục-mục-ti�
 | Đơn vị | `tests/test_simulation/`, `test_optimizer/`, `test_activation/`, `test_api/` | Công thức, ràng buộc, biên |
 | Tĩnh (kiến trúc) | `tests/test_architecture.py` | `simulator` import `metrics`; không cài lại công thức; `metrics` không nhiễm tham số; không `yaml.safe_load` ngoài `policy.py`; không hard-code ngưỡng |
 | Bất biến | `tests/test_simulation/test_invariants.py` | INV-1/2/3 — **chạy trong CI từ W3** |
-| Property-based | `tests/test_optimizer/`, `tests/test_activation/` | ≥ 100 snapshot có seed, 14 ràng buộc policy ([EVALUATION_PLAN.md §4.1](EVALUATION_PLAN.md#41-ràng-buộc-policy--test-property-based)) |
+| Property-based | `tests/test_optimizer/`, `tests/test_activation/` | ≥ 100 snapshot có seed, 14 ràng buộc policy ([EVALUATION_PLAN.md §4.1](docs/design/EVALUATION_PLAN.md#41-ràng-buộc-policy--test-property-based)) |
 | Failure | cùng thư mục với module gây lỗi | 12 dòng §5.9 (F1–F12) + 4 ca bất biến vỡ (F13–F16) |
 | E2E | `tests/test_api/` | Kịch bản demo mưa 17:00–19:00, 2 màn hình cùng `plan_id` |
 
@@ -272,7 +272,7 @@ Repo demo, dữ liệu synthetic — nhưng **có ràng buộc an toàn thật**
 
 ### 10.1. Trong hệ thống được xây (router deterministic)
 
-**Không có LLM chọn tool.** "Tool selection" là bảng tra 22 luật R1–R22 ở [AGENT_WORKFLOW.md §2.1](AGENT_WORKFLOW.md#21-bảng-router-chính).
+**Không có LLM chọn tool.** "Tool selection" là bảng tra 22 luật R1–R22 ở [AGENT_WORKFLOW.md §2.1](docs/design/AGENT_WORKFLOW.md#21-bảng-router-chính).
 
 | # | Luật |
 |---|---|
@@ -330,7 +330,7 @@ Việc nằm trong phạm vi task và có neo tài liệu → **cứ làm**, kh�
 
 Task chỉ được báo xong khi **tất cả** thỏa. Báo xong khi chưa đủ là báo cáo sai.
 
-Dòng 1–10 là DoD chuẩn ở [IMPLEMENTATION_PLAN.md §1](IMPLEMENTATION_PLAN.md#1-definition-of-done-áp-cho-mọi-task). Dòng 11–13 là điều kiện bổ sung riêng cho phiên AI coding.
+Dòng 1–10 là DoD chuẩn ở [IMPLEMENTATION_PLAN.md §1](docs/design/IMPLEMENTATION_PLAN.md#1-definition-of-done-áp-cho-mọi-task). Dòng 11–13 là điều kiện bổ sung riêng cho phiên AI coding.
 
 | # | Điều kiện | Kiểm bằng |
 |---|---|---|
@@ -369,7 +369,7 @@ Dòng 1–10 là DoD chuẩn ở [IMPLEMENTATION_PLAN.md §1](IMPLEMENTATION_PLA
 | Đường dẫn | Ràng buộc |
 |---|---|
 | `docs/**` | Tài liệu spec đã chốt. Sửa spec là quyết định của PM/BA, không phải của AI |
-| `ARCHITECTURE.md`, `API_CONTRACT.md`, `DATA_CONTRACT.md`, `AGENT_WORKFLOW.md`, `IMPLEMENTATION_PLAN.md`, `EVALUATION_PLAN.md` | Đã duyệt. Sửa thiết kế trước, code sau — **không** sửa tài liệu cho khớp code đã lỡ viết sai |
+| `docs/design/ARCHITECTURE.md`, `docs/design/API_CONTRACT.md`, `docs/design/DATA_CONTRACT.md`, `docs/design/AGENT_WORKFLOW.md`, `docs/design/IMPLEMENTATION_PLAN.md`, `docs/design/EVALUATION_PLAN.md` | Đã duyệt. Sửa thiết kế trước, code sau — **không** sửa tài liệu cho khớp code đã lỡ viết sai |
 | `src/contracts/**` (sau W2) | Chỉ **thêm field optional**. Cấm đổi tên, đổi kiểu, bỏ field |
 | `config/policy.yaml` | Thêm key mới được; **đổi giá trị `verified: true` phải có owner xác nhận**; cấm xóa key |
 | `config/generator.yaml` seed | `train=42`, `test=2026`, nowcast `13` — đổi seed là mất tính tái lập |
@@ -422,4 +422,4 @@ Chi tiết: [.agents/rules/ai-log-hook.md](.agents/rules/ai-log-hook.md).
 
 ## 16. Deliverable AI20K chạy song song
 
-`JOURNAL.md` (theo tuần) và `WORKLOG.md` (theo ngày) là **deliverable bắt buộc #8/#9**, hiện vẫn là template rỗng — cập nhật cuối mỗi sprint. `eval/` chứa evidence đánh giá, `presentation/` chứa slide + video demo. `README_boilerplate.md` là mẫu README cho đội, copy đè `README.md` (README hiện tại là của template, không phải của dự án).
+`JOURNAL.md` (theo tuần) và `WORKLOG.md` (theo ngày) là **deliverable bắt buộc #8/#9**, hiện vẫn là template rỗng — cập nhật cuối mỗi sprint. `eval/` chứa evidence đánh giá, `presentation/` chứa slide + video demo. `docs/templates/README_boilerplate.md` là mẫu README của template AI20K, **giữ để tra cứu — đừng copy đè `README.md`**: `README.md` đã được viết lại cho GSM-14 ở T0.5. Bước 4 của T11 trong [IMPLEMENTATION_PLAN.md](docs/design/IMPLEMENTATION_PLAN.md) viết trước lúc đó nên đã lỗi thời.

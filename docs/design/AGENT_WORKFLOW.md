@@ -1,9 +1,9 @@
 # AGENT_WORKFLOW.md — GSM-14 · NovaFour
 
 > **Đọc mục 0 trước.** Hệ thống này **không có LLM agent trong luồng chính**. Sáu heading dưới đây là heading bắt buộc của Technical Design pack, được ánh xạ vào **pipeline deterministic** — thuật ngữ giữ nguyên, ngữ nghĩa được định nghĩa lại cho đúng hệ thống thật (quyết định A-07).
-> Neo spec: [SPEC §5.1–5.14](docs/SPEC-GSM14-NovaFour-Unified.md) · §3.2 nguyên tắc · §5.9 fallback · §6 NFR.
+> Neo spec: [SPEC §5.1–5.14](../SPEC-GSM14-NovaFour-Unified.md) · §3.2 nguyên tắc · §5.9 fallback · §6 NFR.
 
-**Mục lục:** [§0 Ánh xạ thuật ngữ](#0-ánh-xạ-thuật-ngữ) · [§1 Agent state](#1-agent-state) · [§2 Tool selection](#2-tool-selection) · [§3 Stop conditions](#3-stop-conditions) · [§4 Retry & timeout](#4-retry--timeout) · [§5 Human approval](#5-human-approval) · [§6 Error handling](#6-error-handling) · [Phụ lục A: LLM Lớp 2](#phụ-lục-a--explanation-lớp-2-llm--ngoài-mvp-cờ-tắt-mặc-định)
+**Mục lục:** [§0 Ánh xạ thuật ngữ](#0-ánh-xạ-thuật-ngữ) · [§1 Agent state](#1-agent-state) · [§2 Tool selection](#2-tool-selection) · [§3 Stop conditions](#3-stop-conditions) · [§4 Retry & timeout](#4-retry--timeout) · [§5 Human approval](#5-human-approval) · [§6 Error handling](#6-error-handling) · [Phụ lục A: LLM Lớp 2](#phụ-lục-a--explanation-lớp-2-llm-ngoài-mvp-cờ-tắt-mặc-định)
 
 ---
 
@@ -142,7 +142,7 @@ PipelineState.AwaitDecision ──approve──> PlanState.Approved
 | R12 | Có `plan.moves` | `simulation.simulator.run()` 2 kịch bản | — | §5.5 |
 | R13 | Campaign `Closed` | `simulation.simulator.run()` kịch bản 3 | — | FR-13, §5.5 |
 | R14 | Có metrics | `explanation.templates.render()` **Lớp 1** | — | §5.6 |
-| R15 | Cờ `llm_layer2_enabled == true` **và** Lớp 1 xong | `explanation.llm_layer2` | **Lớp 1** (đã có sẵn) | §5.6, [Phụ lục A](#phụ-lục-a--explanation-lớp-2-llm--ngoài-mvp-cờ-tắt-mặc-định) |
+| R15 | Cờ `llm_layer2_enabled == true` **và** Lớp 1 xong | `explanation.llm_layer2` | **Lớp 1** (đã có sẵn) | §5.6, [Phụ lục A](#phụ-lục-a--explanation-lớp-2-llm-ngoài-mvp-cờ-tắt-mặc-định) |
 | R16 | Plan `Approved`, `residual_gap` rỗng | Campaign → `NotNeeded` | — | §4.4 |
 | R17 | Plan `Approved`, `residual_gap > 0` | `activation.engine.build_campaign()` → `Pending` | — | §5.11 |
 | R18 | Campaign `Pending` + xác nhận người | `activation.engine.issue_offers()` | — | §5.11, C-09 |

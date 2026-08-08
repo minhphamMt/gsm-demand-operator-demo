@@ -40,3 +40,12 @@ pretty = true
 [[tool.mypy.overrides]]
 module = ["lightgbm.*", "sklearn.*", "scipy.*", "pyarrow.*", "pandas.*"]
 ignore_missing_imports = true
+
+# PyYAML là ca khác: có stub chính thức (types-PyYAML) nhưng đó là dependency MỚI,
+# mà CLAUDE.md §6 #1 buộc hỏi user trước khi thêm. Bỏ qua tạm ở đây để không tự ý
+# thêm gói; đổi sang types-PyYAML bất cứ lúc nào bằng cách xoá khối này.
+# Mất mát: yaml.* thành Any, nên yaml.YAMLError trong src/common/policy.py không được
+# kiểm kiểu — chỉ một chỗ, đã có test bao (test_yaml_sai_cu_phap_thi_crash).
+[[tool.mypy.overrides]]
+module = ["yaml.*"]
+ignore_missing_imports = true

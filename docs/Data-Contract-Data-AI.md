@@ -36,7 +36,7 @@
 
 ## A1. BẢNG SNAPSHOT THÔ (nền tảng của mọi thứ)
 
-**Nguồn:** synthetic generator (đã chốt: synthetic thuần 100%).
+**Nguồn:** **lai** — cập nhật 2026-08-08 theo quyết định D3 ([DATA_CONTRACT.md §9](design/DATA_CONTRACT.md#9-nợ-dữ-liệu--12-điểm-lệch-giữa-tài-liệu-và-đĩa)). Cột `rain_mm_h` lấy từ **NASA POWER 2025 thật** (file tĩnh `data/external/rain_hanoi_2025.csv`, có thêm biến thiên không gian theo zone); **mọi cột còn lại là synthetic generator**. Bản trước ghi "synthetic thuần 100%" — không còn đúng.
 **Grain:** mỗi dòng = 1 zone × 1 bước 5 phút.
 **Format:** Parquet — `data/snapshots/`.
 **Quy mô:** 30 zone × 288 step/ngày × 49 ngày ≈ **423.000 dòng** (6 tuần train + 1 tuần test).

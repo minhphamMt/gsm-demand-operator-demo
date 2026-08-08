@@ -1,6 +1,6 @@
 """Explanation Engine — giải thích plan bằng ngôn ngữ vận hành (§5.6, task T5).
 
-Sẽ chứa (ARCHITECTURE.md §7):
+Sẽ chứa (docs/design/ARCHITECTURE.md §7):
     templates.py   §5.6 Lớp 1 · template cho người điều phối + template cho tài xế
     validator.py   §5.6 · khẳng định 100% con số trong text khớp explanation_data
     llm_layer2.py  §7.1 #2 · OPTIONAL, cờ mặc định TẮT, chỉ làm nếu W5 dư thời gian

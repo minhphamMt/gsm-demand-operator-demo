@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN.md — GSM-14 · NovaFour
 
-> Neo: [SPEC §7](docs/SPEC-GSM14-NovaFour-Unified.md) (kế hoạch 6 tuần/11 sprint, 27/07 – 31/08/2026), §5.x acceptance criteria, §7.1 đánh đổi phạm vi.
+> Neo: [SPEC §7](../SPEC-GSM14-NovaFour-Unified.md) (kế hoạch 6 tuần/11 sprint, 27/07 – 31/08/2026), §5.x acceptance criteria, §7.1 đánh đổi phạm vi.
 > Mọi Acceptance Criteria dưới đây **lấy thẳng từ acceptance của §5.x** hoặc là một lệnh chạy được. Không có AC dạng "hoạt động tốt".
 
 **Mục lục:** [§0 Thực trạng](#0-thực-trạng-vs-kế-hoạch--đọc-trước) · [§1 DoD chung](#1-definition-of-done-áp-cho-mọi-task) · [§2 DAG](#2-đồ-thị-phụ-thuộc) · [§3 T0 chặn](#3-t0--task-chặn-làm-trước-hết) · [§4 T1–T11](#4-t1t11--task-chính) · [§5 Lịch nén](#5-lịch-nén-đề-xuất) · [§6 Rủi ro lịch](#6-rủi-ro-lịch-trình--phương-án-cắt)
@@ -142,7 +142,9 @@ est_cancel_rate = 1 / (1 + e^(−0.4 × (avg_wait_proxy − 8.0)))
 
 **Acceptance Criteria:**
 1. Test tĩnh `test_metrics_khong_nhiem_tham_so`: `metrics.py` **không** chứa `policy`, `yaml`, `forecasting`, `lgbm` (case-insensitive).
-2. Test số học tay: với 2 zone `(demand=10, supply=4)` và `(demand=0, supply=5)` → `unmet = 6`; `ratio₁ = 2.5`; `wait₁ = 3.0 × 2.5^1.5 = 11.859`; hệ thống `wait = 11.859` (zone 2 trọng số 0); `cancel = 1/(1+e^(−0.4×3.859)) = 0.8244`. Sai số ≤ 1e-6.
+2. Test số học tay: với 2 zone `(demand=10, supply=4)` và `(demand=0, supply=5)` → `unmet = 6`; `ratio₁ = 2.5`; `wait₁ = 3.0 × 2.5^1.5 = 11.8585412…`; hệ thống `wait = 11.8585412…` (zone 2 trọng số 0); `cancel = 1/(1+e^(−0.4×(11.8585412−8.0))) = 0.8239608…`. Sai số ≤ 1e-6.
+
+   > Bản trước ghi `0.8244` — sai số làm tròn khi tính tay, đã sửa. Với dung sai `1e-6` thì chênh `4e-4` là đủ làm test đỏ, nên phải dùng giá trị đầy đủ chứ không phải số làm tròn 4 chữ số. Giá trị chính xác `metrics.py` trả về: `0.8239608336226073`.
 3. Trung bình có trọng số ≠ logistic-của-trung-bình: có test **cố tình** dựng 2 zone chứng minh hai cách cho kết quả khác nhau, và khẳng định cách #3 là cách được cài.
 4. `pytest tests/test_simulation/test_metrics.py -v` xanh.
 
@@ -203,7 +205,9 @@ Nội dung một đợt: (a) xuất **Parquet** thay CSV [D1]; (b) thêm cột `
 3. `display_name` khớp `^Tài xế \d+$` — test chặn tên người thật.
 4. **Ràng buộc A6:** `COUNT(driver_states WHERE status=="online_idle" AND current_zone==z) == snapshot_A1[ts,z].idle_supply` — đúng **100% mọi `ts_bucket` × mọi zone**. Test in ra số dòng lệch; **phải bằng 0**.
 5. `config/driver_response.yaml` có đủ 7 tham số + `seed: 7`; `clip: [0.05, 0.95]`.
-6. **Hiệu chỉnh `base_rate` ↔ `assumed_accept_rate`:** với offer trung vị (33.000đ, 4.2km, không sắp hết ca), `p_accept` phải nằm trong `assumed_accept_rate ± 0.05`. Bộ tham số hiện đề xuất cho **0.404 vs 0.6 — LỆCH**, phải chỉnh một trong hai trước khi công bố bất kỳ số activation nào ([DATA_CONTRACT.md §6.2](DATA_CONTRACT.md#62-configdriver_responseyaml---chưa-có-task-t06)).
+6. **Hiệu chỉnh `base_rate` ↔ `assumed_accept_rate`:** với offer trung vị (33.000đ, 4.2km, không sắp hết ca), `p_accept` phải nằm trong `assumed_accept_rate ± 0.05`. ✅ **Đạt** — `base_rate` nâng từ 0.35 lên **0.55**, cho `0.55 + 0.264 − 0.210 = 0.604` so với `assumed_accept_rate = 0.6`, lệch **0.004 ≤ 0.05**. Chọn nâng `base_rate` thay vì hạ `assumed_accept_rate` vì hạ 0.6 xuống sẽ kéo theo `overbooking_factor` và toàn bộ số activation đã đặc tả (chi tiết ở [DATA_CONTRACT.md §6.2](DATA_CONTRACT.md#6-config-khối-c)).
+
+   ⏳ **Nợ kèm theo:** cả 600 tài xế có `shift_end_ts = null` nên hệ số `w_shift_end` chưa bao giờ kích hoạt — hiệu chỉnh trên chỉ nghiệm đúng cho nhánh "không sắp hết ca". Ghi ở [DATA_CONTRACT.md §9.2 N2](DATA_CONTRACT.md#92-nợ-phát-sinh-sau-t04t06t07).
 
 ---
 
@@ -370,7 +374,7 @@ Nội dung một đợt: (a) xuất **Parquet** thay CSV [D1]; (b) thêm cột `
 1. `docker compose up --build` chạy được; healthcheck `/health` xanh.
 2. Kịch bản demo mưa 17:00–19:00 chạy **ổn định 5/5 lần** (§5.10), tính cả luồng activation.
 3. Có **staging + phương án chạy local dự phòng**.
-4. `README.md` thay bằng `README_boilerplate.md` (README hiện tại là của template, không phải của dự án).
+4. ✅ **Đã xong sớm ở T0.5** — `README.md` đã được viết lại cho GSM-14 · NovaFour. AC này viết khi README còn là bản template AI20K; `docs/templates/README_boilerplate.md` giữ lại **chỉ để tra cứu**, **không** copy đè lên `README.md` ([CLAUDE.md §16](../../CLAUDE.md#16-deliverable-ai20k-chạy-song-song)). Ở T11 chỉ cần rà lại phần hướng dẫn chạy cho khớp `docker-compose.yml` cuối cùng.
 5. `JOURNAL.md` + `WORKLOG.md` điền đủ — **deliverable bắt buộc #8/#9**, hiện vẫn là template rỗng.
 6. `eval/` có evidence; `presentation/` có slide + video demo.
 7. Tài liệu **giả định & giới hạn**: xuất [ASSUMPTION register](DATA_CONTRACT.md#8-assumption-register) kèm trạng thái cuối cùng của từng dòng.

@@ -2,7 +2,7 @@
 
 Skeleton: mới có hạ tầng + GET /health. Các router nghiệp vụ (routes_replay,
 routes_plan, routes_activation, routes_driver, routes_history) được gắn vào ở
-T0.7 trở đi — xem IMPLEMENTATION_PLAN.md.
+T0.7 trở đi — xem docs/design/IMPLEMENTATION_PLAN.md.
 """
 
 import logging
@@ -14,29 +14,38 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.common.errors import ConfigError
+from src.common.policy import REQUIRED_RULE_KEYS, get_policy
 from src.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
-# config/policy.yaml phải đủ 19 key (DATA_CONTRACT.md §5). Đây là hằng số toàn vẹn
-# schema, không phải ngưỡng nghiệp vụ — nên nằm ở đây là đúng chỗ.
-REQUIRED_POLICY_KEYS = 19
+# config/policy.yaml phải đủ 19 key (docs/design/DATA_CONTRACT.md §5). Suy ra từ schema
+# của loader thay vì viết literal 19 — thêm key mà quên sửa số ở đây là lỗi im lặng.
+REQUIRED_POLICY_KEYS = len(REQUIRED_RULE_KEYS)
 
 
 def build_readiness(settings: Settings) -> dict[str, Any]:
-    """Báo cáo mức sẵn sàng theo đúng shape của API_CONTRACT.md §8.2.
+    """Báo cáo mức sẵn sàng theo đúng shape của docs/design/API_CONTRACT.md §8.2.
 
-    Skeleton chỉ kiểm **sự tồn tại** của artefact, chưa parse nội dung: đếm 19 key
-    của policy.yaml là việc của src/common/policy.py (T0.1), đếm 600 tài xế là việc
-    của T0.6. Trả 0 khi chưa có loader là cố ý — báo một con số chưa kiểm chứng ở
+    policy.yaml được **parse thật** qua src/common/policy.py, không chỉ kiểm file có
+    tồn tại: một file tồn tại nhưng thiếu key vẫn khiến mọi module dùng ngưỡng gãy.
+    zones/drivers vẫn là 0 cho tới T0.4/T0.6 — báo một con số chưa kiểm chứng ở
     endpoint dùng cho healthcheck còn tệ hơn báo là chưa sẵn sàng.
     """
-    policy_loaded = settings.policy_path.is_file()
+    try:
+        get_policy(settings.policy_path)
+    except ConfigError as exc:
+        logger.error("policy.yaml không dùng được: %s", exc.message)
+        policy_loaded, policy_keys = False, 0
+    else:
+        policy_loaded, policy_keys = True, REQUIRED_POLICY_KEYS
+
     return {
         "status": "ok",
         "app_env": settings.app_env,
         "policy_loaded": policy_loaded,
-        "policy_keys": 0,  # T0.1 nối vào src.common.policy
+        "policy_keys": policy_keys,
         "zones": 0,  # T0.4
         "drivers": 0,  # T0.6
         "history_db": "ok" if settings.history_db_path.is_file() else "missing",
@@ -47,19 +56,19 @@ def build_readiness(settings: Settings) -> dict[str, Any]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Khởi tạo theo thứ tự ARCHITECTURE.md §6.4.
+    """Khởi tạo theo thứ tự docs/design/ARCHITECTURE.md §6.4.
 
-    Fail-fast thật (thiếu key ⇒ crash) được bật ở T0.1 khi policy.yaml tồn tại.
-    Ở skeleton chỉ cảnh báo, nếu không thì repo không khởi động được lần nào
-    trước khi T0.1 xong — trong khi T0.5 AC #5 cần app chạy được.
+    Bước 1 là nạp policy.yaml và **fail-fast**: thiếu key ⇒ ConfigError bay lên, app
+    không khởi động. Đây là chủ ý, không phải thiếu xử lý lỗi — chạy tiếp với ngưỡng
+    khuyết nghĩa là mọi số KPI sinh ra sau đó đứng trên tham số không ai duyệt.
+    Các bước 2–5 (zone_registry, driver_registry, history.db, snapshot store) vào ở
+    T0.4/T0.6/T6.
     """
     settings = get_settings()
     logging.basicConfig(level=settings.log_level)
     logger.info("Khởi động %s | app_env=%s", settings.app_name, settings.app_env)
 
-    readiness = build_readiness(settings)
-    if not readiness["policy_loaded"]:
-        logger.warning("Chưa có %s — /health sẽ trả 503 cho tới khi T0.1 xong", settings.policy_path)
+    get_policy(settings.policy_path)
 
     _mount_frontend(app, settings)
     yield
@@ -70,19 +79,19 @@ app = FastAPI(
     title="GSM-14 NovaFour",
     description=(
         "Pipeline mô phỏng phân bổ xe giờ cao điểm — deterministic, không LLM trong luồng chính. "
-        "Xem ARCHITECTURE.md và API_CONTRACT.md."
+        "Xem docs/design/ARCHITECTURE.md và docs/design/API_CONTRACT.md."
     ),
     version="0.1.0",
     lifespan=lifespan,
 )
 
 # Không cấu hình CORS: frontend build tĩnh được chính app này phục vụ, cùng origin
-# (quyết định A-01, ARCHITECTURE.md §9). Dev server Vite dùng proxy thay vì CORS.
+# (quyết định A-01, docs/design/ARCHITECTURE.md §9). Dev server Vite dùng proxy thay vì CORS.
 
 
 @app.get("/health", tags=["infra"])
 async def health() -> JSONResponse:
-    """Healthcheck cho Docker/orchestrator — API_CONTRACT.md §8.2.
+    """Healthcheck cho Docker/orchestrator — docs/design/API_CONTRACT.md §8.2.
 
     policy_loaded == false hoặc policy_keys != 19 ⇒ HTTP 503.
     """

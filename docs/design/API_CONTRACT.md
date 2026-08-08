@@ -1,6 +1,6 @@
 # API_CONTRACT.md — GSM-14 · NovaFour
 
-> **Nguồn sự thật:** [docs/SPEC-GSM14-NovaFour-Unified.md](docs/SPEC-GSM14-NovaFour-Unified.md) v1.3.
+> **Nguồn sự thật:** [docs/SPEC-GSM14-NovaFour-Unified.md](../SPEC-GSM14-NovaFour-Unified.md) v1.3.
 > **Lưu ý quan trọng:** spec **không có** REST API surface — spec chỉ chốt 9 message contract (§4.1–4.9, *cái gì đi qua dây*), không chốt *ai gọi ai*. Toàn bộ endpoint dưới đây là **thiết kế mới** (quyết định A-07, [ARCHITECTURE.md §9](ARCHITECTURE.md#9-quyết-định-kiến-trúc-spec-để-trống--chốt-ở-đây)). Mỗi endpoint đều truy ngược được về một FR/§ ở cột "Neo spec" — **không endpoint nào thêm chức năng mới**.
 > Schema thân request/response là các entity §4.1–4.9, đặc tả field đầy đủ ở [DATA_CONTRACT.md](DATA_CONTRACT.md).
 

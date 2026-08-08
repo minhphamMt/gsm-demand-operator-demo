@@ -8,9 +8,9 @@ Dự án VinUni AI20K Build Phase. **Đây là pipeline mô phỏng deterministi
 
 ## Trạng thái: skeleton
 
-Hạ tầng đã dựng xong (cấu trúc package, lint, type-check, test, CI, `/health`). **Chưa có logic nghiệp vụ** — xem [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) để biết task nào làm gì.
+Hạ tầng đã dựng xong (cấu trúc package, lint, type-check, test, CI, `/health`). **Chưa có logic nghiệp vụ** — xem [IMPLEMENTATION_PLAN.md](docs/design/IMPLEMENTATION_PLAN.md) để biết task nào làm gì.
 
-`GET /health` hiện trả **503** vì `config/policy.yaml` chưa tồn tại. Đây là hành vi đúng theo [API_CONTRACT.md §8.2](API_CONTRACT.md#82-get-health), không phải lỗi: thiếu ngưỡng mà vẫn chạy sẽ cho ra KPI sai mà không ai biết. Endpoint chuyển sang 200 sau khi task **T0.1** tạo đủ 19 key.
+`GET /health` hiện trả **503** vì `config/policy.yaml` chưa tồn tại. Đây là hành vi đúng theo [API_CONTRACT.md §8.2](docs/design/API_CONTRACT.md#82-get-health), không phải lỗi: thiếu ngưỡng mà vẫn chạy sẽ cho ra KPI sai mà không ai biết. Endpoint chuyển sang 200 sau khi task **T0.1** tạo đủ 19 key.
 
 ---
 
@@ -75,7 +75,7 @@ Replay Engine → Khối A: Forecasting (p10/p50/p90)
 
 Ba kịch bản luôn được so cạnh nhau: `no_action` / `plan_only` / `plan_activation`.
 
-Chi tiết: [ARCHITECTURE.md](ARCHITECTURE.md).
+Chi tiết: [ARCHITECTURE.md](docs/design/ARCHITECTURE.md).
 
 ### Cây thư mục
 
@@ -102,12 +102,12 @@ Chi tiết: [ARCHITECTURE.md](ARCHITECTURE.md).
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | **Đọc trước tiên** — luật bắt buộc cho mọi phiên code (kể cả AI) |
 | [docs/SPEC-GSM14-NovaFour-Unified.md](docs/SPEC-GSM14-NovaFour-Unified.md) | Nguồn sự thật về nghiệp vụ |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Sơ đồ component, luồng end-to-end, dependency |
-| [API_CONTRACT.md](API_CONTRACT.md) | 23 endpoint, schema, mã lỗi |
-| [DATA_CONTRACT.md](DATA_CONTRACT.md) | 9 entity, DDL, 19 key policy, ASSUMPTION register |
-| [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md) | State machine, router, fallback, cổng người duyệt |
-| [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | Task T0.1–T11 + Acceptance Criteria |
-| [EVALUATION_PLAN.md](EVALUATION_PLAN.md) | Cách đo, 19 KPI, failure case |
+| [ARCHITECTURE.md](docs/design/ARCHITECTURE.md) | Sơ đồ component, luồng end-to-end, dependency |
+| [API_CONTRACT.md](docs/design/API_CONTRACT.md) | 23 endpoint, schema, mã lỗi |
+| [DATA_CONTRACT.md](docs/design/DATA_CONTRACT.md) | 9 entity, DDL, 19 key policy, ASSUMPTION register |
+| [AGENT_WORKFLOW.md](docs/design/AGENT_WORKFLOW.md) | State machine, router, fallback, cổng người duyệt |
+| [IMPLEMENTATION_PLAN.md](docs/design/IMPLEMENTATION_PLAN.md) | Task T0.1–T11 + Acceptance Criteria |
+| [EVALUATION_PLAN.md](docs/design/EVALUATION_PLAN.md) | Cách đo, 19 KPI, failure case |
 
 ---
 

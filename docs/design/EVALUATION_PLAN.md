@@ -1,6 +1,6 @@
 # EVALUATION_PLAN.md — GSM-14 · NovaFour
 
-> Neo: [SPEC §1.7](docs/SPEC-GSM14-NovaFour-Unified.md) (19 KPI), §5.9 (fallback), §5.14 (hai baseline + quy tắc khóa), §6 (NFR), C-07/C-08/C-03.
+> Neo: [SPEC §1.7](../SPEC-GSM14-NovaFour-Unified.md) (19 KPI), §5.9 (fallback), §5.14 (hai baseline + quy tắc khóa), §6 (NFR), C-07/C-08/C-03.
 > **Mọi số KPI ở đây là simulation proxy trên synthetic data** (C-07). Không có số nào là đo lường thực địa.
 
 **Mục lục:** [§0 Ánh xạ heading](#0-ánh-xạ-heading-yêu-cầu--hệ-thống-này) · [§1 Happy path](#1-happy-path) · [§2 Failure cases](#2-failure-cases) · [§3 Tool calling accuracy](#3-tool-calling-accuracy) · [§4 Argument accuracy](#4-argument-accuracy) · [§5 Hallucination](#5-hallucination) · [§6 Safety](#6-safety) · [§7 Latency & cost](#7-latency--cost) · [§8 Ma trận model](#8-ma-trận-đánh-giá-model-1) · [§9 Độ nhạy accept rate](#9-phân-tích-độ-nhạy-accept-rate--bắt-buộc) · [§10 UAT](#10-uat) · [§11 Bảng KPI tổng](#11-bảng-kpi-tổng--19-chỉ-số-17)

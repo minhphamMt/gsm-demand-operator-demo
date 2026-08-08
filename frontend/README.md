@@ -1,6 +1,6 @@
 # frontend — SPA vận hành + Driver App
 
-Chưa scaffold. Đây là việc của **task T8** ([IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md)).
+Chưa scaffold. Đây là việc của **task T8** ([IMPLEMENTATION_PLAN.md](../docs/design/IMPLEMENTATION_PLAN.md)).
 
 Cố ý để trống ở bước skeleton: chạy `npm create vite` bây giờ sẽ kéo `node_modules`
 và một `package-lock.json` vào repo trước khi có ai dùng đến nó.
@@ -11,9 +11,9 @@ và một `package-lock.json` vào repo trước khi có ai dùng đến nó.
   state manager nếu chưa hỏi (CLAUDE.md §6 #6).
 - **Một SPA duy nhất**, build ra `frontend/dist/`, do chính FastAPI phục vụ qua
   `StaticFiles` — một container, cùng origin, **không cấu hình CORS**
-  (quyết định A-01, [ARCHITECTURE.md §9](../ARCHITECTURE.md#9-quyết-định-kiến-trúc-spec-để-trống--chốt-ở-đây)).
+  (quyết định A-01, [ARCHITECTURE.md §9](../docs/design/ARCHITECTURE.md#9-quyết-định-kiến-trúc-spec-để-trống--chốt-ở-đây)).
   Dev server dùng `server.proxy` của Vite trỏ về `http://localhost:8000`.
-- **Route** ([ARCHITECTURE.md §4.5](../ARCHITECTURE.md#45-frontend)):
+- **Route** ([ARCHITECTURE.md §4.5](../docs/design/ARCHITECTURE.md#45-frontend)):
 
 | Route | Màn hình |
 |---|---|

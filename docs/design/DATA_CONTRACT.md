@@ -1,10 +1,10 @@
 # DATA_CONTRACT.md — GSM-14 · NovaFour
 
-> **Nguồn sự thật:** [docs/SPEC-GSM14-NovaFour-Unified.md](docs/SPEC-GSM14-NovaFour-Unified.md) v1.3 §4.1–4.9 + [docs/Data-Contract-Data-AI.md](docs/Data-Contract-Data-AI.md) (A1–A6) + [docs/feature_dictionary.md](docs/feature_dictionary.md).
+> **Nguồn sự thật:** [docs/SPEC-GSM14-NovaFour-Unified.md](../SPEC-GSM14-NovaFour-Unified.md) v1.3 §4.1–4.9 + [docs/Data-Contract-Data-AI.md](../Data-Contract-Data-AI.md) (A1–A6) + [docs/feature_dictionary.md](../feature_dictionary.md).
 > Tài liệu này **không thêm field nào ngoài spec**. Mọi giá trị spec để trống được điền bằng giá trị đề xuất và đeo nhãn `[ASSUMPTION-nn]` — tra ngược ở [§8 ASSUMPTION register](#8-assumption-register).
 > **Contract §4.1–4.9 khóa cuối W2 (I-08).** Sau đó chỉ được thêm field **optional**, cấm sửa field cũ (§3.2 #1).
 
-**Mục lục:** [§1 Quy ước](#1-quy-ước-chung) · [§2 Message contract §4.1–4.9](#2-message-contract-9-entity) · [§3 Dataset A1–A6](#3-dataset-a1a6--đối-chiếu-với-file-thật-trên-đĩa) · [§4 Persistence](#4-persistence) · [§5 policy.yaml 19 key](#5-configpolicyyaml--19-key) · [§6 driver_registry + driver_response](#6-config-khối-c) · [§7 Nowcast](#7-tham-số-nowcast-rain_forecast_1530) · [§8 ASSUMPTION register](#8-assumption-register) · [§9 Nợ dữ liệu D1–D12](#9-nợ-dữ-liệu--12-điểm-lệch-giữa-tài-liệu-và-đĩa)
+**Mục lục:** [§1 Quy ước](#1-quy-ước-chung) · [§2 Message contract §4.1–4.9](#2-message-contract--9-entity) · [§3 Dataset A1–A6](#3-dataset-a1a6--đối-chiếu-với-file-thật-trên-đĩa) · [§4 Persistence](#4-persistence) · [§5 policy.yaml 19 key](#5-configpolicyyaml--19-key) · [§6 driver_registry + driver_response](#6-config-khối-c) · [§7 Nowcast](#7-tham-số-nowcast-rain_forecast_1530) · [§8 ASSUMPTION register](#8-assumption-register) · [§9 Nợ dữ liệu D1–D12](#9-nợ-dữ-liệu--12-điểm-lệch-giữa-tài-liệu-và-đĩa)
 
 ---
 
@@ -311,14 +311,18 @@ Xử lý 5 bước sau `accept`: xem [ARCHITECTURE.md §3.2](ARCHITECTURE.md#32-
 
 ## 3. Dataset A1–A6 — đối chiếu với file thật trên đĩa
 
-| Bộ | Nội dung | Vị trí theo contract | Trạng thái thật (08/08/2026) |
+| Bộ | Nội dung | Vị trí theo contract | Trạng thái thật (09/08/2026) |
 |---|---|---|---|
-| **A1** | Snapshot thô §4.1 | `data/snapshots/*.parquet` | ⚠️ Có nhưng là **CSV**, **thiếu `enroute_arrivals`** → [D1](#d1), [D2](#d2) |
-| **A2** | Feature store dẫn xuất từ A1 | `data/features/` | ❌ **Chưa có** |
-| **A3** | Label/target, join 1-1 với A2 theo (`zone_id`, `ts_bucket`) | `data/labels/` | ❌ **Chưa có** |
-| **A4** | Ground truth hotspot (tính trên số **thực tế**, không dùng quantile) | `data/ground_truth/` | ❌ **Chưa có** |
-| **A5** | Test set deterministic đã khóa (7 ngày, seed 2026) | `data/test_set/` | ❌ **Chưa có** (`splits.yaml` trỏ tới) → [D5](#d5) |
-| **A6** | `config/driver_registry.json` + `data/driver_states/` | như tên | ❌ **Chưa có cả hai** |
+| **A1** | Snapshot thô §4.1 | `data/snapshots/*.parquet` | ✅ **Có** — `snapshot_train.parquet` + `snapshot_test.parquet`, đã có `enroute_arrivals` (T0.4, đóng [D1, D2](#9-nợ-dữ-liệu--12-điểm-lệch-giữa-tài-liệu-và-đĩa)). Kèm `sample_snapshot_*.csv` để đọc mắt thường |
+| **A2** | Feature store dẫn xuất từ A1 | `data/features/` | ❌ **Chưa có** — task **T1** |
+| **A3** | Label/target, join 1-1 với A2 theo (`zone_id`, `ts_bucket`) | `data/labels/` | ❌ **Chưa có** — task **T1** |
+| **A4** | Ground truth hotspot (tính trên số **thực tế**, không dùng quantile) | `data/ground_truth/` | ❌ **Chưa có** — task **T2** |
+| **A5** | Test set deterministic đã khóa (7 ngày, seed 2026) | `data/test_set/` | ✅ **Có** — `snapshot_test.parquet` + `manifest.json` (T0.4, đóng [D5](#9-nợ-dữ-liệu--12-điểm-lệch-giữa-tài-liệu-và-đĩa)); `splits.yaml` đã trỏ đúng dải ngày thật |
+| **A6** | `config/driver_registry.json` + `data/driver_states/` | như tên | ✅ **Có cả hai** — 600 tài xế + `driver_states_{train,test}.parquet` (T0.6, đóng [D9](#9-nợ-dữ-liệu--12-điểm-lệch-giữa-tài-liệu-và-đĩa)) |
+| *(phụ)* | Chuỗi mưa NASA POWER 2025 — input tĩnh của A1 | `data/external/rain_hanoi_2025.csv` | ✅ **Có** (D3: nguồn lai, xem §9) |
+| *(phụ)* | Baseline `no_action` đã khóa | `data/baseline/` | ✅ **Có** — 3 file, ký 2026-08-08, xem [§9.1](#91-baseline---đã-đạt-chuẩn-5141-khóa-2026-08-08) |
+
+Ba bộ còn thiếu (A2/A3/A4) đều là **đầu ra của T1/T2**, không phải nợ dữ liệu — chúng chỉ tồn tại sau khi Model 1 và Model 2 chạy lần đầu.
 
 **Ranh giới thực thi đã chốt (§4.1):** role Data giao A2/A3 **hoàn chỉnh**, gồm cả các cột lag/rolling. Role AI bắt đầu từ việc đọc Parquet và train, **không tự bù cột lag/rolling còn thiếu**.
 
@@ -670,13 +674,13 @@ derived:
 | Key thừa không nằm trong 19 | Cảnh báo log, không crash (cho phép thử nghiệm) |
 | Sai kiểu | Crash, nêu rõ key + kiểu mong đợi |
 | Module gọi trực tiếp `yaml.safe_load` | **Cấm** — có test tĩnh grep `yaml.safe_load` ngoài `policy.py` |
-| Hard-code ngưỡng trong module | **Cấm** — CLAUDE.md luật #2. `compute_baseline_no_action.py` hiện đang vi phạm (`gap_ratio_threshold=0.3` hard-code) |
+| Hard-code ngưỡng trong module | **Cấm** — CLAUDE.md luật #2. Một ngoại lệ đang chờ chốt: `gap_ratio_threshold=0.3` trong `compute_baseline_no_action.py` — xem [§9.2 N1](#92-nợ-phát-sinh-sau-t04t06t07) |
 
 ---
 
 ## 6. Config Khối C
 
-### 6.1. `config/driver_registry.json` — ❌ chưa có, task T0.6
+### 6.1. `config/driver_registry.json` — ✅ đã có (T0.6, 2026-08-09)
 
 600 tài xế, schema §4.7 ([§2.7](#27-entity-driver-47--srccontractsdriverpy-)). Ràng buộc sinh:
 
@@ -689,7 +693,12 @@ derived:
 | Tỷ lệ `offline` giờ cao điểm mưa | 25% `[ASSUMPTION-21]` — nếu quá thấp thì Khối C không có ứng viên; giả định "có lượng tài xế offline đủ lớn gần zone thiếu" đã ghi ở §9 spec |
 | **Khớp A6** | `COUNT(online_idle, zone) == idle_supply` **100% mọi `ts_bucket`** (§4.7) |
 
-### 6.2. `config/driver_response.yaml` — ❌ chưa có, task T0.6
+Bản giao thỏa cả 6 dòng trên; test chặn ở `tests/test_driver_registry.py`, riêng ràng buộc A6 ở
+`test_a6_khop_100_phan_tram` (0 dòng lệch trên toàn bộ `ts_bucket` × zone). Bộ sinh:
+`generate_drivers.py`. Contract §4.7 kiểm bằng `src/contracts/driver.py`, và
+`tests/test_contracts/test_producer_parity.py` validate **cả 600 bản ghi thật**, không lấy mẫu.
+
+### 6.2. `config/driver_response.yaml` — ✅ đã có (T0.6, 2026-08-09)
 
 Tham số hàm `p_accept` (§5.11). **Là giả định thô, không học từ dữ liệu thật** (C-07).
 
@@ -699,8 +708,8 @@ Tham số hàm `p_accept` (§5.11). **Là giả định thô, không học từ 
 #                 − w_distance  × (distance_km / activation_radius_km)
 #                 − w_shift_end × is_near_shift_end,
 #                 0.05, 0.95)
-seed: 7                          # độc lập seed synthetic (train 42 / test 2026)
-base_rate:   0.35                # ASSUMPTION-22
+seed: 7                          # độc lập seed synthetic (train 42 / test 2026) và nowcast (13)
+base_rate:   0.55                # ASSUMPTION-22 (đã hiệu chỉnh ở T0.6 — xem bên dưới)
 w_incentive: 0.40                # ASSUMPTION-23
 w_distance:  0.25                # ASSUMPTION-24
 w_shift_end: 0.20                # ASSUMPTION-19
@@ -710,9 +719,13 @@ mode: "simulated"                # human | simulated | mixed  (§5.11)
 ```
 
 **Kiểm tra hiệu chỉnh bắt buộc:** với offer trung vị (`incentive = 33.000đ`, `distance = 4.2km`, không sắp hết ca), `p_accept` phải ≈ `assumed_accept_rate = 0.6`:
-`0.35 + 0.40×(33/50) − 0.25×(4.2/5) − 0 = 0.35 + 0.264 − 0.210 = 0.404`.
+`0.55 + 0.40×(33/50) − 0.25×(4.2/5) − 0 = 0.55 + 0.264 − 0.210 = 0.604` → lệch 0.004 ≤ 0.05 ✅
 
-⚠️ **Lệch**: 0.404 vs 0.6. Hai tham số này đến từ hai nguồn khác nhau và **chưa được hiệu chỉnh với nhau**. Đây là việc phải làm ở T7 trước khi công bố bất kỳ số activation nào — hoặc chỉnh `base_rate` lên ≈0.55, hoặc hạ `assumed_accept_rate` xuống 0.4. Ghi lại đây thay vì âm thầm chọn một bên, vì `assumed_accept_rate` là con số **hiển thị ra UI** còn `base_rate` là con số **quyết định kết quả mô phỏng** — lệch nhau nghĩa là preview nói một đằng, kết quả ra một nẻo.
+✅ **Đã đóng ở T0.6.** Bản đề xuất ban đầu để `base_rate = 0.35` cho ra `0.404` vs `0.600` — lệch 0.196. Hai cách đóng khoảng lệch: (a) nâng `base_rate` lên ≈0.55, (b) hạ `assumed_accept_rate` xuống 0.40. **Chọn (a)**, vì `assumed_accept_rate` đang được `overbooking_factor` tham chiếu (1/0.6 ≈ 1.67 → 1.6), đổi nó kéo theo phải tính lại trần ngân sách incentive; còn `base_rate` chưa có consumer nào. Muốn lật sang (b) thì phải đổi **cả hai** cùng lúc.
+
+Vì sao không để lệch: `assumed_accept_rate` là con số **hiển thị ra UI** khi preview chiến dịch, `base_rate` là con số **quyết định kết quả mô phỏng** — lệch nhau nghĩa là preview nói một đằng, kết quả ra một nẻo. Test chặn: `tests/test_driver_registry.py::test_hieu_chinh_base_rate_khop_assumed_accept_rate`.
+
+⏳ **Nợ chưa trả — `w_shift_end` hiện vô hiệu.** A6 để `shift_end_ts = null` cho toàn bộ 600 tài xế vì chưa có lịch ca nào trong tài liệu, nên `is_near_shift_end` **luôn false** và số hạng `− w_shift_end × …` không bao giờ kích hoạt. Tham số vẫn giữ trong file để công thức §5.11 đầy đủ. **Cần Data/BA cấp lịch ca** trước khi công bố bất kỳ số activation nào phụ thuộc yếu tố "sắp hết ca" — trước lúc đó, mọi kết luận về nhóm tài xế sắp hết ca đều không có căn cứ.
 
 ---
 
@@ -782,7 +795,7 @@ Tham số này thuộc **generator**, ghi vào `config/generator.yaml → rain.n
 | ASSUMPTION-19 | `w_shift_end` | 0.20 | Data-Checklist Phần 8B | Data/BA | W3 | 🔴 |
 | ASSUMPTION-20 | Số tài xế demo | 600 | đủ ứng viên kịch bản mưa | Data/BA | W2 | 🔴 |
 | ASSUMPTION-21 | Tỷ lệ `offline` khi mưa cao điểm | 25% | giả định §9 spec | Data/BA | W2 | 🔴 |
-| ASSUMPTION-22 | `base_rate` | 0.35 | Data-Checklist Phần 8B | Data/BA | W3 | 🔴 |
+| ASSUMPTION-22 | `base_rate` | **0.55** | Data-Checklist Phần 8B, hiệu chỉnh T0.6 về `assumed_accept_rate` | Data/BA | W3 | 🔴 |
 | ASSUMPTION-23 | `w_incentive` | 0.40 | Data-Checklist Phần 8B | Data/BA | W3 | 🔴 |
 | ASSUMPTION-24 | `w_distance` | 0.25 | Data-Checklist Phần 8B | Data/BA | W3 | 🔴 |
 | ASSUMPTION-25 | `heavy_rain_mm_h` | 5.0 mm/h | quyết định A-05 | Data/BA | W2 | 🔴 |
@@ -796,9 +809,23 @@ Tham số này thuộc **generator**, ghi vào `config/generator.yaml → rain.n
 | ASSUMPTION-33 | `p_miss_30` | 0.10 | quyết định A-06 | AI | W2 | 🔴 |
 | ASSUMPTION-34 | `seed_nowcast` | 13 | độc lập seed 42/2026 | AI | W2 | 🔴 |
 
-**Tổng: 34 assumption, 1 giá trị đã chốt (`avg_vehicle_speed_kmh`).**
+**Bổ sung ở T0.4** (2026-08-08) — tham số generator sinh ra khi trả nợ D4/D7. Tất cả nằm ở `config/generator.yaml`, **không** vào `policy.yaml` (tham số **sinh** dữ liệu, module runtime không được đọc):
 
-Assumption chặn mốc I-08 (phải chốt **trước** khi khóa baseline): **ASSUMPTION-01, -18, -25, -28..-34**. Các assumption còn lại chốt được ở W3 mà không ảnh hưởng baseline.
+| Mã | Tham số | Giá trị đề xuất | Nguồn suy ra | Owner | Hạn | TT |
+|---|---|---|---|---|---|---|
+| ASSUMPTION-35 | `demand_score_weights` | `{population: 0.40, building: 0.60}` | cầu bám mật độ tòa nhà (điểm đến) | Data/BA | W3 | 🔴 |
+| ASSUMPTION-36 | `supply_score_weights` | `{population: 0.80, building: 0.20}` | cung bám mật độ dân cư (nơi tài xế đỗ chờ) | Data/BA | W3 | 🔴 |
+| ASSUMPTION-37 | `base_demand_range` | `[3, 22]` chuyến/5 phút/zone | thay `tier_base_demand` chết (D6) | Data/BA | W3 | 🔴 |
+| ASSUMPTION-38 | `base_supply_range` | `[3, 20]` | thay `tier_base_supply` chết (D6) | Data/BA | W3 | 🔴 |
+| ASSUMPTION-39 | `hourly_curve_demand` | 24 hệ số, đỉnh 1.80 lúc 18h | D7 — thay `peak_multiplier_demand` | Data/BA | W3 | 🔴 |
+| ASSUMPTION-40 | `hourly_curve_supply` | 24 hệ số, trễ pha và nông hơn cầu | D7 — tài xế phản ứng **sau** khi cầu lên | Data/BA | W3 | 🔴 |
+| ASSUMPTION-41 | `rain.spatial.amplitude` | 0.55 | D4 — biên độ dải mưa quét | AI | W3 | 🔴 |
+| ASSUMPTION-42 | `rain.spatial.rotation_period_hours` | 6.0 | D4 — chu kỳ quay của hướng dải mưa | AI | W3 | 🔴 |
+| ASSUMPTION-43 | `rain.spatial.factor_range` | `[0.30, 1.70]` | D4 — kẹp để không sinh mưa âm hay đột biến | AI | W3 | 🔴 |
+
+**Tổng: 43 assumption, 1 giá trị đã chốt (`avg_vehicle_speed_kmh`).**
+
+Assumption chặn mốc I-08 (phải chốt **trước** khi khóa baseline): **ASSUMPTION-01, -18, -25, -28..-43**. ASSUMPTION-35..43 vào danh sách chặn vì chúng quyết định phân phối của A1 — baseline đã khóa ngày 2026-08-08 tính trên đúng bộ giá trị này, nên đổi bất kỳ dòng nào cũng buộc tính lại toàn bộ (§5.14.3). Các assumption còn lại chốt được ở W3 mà không ảnh hưởng baseline.
 
 ---
 
@@ -806,38 +833,68 @@ Assumption chặn mốc I-08 (phải chốt **trước** khi khóa baseline): **
 
 Ghi nhận, **không tự sửa** trong bước viết tài liệu. Xử lý ở T0 ([IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)).
 
+**Trạng thái tính đến 2026-08-09 (sau T0.4, T0.6, T0.7):** **10/12 đã trả** — D1, D2, D3, D4, D5, D7, D9, D10, D11, D12 (riêng D3 và D10 là quyết định chốt của PM, không phải sửa code). **Còn treo: D6, D8.** Cả hai **không chặn W3**; D8 là khoản đắt nhất vì sửa nó buộc sinh lại A1 và tính lại baseline đã khóa. Nợ **mới phát sinh** trong lúc trả nợ cũ: xem [§9.2](#92-nợ-phát-sinh-sau-t04t06t07).
+
 <a id="d1"></a>
 
 | # | Lệch | Bằng chứng | Ảnh hưởng | Xử lý |
 |---|---|---|---|---|
-| **D1** | Snapshot trên đĩa là **CSV**, contract và cả 2 script root dùng **Parquet** | `data/snapshots/snapshot_test.csv` tồn tại; `compute_baseline_no_action.py:68` đọc `.parquet` | Script **không chạy được** | Sinh lại dạng Parquet ở T0.4 |
-| **D2** | Thiếu cột `enroute_arrivals` (v1.3 **bắt buộc**, dù rỗng `[]`) | Header CSV: `ts_bucket,zone_id,demand_observed,idle_supply,enroute_supply,rain_mm_h,...` — không có cột này | Simulator §5.5 đọc từ đây; bất biến INV-3 không kiểm được | Thêm cột ở T0.4 |
-| **D3** | Mưa lấy từ **NASA POWER 2025 thật**, trong khi §5.1 và quyết định 0.1 ghi "synthetic thuần 100%" | `generate_snapshots.py` đọc `data/external/rain_hanoi_2025.csv` | Mâu thuẫn tài liệu ↔ code — **không thể để cả hai** | Quyết định PM: đổi tài liệu hay đổi code |
-| **D4** | Mưa **giống hệt ở cả 30 zone**, không có biến thiên không gian | Rain series broadcast chung | Hotspot do mưa nổi **đồng loạt toàn thành phố** → optimizer không có zone surplus để rút | Thêm hệ số theo zone ở T0.4 |
-| **D5** | `splits.yaml` fold **01–02/2026**, dữ liệu sinh ra **06–07/2026** — không giao nhau | `data/splits.yaml` vs `snapshot_test.csv` dòng đầu `2026-07-13` | Walk-forward trỏ vào dữ liệu **không tồn tại**; `data/test_set/` cũng chưa có | Đồng bộ ở T0.4 |
-| **D6** | `tier_base_demand/supply` trong `generator.yaml` **không được đọc** | Code dùng `0.6·pop_norm + 0.4·building_density` | **Config chết**, gây hiểu nhầm khi tune | Xóa khỏi config hoặc dùng thật |
-| **D7** | Không có đường cong theo giờ — demand chỉ đổi theo `peak_flag` | `generate_snapshots.py` | `hour_of_day` gần như vô nghĩa; **baseline hist-avg mất phần lớn sức mạnh** → KPI "thắng baseline ≥20%" thành thắng dễ giả tạo | Thêm đường cong 24h ở T0.4 |
-| **D8** | Nhiễu **Gaussian**, checklist 3.3 đề xuất **Poisson** | `noise_std_pct: 0.15` | Sàn MAPE ≈ 12% → mục tiêu <15% rất sát, không còn biên | Cân nhắc đổi hoặc hạ `noise_std_pct` |
-| **D9** | Tổng đội xe **không được bảo toàn** (mỗi zone sinh độc lập) | `generate_snapshots.py` | Ràng buộc cứng A6 (`COUNT(online_idle) == idle_supply`) khó thỏa | Ràng buộc tổng khi sinh A6 ở T0.6 |
-| **D10** | `zone_registry.json` dùng `lat`/`lng`, spec §4 nói `zone_lat`/`zone_lng`; tier `high/medium/low` vs checklist `busy/medium/quiet` | File thật có thêm 6 field load-bearing: `area_km2`, `population_k`, `population_density`, `radius_m`, `building_count`, `building_density` | Tên field không khớp tài liệu | **Chốt theo file thật**, sửa tài liệu |
-| **D11** | `rain_intensity_mm_h_range: [2,25]` khai trong config nhưng mưa thật max **5.58 mm/h** | `generator.yaml` vs dữ liệu NASA POWER | Config sai lệch thực tế; ngưỡng `heavy_rain_mm_h = 5.0` gần như không bao giờ chạm | Sửa range hoặc đổi nguồn mưa |
-| **D12** | `splits.yaml` ghi `rain_peak_events_verified: 41` — là **số step**, không phải số **sự kiện**; §5.14.1 đòi ≥2 *sự kiện* mà chưa ai định nghĩa "sự kiện" | `data/splits.yaml:27` | **Acceptance không kiểm được** | Định nghĩa "sự kiện" = chuỗi step `rain_peak` liên tiếp, đếm lại |
+| **D1** | Snapshot trên đĩa là **CSV**, contract và cả 2 script root dùng **Parquet** | `data/snapshots/snapshot_test.csv` tồn tại; `compute_baseline_no_action.py:68` đọc `.parquet` | Script **không chạy được** | ✅ **ĐÃ TRẢ (T0.4)** — `data/snapshots/snapshot_{train,test}.parquet`. CSV chỉ còn `sample_snapshot_*.csv` (480 dòng, để đọc bằng mắt); không module nào đọc nó và nó **không** nằm trong danh sách khóa SHA-256 |
+| **D2** | Thiếu cột `enroute_arrivals` (v1.3 **bắt buộc**, dù rỗng `[]`) | Header CSV: `ts_bucket,zone_id,demand_observed,idle_supply,enroute_supply,rain_mm_h,...` — không có cột này | Simulator §5.5 đọc từ đây; bất biến INV-3 không kiểm được | ✅ **ĐÃ TRẢ (T0.4)** — cột kiểu `list<struct<arrival_ts, eta_steps, units, source, from_zone>>`, khởi tạo `[]`. INV-3 nay kiểm được, và `src/contracts/snapshot.py` ép nó ở tầng contract |
+| **D3** | Mưa lấy từ **NASA POWER 2025 thật**, trong khi §5.1 và quyết định 0.1 ghi "synthetic thuần 100%" | `generate_snapshots.py` đọc `data/external/rain_hanoi_2025.csv` | Mâu thuẫn tài liệu ↔ code — **không thể để cả hai** | ✅ **ĐÃ CHỐT 2026-08-08 (T0.4)** — PM chọn **giữ mưa thật, sửa tài liệu**. [SPEC §5.1](../SPEC-GSM14-NovaFour-Unified.md) đã đổi thành nguồn **lai**: `rain_mm_h` từ NASA POWER 2025 + biến thiên không gian và toàn bộ cột còn lại là synthetic. Lý do: chuỗi mưa synthetic không tái tạo được cụm mưa/thời lượng/phân bố cường độ, mà chính ba đặc tính đó quyết định số sự kiện `rain_peak` — thước đo thành công của dự án. C-02 không bị vi phạm: file mưa là input tĩnh trong repo, không gọi API lúc chạy |
+| **D4** | Mưa **giống hệt ở cả 30 zone**, không có biến thiên không gian | Rain series broadcast chung | Hotspot do mưa nổi **đồng loạt toàn thành phố** → optimizer không có zone surplus để rút | ✅ **ĐÃ TRẢ (T0.4)** — `generator.yaml → rain.spatial`: mô hình dải mưa quét, `factor(zone,t) = clip(1 + 0.55·u, 0.30, 1.70)` với hướng quay chu kỳ 6h. Trung bình 30 zone = 1 nên **tổng lượng mưa toàn thành phố vẫn khớp NASA**; chỉ phân bố không gian đổi. Tất định từ toạ độ, **không cần seed riêng** |
+| **D5** | `splits.yaml` fold **01–02/2026**, dữ liệu sinh ra **06–07/2026** — không giao nhau | `data/splits.yaml` vs `snapshot_test.csv` dòng đầu `2026-07-13` | Walk-forward trỏ vào dữ liệu **không tồn tại**; `data/test_set/` cũng chưa có | ✅ **ĐÃ TRẢ (T0.4)** — dải thật `train 2026-08-14..09-24`, `test 2026-09-25..10-01` (bám cửa sổ mưa NASA để giữ đúng mùa vụ); 3 fold walk-forward nằm **trọn trong train**, bộ test đóng băng không bị chạm khi tune. `data/test_set/` đã sinh |
+| **D6** | `tier_base_demand/supply` trong `generator.yaml` **không được đọc** | Code dùng `0.6·pop_norm + 0.4·building_density` | **Config chết**, gây hiểu nhầm khi tune | ⏳ **CÒN TREO** — T0.4 thay bằng `demand_score_weights`/`base_demand_range` (ASSUMPTION-35..38) nhưng **giữ nguyên** hai key cũ kèm cảnh báo inline. Cần PM/BA quyết: **xóa hẳn** hay dùng thật. Xóa là thay đổi `generator.yaml` → phải xác nhận không ai đang tune theo chúng |
+| **D7** | Không có đường cong theo giờ — demand chỉ đổi theo `peak_flag` | `generate_snapshots.py` | `hour_of_day` gần như vô nghĩa; **baseline hist-avg mất phần lớn sức mạnh** → KPI "thắng baseline ≥20%" thành thắng dễ giả tạo | ✅ **ĐÃ TRẢ (T0.4)** — `hourly_curve_demand`/`_supply` 24 hệ số (ASSUMPTION-39/40), tự chuẩn hóa về trung bình 1. `peak_multiplier_*` **đã bỏ**: nhân 1.8 cầu và 0.85 cung đúng 4 giờ cao điểm tạo thiếu cung hệ thống ở **mọi** zone → hotspot rate `rain_peak` bão hòa 0.99986 |
+| **D8** | Nhiễu **Gaussian**, checklist 3.3 đề xuất **Poisson** | `noise_std_pct: 0.15` | Sàn MAPE ≈ 12% → mục tiêu <15% rất sát, không còn biên | ⏳ **CÒN TREO** — vẫn Gaussian `0.15`. **Không sửa được nữa mà không trả giá:** đổi phân phối nhiễu là đổi phân phối A1, buộc sinh lại snapshot và **tính lại toàn bộ baseline đã khóa** ngày 2026-08-08 (§5.14.3). Quyết định thuộc PM: chấp nhận biên MAPE hẹp, hay chịu một đợt khóa lại |
+| **D9** | Tổng đội xe **không được bảo toàn** (mỗi zone sinh độc lập) | `generate_snapshots.py` | Ràng buộc cứng A6 (`COUNT(online_idle) == idle_supply`) khó thỏa | ✅ **ĐÃ TRẢ (T0.6)** — A6 sinh **ngược từ** `idle_supply` của A1 đã khóa thay vì sinh độc lập rồi mong khớp. Test `tests/test_driver_registry.py::test_a6_khop_100_phan_tram`: 0 dòng lệch trên toàn bộ `ts_bucket` × zone |
+| **D10** | `zone_registry.json` dùng `lat`/`lng`, spec §4 nói `zone_lat`/`zone_lng`; tier `high/medium/low` vs checklist `busy/medium/quiet` | File thật có thêm 6 field load-bearing: `area_km2`, `population_k`, `population_density`, `radius_m`, `building_count`, `building_density` | Tên field không khớp tài liệu | ✅ **ĐÃ CHỐT — theo file thật.** Tên chuẩn là `lat`/`lng`, tier `high/medium/low`; 6 field trên là một phần contract A5 (`population_density` quyết định phân bố `home_zone` §6.1, `building_density` vào `demand_score_weights`). Mọi tài liệu và code dùng tên này, **không** đổi file cho khớp spec |
+| **D11** | `rain_intensity_mm_h_range: [2,25]` khai trong config nhưng mưa thật max **5.58 mm/h** | `generator.yaml` vs dữ liệu NASA POWER | Config sai lệch thực tế; ngưỡng `heavy_rain_mm_h = 5.0` gần như không bao giờ chạm | ✅ **ĐÃ TRẢ (T0.4)** — `rain_intensity_mm_h_range: [0.0, 9.2]`, đúng dải quan sát của hai cửa sổ đang dùng (đỉnh **9.19 mm/h** > `heavy_rain_mm_h = 5.0`, nên ngưỡng mưa to **có** chạm tới). Key này giờ chỉ còn nhánh fallback synthetic thuần đọc |
+| **D12** | `splits.yaml` ghi `rain_peak_events_verified: 41` — là **số step**, không phải số **sự kiện**; §5.14.1 đòi ≥2 *sự kiện* mà chưa ai định nghĩa "sự kiện" | `data/splits.yaml:27` | **Acceptance không kiểm được** | ✅ **ĐÃ TRẢ (T0.4)** — định nghĩa chốt: **một sự kiện = một chuỗi `ts_bucket` liên tiếp có ít nhất một zone ở regime `rain_peak`**; chuỗi đứt khi không zone nào `rain_peak`. Test set: **13 sự kiện** (≥ 2 ✅) trên 256 step; train 34 sự kiện. Đếm bằng `count_rain_peak_events()` |
 
 **D1, D2, D3, D5 + quyết định A-05 (ngưỡng mưa 0.5) + A-06 (nowcast) đều buộc sinh lại A1 và tính lại baseline.** Gộp làm **một đợt duy nhất**, xong **trước** khi ký `BASELINE_FREEZE.md` — §5.14.3 #2 quy định sau khi khóa, mọi thay đổi quy ước tính đều là thay đổi contract và phải tính lại toàn bộ số liệu đã công bố.
 
-### 9.1. Baseline hiện tại **không** đạt chuẩn §5.14.1
+### 9.1. Baseline — ✅ đã đạt chuẩn §5.14.1 (khóa 2026-08-08)
 
-`data/baseline/no_action_summary.json` hiện có `overall_hotspot_rate_no_action`, `total_steps`, `by_regime[{regime, avg_gap, hotspot_rate, n_steps}]`.
+Sáu dòng dưới đây từng là ❌ toàn bộ. T0.3 (`metrics.py`) + T0.4 (sinh lại A1, tính lại baseline) đã đóng cả sáu; `data/baseline/BASELINE_FREEZE.md` ký ngày **2026-08-08T22:57:55+07:00**.
 
-| §5.14.1 đòi | Có? |
-|---|---|
-| `unmet_demand` | ❌ |
-| `avg_wait_proxy` (trung bình có trọng số theo demand) | ❌ |
-| `est_cancel_rate` (trung bình có trọng số của cancel rate từng zone) | ❌ |
-| `data/baseline/no_action_metrics.parquet` | ❌ |
-| `data/baseline/BASELINE_FREEZE.md` (ngày khóa, người khóa, **commit hash `metrics.py`**, seed, SHA-256) | ❌ |
-| Regime tagging dùng ngưỡng đã chốt | ❌ dùng `rain_mm_h > 0` |
+| §5.14.1 đòi | Có? | Bằng chứng |
+|---|---|---|
+| `unmet_demand` | ✅ | `no_action_summary.json → overall.unmet_demand = 65 027.0` |
+| `avg_wait_proxy` (trung bình có trọng số theo demand) | ✅ | `overall.avg_wait_proxy = 4.83395` |
+| `est_cancel_rate` (trung bình có trọng số của cancel rate từng zone) | ✅ | `overall.est_cancel_rate = 0.249867` |
+| `data/baseline/no_action_metrics.parquet` | ✅ | 60 480 dòng, SHA-256 `1efdbb0b…3b363` |
+| `BASELINE_FREEZE.md` (ngày khóa, người khóa, **hash `metrics.py`**, seed, SHA-256) | ✅ | `git_blob_sha1(src/simulation/metrics.py) = 82f41b85…70d0` |
+| Regime tagging dùng ngưỡng đã chốt | ✅ | `rain_threshold_mm_h = 0.5`, gắn nhãn bằng `src/common/regime.py` |
 
-Hệ quả của `> 0`: regime `normal` chỉ còn 14.400/60.480 step (23.8%), `rain` chiếm 36.000 (59.5%), và **`rain_peak` bão hòa ở hotspot rate 0.99986** — gần như mọi step mưa+cao điểm đều là hotspot, làm metric mất khả năng phân biệt. Đây chính là lý do quyết định A-05 chốt ngưỡng `≥ 0.5` và yêu cầu **tính lại trước khi khóa**.
+Số liệu 4 regime sau khi tính lại (60 480 step = 2 016 `ts_bucket` × 30 zone):
 
-> Thiếu commit hash thì "khóa" là vô nghĩa: sửa công thức về sau sẽ âm thầm làm lệch mọi so sánh mà không ai phát hiện (§5.14.1).
+| Regime | n_steps | unmet_demand | avg_wait_proxy | est_cancel_rate | avg_gap | hotspot_rate |
+|---|---:|---:|---:|---:|---:|---:|
+| `normal` | 19 488 | 11 995.0 | 3.873713 | 0.198611 | −0.271449 | 0.375975 |
+| `peak` | 3 344 | 8 451.0 | 5.382745 | 0.286383 | 1.933313 | 0.269737 |
+| `rain` | 30 912 | 17 352.0 | 3.542100 | 0.179952 | −0.761290 | 0.265334 |
+| **`rain_peak`** | **6 736** | **27 229.0** | **8.595921** | **0.448878** | **3.831651** | **0.615647** |
+
+Điểm đáng chú ý: `rain_peak` chỉ chiếm 11.1% số step nhưng gánh **41.9% tổng unmet demand**, và ba metric của nó đều xấu hơn `normal` rõ rệt — đúng đặc tính cần có để `rain_peak` làm thước đo thành công chính (§3 #6).
+
+Quan trọng hơn, **hotspot rate `rain_peak` xuống 0.615647** từ mức bão hòa 0.99986 của bản trước. Bản cũ hỏng vì hai nguyên nhân cộng dồn, cả hai đã sửa ở T0.4:
+
+- Regime gắn bằng `rain_mm_h > 0` thay vì `≥ 0.5` → `normal` chỉ còn 14 400/60 480 step (23.8%), `rain` phình lên 36 000 (59.5%).
+- `peak_multiplier_demand: 1.8` × `peak_multiplier_supply: 0.85` áp đồng loạt 4 giờ cao điểm → **mọi** zone thiếu cung cùng lúc (D7), không còn zone surplus nào để optimizer rút xe.
+
+Ở mức 0.99986, so sánh `plan_only` với `no_action` là so hai con số bằng nhau — KPI #3 "giảm hotspot rate ≥ 20%" sẽ không thể đạt dù thuật toán có tốt đến đâu, vì không còn chỗ để cải thiện. Đó là lý do §5.14.3 buộc tính lại **trước** khi ký, không phải sau.
+
+> Thiếu commit hash thì "khóa" là vô nghĩa: sửa công thức về sau sẽ âm thầm làm lệch mọi so sánh mà không ai phát hiện (§5.14.1). `BASELINE_FREEZE.md` nằm trong danh sách **cấm sửa** ở [CLAUDE.md §13.1](../../CLAUDE.md#131-tuyệt-đối-cấm--không-sửa-kể-cả-khi-được-yêu-cầu-chung-chung) — muốn đổi baseline thì tính lại và ký bản mới, không sửa bản cũ.
+
+### 9.2. Nợ phát sinh sau T0.4/T0.6/T0.7
+
+Ba khoản dưới đây **không** nằm trong D1–D12 gốc — chúng sinh ra trong lúc trả nợ cũ. Ghi ở đây để không ai phải phát hiện lại lần nữa.
+
+| # | Nợ | Ở đâu | Vì sao chưa xử lý | Cần ai quyết |
+|---|---|---|---|---|
+| **N1** | `gap_ratio_threshold = 0.3` **hard-code**, không có key trong `policy.yaml` | [compute_baseline_no_action.py:38](../../compute_baseline_no_action.py#L38) | Đây là ngưỡng định nghĩa "zone bị coi là hotspot" khi tính `hotspot_rate` của baseline. Thêm nó vào `policy.yaml` sẽ thành **key thứ 20**, mà "19 key" đang được viết cứng ở §5, [ARCHITECTURE.md](ARCHITECTURE.md), [CLAUDE.md §3 #2](../../CLAUDE.md#3-luật-cứng--vi-phạm-là-làm-hỏng-kết-quả) và trong test `test_policy.py`. Đổi số 19 sau khi baseline đã khóa là đổi contract | **PM** — hai lựa chọn: (a) thêm key thứ 20 + sửa mọi chỗ ghi "19 key" + **tính lại baseline** (§5.14.3), hoặc (b) giữ nguyên và ghi nhận đây là hằng số của **script tính baseline**, không phải ngưỡng vận hành của pipeline |
+| **N2** | `w_shift_end: 0.20` trong `driver_response.yaml` hiện **vô hiệu** | [config/driver_response.yaml](../../config/driver_response.yaml), §6.2 | Cả 600 tài xế đều có `shift_end_ts = null` (Data/BA chưa cấp lịch ca), nên nhánh "sắp hết ca" không bao giờ kích hoạt. Mô hình phản hồi thực tế chỉ chạy trên 2/3 hệ số | **Data/BA** — cấp lịch ca thật, hoặc chốt bỏ hẳn `w_shift_end` và hiệu chỉnh lại `base_rate` cho khớp `assumed_accept_rate = 0.6` |
+| **N3** | `docs/SPEC-AI-Agent-Phan-Bo-Xe-Gio-Cao-Diem.md` được tham chiếu nhưng **không có trên đĩa** | [CLAUDE.md:33](../../CLAUDE.md), `SPEC-GSM14-NovaFour-Unified.md:26` và `:1186` | Đây là SPEC v1.0 đã bị v1.3 thay thế. Ba chỗ tham chiếu đều nói rõ "chỉ tra cứu, không làm căn cứ" nên **không chặn việc gì** — nhưng link chết vẫn là link chết | **PM** — khôi phục file để tra cứu lịch sử, hoặc gỡ ba tham chiếu |
+
+Không khoản nào chặn W3. N1 là khoản duy nhất có thể phải trả bằng một đợt tính lại baseline, nên nên chốt sớm.

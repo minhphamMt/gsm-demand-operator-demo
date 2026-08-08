@@ -1,6 +1,6 @@
 """Model 1 — dự báo demand/supply theo quantile p10/p50/p90 (§5.2, task T1).
 
-Sẽ chứa (ARCHITECTURE.md §7):
+Sẽ chứa (docs/design/ARCHITECTURE.md §7):
     features.py           A1 → A2, 26 feature
     baseline_hist_avg.py  §5.14.2 · trung bình lịch sử theo zone × giờ × thứ.
                           Vừa là mốc so của Model 1, vừa là mock của nó (C-06)

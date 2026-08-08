@@ -1,6 +1,6 @@
 """Fixture dùng chung.
 
-Không còn fixture mock_llm: luồng chính không gọi LLM nữa (ARCHITECTURE.md §8).
+Không còn fixture mock_llm: luồng chính không gọi LLM nữa (docs/design/ARCHITECTURE.md §8).
 Nếu Explanation Lớp 2 được làm ở W5, mock của nó nằm cùng chỗ với module đó chứ
 không kéo ngược lên conftest gốc.
 """

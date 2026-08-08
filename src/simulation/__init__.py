@@ -1,6 +1,6 @@
 """Lõi đo lường và mô phỏng Before/After.
 
-Sẽ chứa (ARCHITECTURE.md §7):
+Sẽ chứa (docs/design/ARCHITECTURE.md §7):
     metrics.py    §5.14.1 · 4 công thức KPI · task T0.3 · KHÔNG import policy/forecast
     simulator.py  §5.5 · 3 kịch bản no_action / plan_only / plan_activation · task T4
 

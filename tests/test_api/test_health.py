@@ -1,4 +1,4 @@
-"""Test GET /health — API_CONTRACT.md §8.2."""
+"""Test GET /health — docs/design/API_CONTRACT.md §8.2."""
 
 from pathlib import Path
 
@@ -42,11 +42,27 @@ async def test_health_status_code_theo_dung_luat_503(client: AsyncClient) -> Non
 def test_readiness_bao_policy_chua_load_khi_thieu_file(tmp_path: Path) -> None:
     """Thiếu config/policy.yaml thì phải báo false, không được im lặng cho qua."""
     settings = Settings(policy_path=tmp_path / "khong-ton-tai.yaml")
-    assert build_readiness(settings)["policy_loaded"] is False
+    report = build_readiness(settings)
+    assert report["policy_loaded"] is False
+    assert report["policy_keys"] == 0
 
 
-def test_readiness_bao_policy_da_co_khi_file_ton_tai(tmp_path: Path) -> None:
+def test_readiness_bao_policy_hong_khi_file_ton_tai_nhung_thieu_key(tmp_path: Path) -> None:
+    """File có mặt vẫn chưa đủ: T0.1 đổi nghĩa policy_loaded thành 'parse được và đủ 19 key'.
+
+    Ca này chính là cái mà phiên bản chỉ-kiểm-file-tồn-tại cho qua — và nó nguy hiểm hơn
+    thiếu file, vì app khởi động bình thường rồi mới chạy sai ngưỡng.
+    """
     policy = tmp_path / "policy.yaml"
     policy.write_text("rules: {}\n", encoding="utf-8")
-    settings = Settings(policy_path=policy)
-    assert build_readiness(settings)["policy_loaded"] is True
+    report = build_readiness(Settings(policy_path=policy))
+    assert report["policy_loaded"] is False
+    assert report["policy_keys"] == 0
+
+
+def test_readiness_bao_policy_da_san_sang_voi_file_that() -> None:
+    """config/policy.yaml thật của repo phải đưa /health về trạng thái 200 (T0.5 AC #5)."""
+    report = build_readiness(Settings())
+    assert report["policy_loaded"] is True
+    assert report["policy_keys"] == REQUIRED_POLICY_KEYS
+    assert REQUIRED_POLICY_KEYS == 19

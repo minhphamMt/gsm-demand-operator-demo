@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, ge=1, le=65535)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
-    # ---- Đường dẫn config (ARCHITECTURE.md §6.4, thứ tự khởi tạo) ----
+    # ---- Đường dẫn config (docs/design/ARCHITECTURE.md §6.4, thứ tự khởi tạo) ----
     policy_path: Path = PROJECT_ROOT / "config" / "policy.yaml"
     zone_registry_path: Path = PROJECT_ROOT / "config" / "zone_registry.json"
     driver_registry_path: Path = PROJECT_ROOT / "config" / "driver_registry.json"

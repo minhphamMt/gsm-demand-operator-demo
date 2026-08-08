@@ -1,7 +1,7 @@
 # ARCHITECTURE.md — GSM-14 · NovaFour
 
-> **Nguồn sự thật:** [docs/SPEC-GSM14-NovaFour-Unified.md](docs/SPEC-GSM14-NovaFour-Unified.md) v1.3 (06/08/2026).
-> Tài liệu này **không thêm chức năng nào ngoài spec**. Mọi mục đều neo về một mục spec (`§x.y`) hoặc một mã `[ASSUMPTION-nn]` (định nghĩa đầy đủ ở [DATA_CONTRACT.md](DATA_CONTRACT.md#assumption-register)).
+> **Nguồn sự thật:** [docs/SPEC-GSM14-NovaFour-Unified.md](../SPEC-GSM14-NovaFour-Unified.md) v1.3 (06/08/2026).
+> Tài liệu này **không thêm chức năng nào ngoài spec**. Mọi mục đều neo về một mục spec (`§x.y`) hoặc một mã `[ASSUMPTION-nn]` (định nghĩa đầy đủ ở [DATA_CONTRACT.md](DATA_CONTRACT.md#8-assumption-register)).
 > Ngày lập: 08/08/2026 (cuối W2 — trùng mốc I-08 khóa contract/KPI/baseline).
 
 **Bộ tài liệu thiết kế kỹ thuật:** ARCHITECTURE (file này) · [API_CONTRACT.md](API_CONTRACT.md) · [DATA_CONTRACT.md](DATA_CONTRACT.md) · [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md) · [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) · [EVALUATION_PLAN.md](EVALUATION_PLAN.md)
@@ -14,7 +14,7 @@
 
 **Không là:** một chat agent, không có LLM trong luồng chính, **không dùng LangGraph** (§6 — quyết định PM 2026-08-04), không vector DB, không WebSocket (§7.1 #3 — polling 2 giây).
 
-Toàn bộ `src/` hiện tại là boilerplate template (LangGraph chat demo). Kiến trúc dưới đây **thay thế hoàn toàn** phần đó — xem [§8](#8-vòng-đời-mã-nguồn-template).
+`src/` khởi đầu là boilerplate template (LangGraph chat demo). Kiến trúc dưới đây **thay thế hoàn toàn** phần đó; việc xóa đã hoàn tất ở T0.5 — xem [§8](#8-vòng-đời-mã-nguồn-template).
 
 ---
 
@@ -23,7 +23,7 @@ Toàn bộ `src/` hiện tại là boilerplate template (LangGraph chat demo). K
 | # | Nguyên tắc | Hệ quả kiến trúc cụ thể trong tài liệu này |
 |---|---|---|
 | 1 | **Contract-first** | 9 message contract §4.1–4.9 → 9 module Pydantic v2 trong `src/contracts/`. Sau W2 chỉ thêm field **optional** |
-| 2 | **Mock-first (C-06)** | Mỗi module có một `mock` trả **đúng contract**; bảng fallback ở [§6.3](#63-bảng-fallback-cứng) |
+| 2 | **Mock-first (C-06)** | Mỗi module có một `mock` trả **đúng contract**; bảng fallback ở [§6.3](#63-bảng-fallback-cứng-59-c-06) |
 | 3 | **Baseline-first (C-05)** | `baseline_hist_avg.py` là **mock của Model 1**; greedy là phương án chốt của Model 3, không có nhánh OR-Tools |
 | 4 | **4 regime** | Một hàm duy nhất `src/common/regime.py` gán `normal/peak/rain/rain_peak`; mọi metric đi qua nó |
 | 5 | **Không state ẩn** | Mọi chuyển trạng thái ghi `src/history/store.py` (SQLite append-only, trigger chặn UPDATE/DELETE) |
@@ -532,38 +532,46 @@ src/
 
 frontend/                     Vite + React + TS → frontend/dist → StaticFiles
 config/
-  policy.yaml                 19 key  ← CHƯA TỒN TẠI, task T0.1
-  generator.yaml              đã có
-  zone_registry.json          đã có
-  driver_registry.json        ← CHƯA TỒN TẠI, task T0.6
-  driver_response.yaml        ← CHƯA TỒN TẠI, task T0.6
+  policy.yaml                 19 key                          ✅ T0.1
+  generator.yaml              ✅ đã có (cập nhật ở T0.4)
+  zone_registry.json          ✅ đã có
+  driver_registry.json        600 tài xế                      ✅ T0.6
+  driver_response.yaml        7 tham số Phần 8B, seed=7       ✅ T0.6
 data/
-  snapshots/                  A1 Parquet
+  snapshots/                  A1 Parquet                      ✅ T0.4
   features/ labels/ ground_truth/   A2–A4 Parquet
-  driver_states/              A6
-  baseline/                   no_action_metrics.parquet · no_action_summary.json · BASELINE_FREEZE.md
+  driver_states/              A6                              ✅ T0.6
+  baseline/                   no_action_metrics.parquet · no_action_summary.json · BASELINE_FREEZE.md   ✅ T0.4, khóa 2026-08-08
   history.db                  SQLite WAL append-only
 tests/
-  test_architecture.py        2 luật cứng §6.2
-  test_contracts/ test_simulation/ test_optimizer/ test_activation/ test_api/
+  test_architecture.py        luật cứng §6.2 + C-08           ✅ T0.3, mở rộng ở T0.7
+  test_generator.py           A1 · 4 regime · nowcast · mưa theo zone   ✅ T0.4
+  test_driver_registry.py     A6 · ràng buộc khớp 100% idle_supply      ✅ T0.6
+  test_common/                policy loader 19 key · regime tagging     ✅ T0.1, T0.2
+  test_contracts/             9 entity §4.1–4.9 · ví dụ SPEC · parity mock/thật   ✅ T0.7
+  test_simulation/ test_optimizer/ test_activation/ test_api/
 ```
+
+Cột bên phải ghi task đã tạo ra thư mục đó. Mục chưa có nhãn là phần các task T1–T11 sẽ dựng — cây này là **đích**, không phải ảnh chụp hiện trạng.
 
 ---
 
 ## 8. Vòng đời mã nguồn template
 
-`src/` hiện tại là boilerplate AI20K Agent, **không phải** kiến trúc mục tiêu. Xóa trong task T0.5 ([IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)):
+`src/` khởi đầu là boilerplate AI20K Agent, **không phải** kiến trúc mục tiêu. **Đã xóa xong ở task T0.5** ([IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)):
 
-| Xóa | Lý do |
-|---|---|
-| `src/agents/**` (`state.py`, `graph.py`, `nodes/example_node.py`, `tools/example_tool.py`) | LangGraph — §6 cấm |
-| `src/services/llm.py` | Luồng chính không gọi LLM; Lớp 2 nếu làm sẽ tự khởi tạo client trong `explanation/llm_layer2.py` |
-| `ChatRequest` / `ChatResponse` trong `src/models/schemas.py` | Thay bằng `src/contracts/` |
-| `tests/test_agents/` | Test của module bị xóa |
-| `docs/architecture_diagram.md` | Placeholder template mâu thuẫn với tài liệu này |
-| `langgraph`, `langchain`, `langchain-openai` trong `requirements.txt` | §6 cấm LangGraph |
+| Đã xóa | Lý do | Trạng thái |
+|---|---|---|
+| `src/agents/**` (`state.py`, `graph.py`, `nodes/example_node.py`, `tools/example_tool.py`) | LangGraph — §6 cấm | ✅ |
+| `src/services/llm.py` | Luồng chính không gọi LLM; Lớp 2 nếu làm sẽ tự khởi tạo client trong `explanation/llm_layer2.py` | ✅ |
+| `ChatRequest` / `ChatResponse` trong `src/models/schemas.py` | Thay bằng `src/contracts/` — cả gói `src/models/` đã bỏ | ✅ |
+| `tests/test_agents/` | Test của module bị xóa | ✅ |
+| `docs/architecture_diagram.md` | Placeholder template mâu thuẫn với tài liệu này | ✅ |
+| `langgraph`, `langchain`, `langchain-openai` trong `requirements.txt` | §6 cấm LangGraph | ✅ |
 
-Giữ: `src/main.py` (viết lại phần router + startup), `src/api/routes.py` → tách thành `routes_*.py`, `tests/conftest.py` (fixture `client`; bỏ `mock_llm` vì không còn LLM trong luồng chính).
+Giữ lại: `src/main.py` (đã viết lại, hiện chỉ còn `GET /health` fail-fast), `tests/conftest.py` (fixture `client`; **đã bỏ `mock_llm`** vì không còn LLM trong luồng chính). `src/api/routes.py` bị bỏ luôn thay vì tách — các `routes_*.py` ở [§7](#7-cây-thư-mục-mục-tiêu) sẽ viết mới từ [API_CONTRACT.md](API_CONTRACT.md), không kế thừa dòng nào của template.
+
+Lưu ý: `tests/test_architecture.py` canh các luật kiến trúc ở [§6.2](#62-hai-luật-cứng--có-test-tĩnh-trong-ci) (ai được đọc `yaml`, ai được gán regime, `metrics.py` không nhiễm tham số, `common/` không import ngược tầng) — **không** canh việc `langgraph` bị thêm lại. Ràng buộc đó nằm ở [CLAUDE.md §6 #3](../../CLAUDE.md#6-dependency-management) và phải bắt bằng review `requirements.txt`.
 
 ---
 
