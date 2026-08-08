@@ -42,6 +42,11 @@ htmlcov/
 .coverage
 coverage.xml
 
+# Cache của công cụ
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
 # Docker
 docker-compose.override.yml
 

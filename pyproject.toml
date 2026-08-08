@@ -1,0 +1,42 @@
+# Cấu hình công cụ cho GSM-14 NovaFour.
+#
+# Cố ý KHÔNG có [project] / [build-system]: repo này chạy trực tiếp bằng uvicorn,
+# không đóng gói để cài đặt. Đưa danh sách dependency vào đây sẽ tạo nguồn thứ hai
+# cạnh requirements.txt — CLAUDE.md §6 chốt requirements.txt là nơi duy nhất.
+#
+# Cố ý KHÔNG có [tool.ruff]: cấu hình lint/format nằm ở ruff.toml và chỉ ở đó.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--strict-markers"
+markers = [
+    "invariant: bất biến INV-1/2/3 — vỡ là crash, không fallback (CLAUDE.md §3.1)",
+]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+plugins = ["pydantic.mypy"]
+
+# Bắt buộc type hint cho hàm — CLAUDE.md §5.2 yêu cầu với mọi public function.
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+
+no_implicit_optional = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+
+# Không bật warn_unused_configs: khối override bên dưới cố ý khai báo trước cho các
+# thư viện mà T0.3/T1/T4 mới import, nên nó sẽ "chưa dùng đến" trong một thời gian.
+
+pretty = true
+
+# Các thư viện khoa học dữ liệu không phát hành stub. Bỏ qua ở đây chứ không rải
+# "# type: ignore" khắp code — ignore rải rác sẽ che cả lỗi thật.
+[[tool.mypy.overrides]]
+module = ["lightgbm.*", "sklearn.*", "scipy.*", "pyarrow.*", "pandas.*"]
+ignore_missing_imports = true

@@ -1,6 +1,12 @@
-from unittest.mock import AsyncMock
+"""Fixture dùng chung.
 
-import pytest
+Không còn fixture mock_llm: luồng chính không gọi LLM nữa (ARCHITECTURE.md §8).
+Nếu Explanation Lớp 2 được làm ở W5, mock của nó nằm cùng chỗ với module đó chứ
+không kéo ngược lên conftest gốc.
+"""
+
+from collections.abc import AsyncIterator
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
@@ -8,22 +14,8 @@ from src.main import app
 
 
 @pytest_asyncio.fixture
-async def client():
-    """Async HTTP client for testing API endpoints."""
+async def client() -> AsyncIterator[AsyncClient]:
+    """HTTP client bất đồng bộ gọi thẳng vào ASGI app, không mở cổng thật."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
-
-
-@pytest.fixture
-def mock_llm():
-    """Mock LLM to avoid calling OpenAI during tests.
-
-    Usage in test:
-        def test_something(mock_llm):
-            # LLM calls will return mock response instead of hitting OpenAI
-            ...
-    """
-    mock = AsyncMock()
-    mock.ainvoke.return_value = AsyncMock(content="Mocked LLM response")
-    return mock

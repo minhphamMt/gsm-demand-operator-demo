@@ -1,201 +1,131 @@
-# 🤖 AI20K Agent Template
+# GSM-14 · NovaFour — Phân bổ xe giờ cao điểm
 
-Template chính thức cho học viên **VinUni AI20K Build Phase** — cung cấp sẵn cấu trúc dự án, code mẫu, và hướng dẫn kỹ thuật chi tiết để xây dựng AI Agent đạt điểm cao (35+/50).
+> Mưa đổ lúc 17:30, nhu cầu gọi xe dồn về vài quận trong khi xe rảnh nằm ở quận khác. Hệ thống này dự báo lệch cung–cầu trước 15–30 phút, đề xuất phương án điều chuyển cho người điều phối duyệt, và huy động thêm tài xế đang rảnh/offline khi điều chuyển vẫn chưa đủ.
 
-> 📖 **Technical Guidebook:** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
+Dự án VinUni AI20K Build Phase. **Đây là pipeline mô phỏng deterministic, không phải chat agent** — không có LLM trong luồng chính, mọi con số là simulation proxy trên dữ liệu synthetic.
 
-## 🎯 Template này dùng để làm gì?
+---
 
-Khi tham gia AI20K Build Phase, mỗi đội cần xây dựng một AI Agent hoàn chỉnh — từ kiến trúc, code, test, đến deploy. Thay vì bắt đầu từ con số không, template này cung cấp:
+## Trạng thái: skeleton
 
-- **Cấu trúc thư mục chuẩn** — đã được thiết kế theo best practices (separation of concerns)
-- **Code mẫu** cho các phần cốt lõi: LangGraph agent, FastAPI API, config, schemas
-- **Docker + CI/CD sẵn** — Dockerfile multi-stage, GitHub Actions workflow
-- **Hướng dẫn kỹ thuật 10 chương** — từ clone template đến nộp bài Demo Day
-- **Checklist 10 deliverables** — đảm bảo không bỏ sót yêu cầu BTC
-- **AI Usage Logging tự động** — Pre-configured hooks cho Claude Code, Cursor, Codex, Gemini CLI, Antigravity, và GitHub Copilot
+Hạ tầng đã dựng xong (cấu trúc package, lint, type-check, test, CI, `/health`). **Chưa có logic nghiệp vụ** — xem [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) để biết task nào làm gì.
 
-## ⚡ Quick Start
+`GET /health` hiện trả **503** vì `config/policy.yaml` chưa tồn tại. Đây là hành vi đúng theo [API_CONTRACT.md §8.2](API_CONTRACT.md#82-get-health), không phải lỗi: thiếu ngưỡng mà vẫn chạy sẽ cho ra KPI sai mà không ai biết. Endpoint chuyển sang 200 sau khi task **T0.1** tạo đủ 19 key.
 
-### Bước 1: Fork hoặc Clone
+---
 
-```bash
-# Clone template
-git clone https://github.com/AI20K-Build-Cohort-2/starter-code-template.git team-YOUR_TEAM_NAME
-cd team-YOUR_TEAM_NAME
+## Chạy dự án
 
-# Xóa git history cũ và khởi tạo lại
-rm -rf .git
-git init
-git add .
-git commit -m "feat: khởi tạo dự án từ template"
-```
+```powershell
+# 1. Môi trường ảo (đã có sẵn tại .venv)
+.\.venv\Scripts\Activate.ps1
 
-### Bước 2: Setup môi trường
+# 2. Cài dependency
+pip install -r requirements.txt
 
-```bash
-# Tạo virtual environment
-python3.11 -m venv .venv
-source .venv/bin/activate
+# 3. Biến môi trường
+copy .env.example .env
 
-# Cài dependencies
-pip install -e ".[dev]"
-
-# Cấu hình API keys
-cp .env.example .env
-# Mở .env và thêm OPENAI_API_KEY của bạn
-# Đồng thời cập nhật AI_LOG_API_KEY bằng key riêng từ link mời của BTC
-# (giá trị trong .env.example chỉ là placeholder)
-```
-
-### Bước 3: Cài AI Logging Hooks
-
-```bash
-# Linux / macOS / Git Bash
-bash scripts/setup_hooks.sh
-
-# Windows PowerShell
-# powershell -ExecutionPolicy Bypass -File scripts\setup_hooks.ps1
-```
-
-Hooks tự động log mọi AI prompt khi dùng Claude Code, Cursor, Codex, Gemini CLI, Antigravity, hoặc GitHub Copilot. Không cần thao tác thủ công.
-
-### Bước 4: Chạy server
-
-```bash
-# Chạy FastAPI backend
+# 4. Chạy API
 uvicorn src.main:app --reload --port 8000
-
-# Mở Swagger UI
-# http://localhost:8000/docs
 ```
 
-### Bước 5: Đọc hướng dẫn
+- Swagger UI: <http://localhost:8000/docs>
+- Healthcheck: <http://localhost:8000/health>
 
-📖 Mở **[Technical Guidebook](https://phoenix.note.transformerlabs.ai/technical-book)** và làm theo từng chương.
+Docker:
 
-## 📁 Cấu trúc dự án
-
-```
-├── src/
-│   ├── agents/           # 🧠 LangGraph Agent
-│   │   ├── graph.py      #    State graph (nodes + edges)
-│   │   ├── state.py      #    State schema (TypedDict)
-│   │   ├── nodes/        #    Node functions
-│   │   └── tools/        #    Agent tools (@tool)
-│   ├── api/              # 🌐 FastAPI Backend
-│   │   └── routes.py     #    API endpoints
-│   ├── models/           # 📋 Pydantic schemas
-│   ├── services/         # 🔧 Business logic (LLM, etc.)
-│   ├── config.py         # ⚙️ Pydantic Settings
-│   └── main.py           # 🚀 App entry point
-├── tests/                # 🧪 pytest suite
-│   ├── test_agents/      #    Agent/graph tests
-│   └── test_api/         #    API endpoint tests
-├── scripts/              # 🔌 AI Logging Hooks
-│   ├── log_hook.py       #    Auto-log cho Claude/Cursor/Codex/Gemini/Copilot
-│   ├── log_antigravity.py#    Antigravity IDE prompt scanner
-│   ├── log_manual.py     #    Manual log cho ChatGPT / web tools
-│   ├── submit_log.py     #    Submit logs on git push
-│   └── setup_hooks.sh    #    One-time hook installer
-├── .claude/ .codex/ .cursor/ .gemini/  # Per-tool hook configs
-├── .agents/              # Antigravity rules + workflows
-├── .ai-log/              # 📊 AI usage logs (auto-generated)
-├── docs/
-│   ├── guide/            # 📖 Technical Guidebook (10 chapters)
-│   └── architecture_diagram.md
-├── eval/                 # 📊 Evaluation results
-├── presentation/         # 🎤 Demo Day slides
-├── .github/workflows/    # ⚡ CI/CD (GitHub Actions)
-├── .github/hooks/        # 🪝 Copilot hook config
-├── Dockerfile            # 🐳 Multi-stage build
-├── docker-compose.yml    # 🐙 Full stack orchestration
-└── README_boilerplate.md # 📝 README template cho đội của bạn
+```powershell
+docker compose up --build
 ```
 
-## 📚 Technical Guidebook — 10 Chương
+---
 
-| Chương | Nội dung | Thời gian |
-|---------|----------|-----------|
-| 1 | Lời mở đầu — Mục tiêu, cách sử dụng | 15 phút |
-| 2 | Khởi tạo dự án — Clone, setup, git workflow | 4 giờ |
-| 3 | Thiết kế kiến trúc — 3-tier, diagrams, ADR | 6 giờ |
-| 4 | **LangGraph Agent** — State, nodes, edges, tools, RAG | 8 giờ |
-| 5 | FastAPI — Routes, validation, error handling, streaming | 6 giờ |
-| 6 | Giao diện — Next.js + Streamlit quickstart | 6 giờ |
-| 7 | DevOps — Docker, CI/CD, deploy, logging | 6 giờ |
-| 8 | Kiểm thử — Unit test, integration test, RAGAS | 4 giờ |
-| 9 | Demo Day — 10 deliverables, checklist, tips | 2 giờ |
-| 10 | Tài nguyên — Khóa học, docs, BMAD method | tham khảo |
+## Kiểm tra chất lượng
 
-📖 **Đọc online:** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
+Bốn lệnh dưới đây chính là bốn bước CI chạy — chạy được ở máy thì CI xanh.
 
-## 📋 10 Deliverables cho Demo Day
-
-| # | Deliverable | File vị trí | Template có sẵn |
-|---|-------------|-------------|:---:|
-| 1 | Source Code | `src/` | ✅ |
-| 2 | README.md | `README_boilerplate.md` → copy thành `README.md` | ✅ |
-| 3 | Architecture Diagram | `docs/architecture_diagram.md` | ✅ |
-| 4 | AI Logs | LangSmith (3 env vars) + Auto AI Usage Logging | ✅ |
-| 5 | Live URL | Deploy lên Render/Vercel | ⚡ CI/CD sẵn |
-| 6 | Video Demo | `presentation/` | 📝 |
-| 7 | Pitch Deck | `presentation/` | 📝 |
-| 8 | Development Journal | `JOURNAL.md` | ✅ |
-| 9 | Worklog | `WORKLOG.md` | ✅ |
-| 10 | Evaluation Evidence | `eval/` | 📝 |
-
-## 🛠 Tech Stack
-
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| AI Agent | LangGraph + LangChain | Latest |
-| Backend | FastAPI + Uvicorn | 0.100+ |
-| LLM | OpenAI GPT-4o-mini | API |
-| Frontend | Next.js / Streamlit | 14+ / 1.30+ |
-| Database | SQLite (dev) / PostgreSQL (prod) | — |
-| DevOps | Docker + GitHub Actions | — |
-| Testing | pytest + pytest-asyncio | 8+ |
-
-## 📊 AI Usage Logging
-
-Template đã tích hợp sẵn auto-logging hooks cho 6 AI tools:
-
-| Tool | Cơ chế | Config |
-|------|--------|--------|
-| Claude Code | `.claude/settings.json` hooks | Tự động |
-| Cursor | `.cursor/hooks.json` | Tự động |
-| OpenAI Codex CLI | `.codex/hooks.json` | Tự động |
-| Gemini CLI | `.gemini/settings.json` | Tự động |
-| GitHub Copilot | `.github/hooks/hooks.json` | Tự động |
-| Antigravity IDE | Pre-push scan transcript | Tự động trên `git push` |
-
-Tất cả prompts và tool calls được log vào `.ai-log/session.jsonl` và tự động submit lên grading server mỗi khi `git push`.
-
-**ChatGPT / web tools khác** — log thủ công:
-```bash
-bash scripts/_pyrun.sh scripts/log_manual.py --tool chatgpt --prompt "What you asked"
+```powershell
+ruff check src/ tests/            # lint
+ruff format --check src/ tests/   # format
+mypy                              # type-check (đọc cấu hình từ pyproject.toml)
+pytest tests/ -v                  # test
 ```
 
-> ⚠️ Chạy `bash scripts/setup_hooks.sh` một lần sau khi clone để cài pre-push hook.
+Chạy một file hoặc một test:
 
-## 📖 Đọc Technical Guidebook
+```powershell
+pytest tests/test_api/test_health.py -v
+pytest -k "health" -v
+```
 
-**Online (khuyến nghị):** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
+---
 
-Đăng nhập bằng GitHub (cùng account đã được BTC mời vào org `AI20K-Build-Cohort-2`)
-→ chọn tab **Technical Book** ở sidebar trái → đọc 10 chương + topic sections,
-có table of contents bên phải, hỗ trợ light/dark/cyberpunk theme.
+## Kiến trúc
 
-**Offline:** mọi chương đều ở thư mục `docs/guide/` trong template này — mở bằng
-bất kỳ markdown viewer/editor nào (VS Code, Obsidian, GitHub UI, …).
+```
+Replay Engine → Khối A: Forecasting (p10/p50/p90)
+                    ↓
+              Khối B: Hotspot → Optimizer → Simulator → Explanation → người duyệt
+                    ↓ residual gap
+              Khối C: Activation Engine → Driver App
+                    ↓ tài xế bấm Nhận
+              enroute_supply tăng → Simulator tính lại (vòng phản hồi đóng)
+```
 
-## 🔗 Liên kết
+Ba kịch bản luôn được so cạnh nhau: `no_action` / `plan_only` / `plan_activation`.
 
-- 📖 **Technical Guidebook:** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
-- 🏫 **AI20K Program:** VinUni AI20K Build Phase
-- 👨‍🏫 **Mentor:** Đặng Hải Lộc
+Chi tiết: [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## 📄 License
+### Cây thư mục
 
-MIT — Sử dụng tự do cho mục đích giáo dục.
+| Thư mục | Vai trò | Task |
+|---|---|---|
+| `src/common/` | regime · haversine · policy loader · ids · errors — tầng L0, không import ngược | T0.1–T0.3 |
+| `src/contracts/` | 9 Pydantic model §4.1–4.9 | T0.7 |
+| `src/replay/` | phát lại snapshot 5 phút/step | T0.4 |
+| `src/forecasting/` | Model 1 — LightGBM quantile + baseline trung bình lịch sử | T1 |
+| `src/hotspot/` | Model 2 — phát hiện hotspot + hysteresis | T2 |
+| `src/optimizer/` | Model 3 — greedy theo severity | T3 |
+| `src/simulation/` | `metrics.py` (lõi công thức dùng chung) + `simulator.py` | T0.3, T4 |
+| `src/explanation/` | giải thích Lớp 1 bằng template | T5 |
+| `src/activation/` | Khối C — chọn ứng viên, incentive, mô phỏng phản hồi | T7 |
+| `src/history/` | History Store SQLite append-only | T6 |
+| `src/api/` | router HTTP — tầng duy nhất dùng async | T0.7+ |
+| `frontend/` | SPA Vite + React + TS, build tĩnh do FastAPI phục vụ | T8 |
+
+---
+
+## Tài liệu
+
+| File | Dùng khi |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | **Đọc trước tiên** — luật bắt buộc cho mọi phiên code (kể cả AI) |
+| [docs/SPEC-GSM14-NovaFour-Unified.md](docs/SPEC-GSM14-NovaFour-Unified.md) | Nguồn sự thật về nghiệp vụ |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Sơ đồ component, luồng end-to-end, dependency |
+| [API_CONTRACT.md](API_CONTRACT.md) | 23 endpoint, schema, mã lỗi |
+| [DATA_CONTRACT.md](DATA_CONTRACT.md) | 9 entity, DDL, 19 key policy, ASSUMPTION register |
+| [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md) | State machine, router, fallback, cổng người duyệt |
+| [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | Task T0.1–T11 + Acceptance Criteria |
+| [EVALUATION_PLAN.md](EVALUATION_PLAN.md) | Cách đo, 19 KPI, failure case |
+
+---
+
+## Ràng buộc không được phá
+
+Bốn điều dưới đây không phải quy ước style — phá là kết quả dự án mất hiệu lực.
+
+1. **`config/policy.yaml` là nguồn ngưỡng duy nhất** (19 key). Cấm hard-code ngưỡng trong code.
+2. **`src/simulation/metrics.py` là nguồn công thức duy nhất.** Baseline và Simulator phải import cùng module này; cài lại công thức lần hai làm mọi so sánh KPI vô nghĩa.
+3. **Hai cổng người duyệt tách biệt**: duyệt plan ≠ xác nhận phát hành offer. Approve plan **không** tự gửi cam kết tiền thưởng cho tài xế.
+4. **Tài xế luôn được từ chối** — một chạm, không cần lý do, không chấm điểm, không xếp hạng, không chế tài.
+
+---
+
+## Nhật ký AI (deliverable #4)
+
+Hook tự ghi prompt vào `.ai-log/session.jsonl` và tự nộp khi `git push`. **Không** chạy tay `scripts/log_hook.py`, **không** sửa file trong `.ai-log/`, **không** dùng `--no-verify`. Cài hook một lần sau khi clone:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_hooks.ps1
+```

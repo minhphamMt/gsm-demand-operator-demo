@@ -1,0 +1,62 @@
+# =====================================================================
+# config/generator.yaml — Tham số synthetic generator (T-008)
+# Bám theo A1 trong Data-Contract-Data-AI.md, chi tiết ở Phần 3 checklist
+# =====================================================================
+
+seed:
+  train: 42
+  test: 2026        # seed khác train, dùng riêng cho A5 test set (freeze)
+
+time:
+  step_minutes: 5
+  steps_per_day: 288
+  days_train: 42     # 6 tuần
+  days_test: 7       # 1 tuần, freeze
+  timezone: "+07:00"
+
+demand_supply_baseline:
+  # Demand/supply nền theo tier x giờ — nhân hệ số theo peak_flag
+  tier_base_demand:
+    high: 18
+    medium: 10
+    low: 5
+  tier_base_supply:
+    high: 15
+    medium: 9
+    low: 6
+  peak_multiplier_demand: 1.8   # nhân thêm vào demand nền khi peak_flag=1
+  peak_multiplier_supply: 0.85  # cung giảm nhẹ giờ cao điểm (tài xế nghỉ/kẹt xe)
+  noise_std_pct: 0.15           # nhiễu ngẫu nhiên +-15% quanh baseline
+
+peak_hours:
+  - ["07:00", "09:00"]
+  - ["17:00", "19:00"]
+
+holiday_injection:
+  enabled: true
+  inject_days: 1              # inject 1 ngày lễ giả để test (mục 4.4 checklist)
+  holiday_demand_multiplier: 0.6   # nhu cầu giảm ngày lễ (giả định — đi lại giảm)
+
+rain:
+  enabled: true
+  target_rain_peak_pct: 0.30     # ~30% số ngày có sự kiện rain_peak (yêu cầu contract)
+  demand_elasticity_per_mm: 0.0059   # +0.59%/mm/h theo Liu et al. (đã chốt trong contract)
+  supply_drop_at_peak_rain_pct: 0.30 # % giảm cung khi peak_flag=1 và có mưa (Kamga & Yazici, chốt tại checklist mục 0.3)
+  rain_event_duration_steps_range: [6, 24]   # 1 sự kiện mưa kéo dài 30 phút - 2 giờ
+  rain_intensity_mm_h_range: [2, 25]
+
+enroute_supply:
+  avg_vehicle_speed_kmh_ref: "config/policy.yaml#rules.avg_vehicle_speed_kmh"
+  note: >
+    enroute_supply chỉ sinh ra do relocation plan (giả lập), KHÔNG mô phỏng xe tự di chuyển tự nhiên.
+    Thời gian chuyển từ enroute_supply -> idle_supply = haversine(from_zone, to_zone) / avg_vehicle_speed_kmh.
+
+price_index:
+  status: "PLACEHOLDER — chưa có công thức tính giá (2 bài toán pricing chưa được chốt spec)"
+  fallback_value: 1.0
+  note: "Giữ cột với giá trị mặc định 1.0, KHÔNG dùng làm feature Model 1/2 (đã chốt). Sẽ cập nhật công thức khi có spec pricing."
+
+output:
+  format: "parquet"
+  path_snapshots: "data/snapshots/"
+  checksum_required: true

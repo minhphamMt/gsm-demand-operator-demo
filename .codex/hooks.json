@@ -1,12 +1,26 @@
 {
-  "version": "1.0",
+  "description": "AI usage logging hooks for Codex",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "name": "log-prompt",
-            "command": "bash scripts/_pyrun.sh scripts/log_hook.py --tool=codex",
+            "type": "command",
+            "command": "scripts\\_pyrun.cmd scripts\\log_hook.py --tool=codex",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "name": "log-tool",
+            "type": "command",
+            "command": "scripts\\_pyrun.cmd scripts\\log_hook.py --tool=codex",
             "timeout": 10
           }
         ]
@@ -17,7 +31,8 @@
         "hooks": [
           {
             "name": "log-stop",
-            "command": "bash scripts/_pyrun.sh scripts/log_hook.py --tool=codex",
+            "type": "command",
+            "command": "scripts\\_pyrun.cmd scripts\\log_hook.py --tool=codex",
             "timeout": 10
           }
         ]
