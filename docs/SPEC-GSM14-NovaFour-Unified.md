@@ -657,7 +657,7 @@ Danh sách tài xế mô phỏng, tương tự `zone_registry.json`. **Không ch
 | Feature | Ghi chú |
 |---|---|
 | `zone_id` | categorical 1–30 |
-| `hour_of_day`, `day_of_week` | derive từ `ts_bucket` — KHÔNG dùng raw timestamp |
+| `hour_of_day`, `bucket_in_hour`, `day_of_week` | derive từ `ts_bucket` — KHÔNG dùng raw timestamp. `bucket_in_hour = minute(ts_bucket) // 5`, giá trị 0..11 |
 | `demand_observed_lag_0..6`, `idle_supply_lag_0..6` | **Lookback N = 6 bước (30 phút)** — tên cột A2 đã chốt theo Data Contract |
 | `demand_roll_mean_30`, `demand_roll_std_30`, `supply_roll_mean_30`, `supply_roll_std_30` | Rolling window 30 phút |
 | `peak_flag`, `holiday_flag` | |

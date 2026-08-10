@@ -31,7 +31,7 @@
 |---|---|---|---|
 | `zone_id` | snapshot | int (1–30) | |
 | `ts_bucket` | snapshot | datetime | mốc 5 phút hiện tại (t0) |
-| `hour_of_day`, `day_of_week` | derive từ `ts_bucket` | int | feature thời gian, KHÔNG dùng raw timestamp trực tiếp |
+| `hour_of_day`, `bucket_in_hour`, `day_of_week` | derive từ `ts_bucket` | int | feature thời gian, KHÔNG dùng raw timestamp trực tiếp; `bucket_in_hour = minute(ts_bucket) // 5`, giá trị 0..11 |
 | `supply_count[t-N..t0]` | snapshot lịch sử | array[int] | lookback window — **cần chốt N (số bước)** |
 | `demand_count[t-N..t0]` | snapshot lịch sử | array[int] | |
 | `avg_wait_time_sec` | snapshot | float | ❌ **KHÔNG có trong A2** — đã chốt loại ([Data-Contract A2](Data-Contract-Data-AI.md)) |

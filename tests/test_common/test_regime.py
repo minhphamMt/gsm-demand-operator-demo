@@ -8,7 +8,7 @@ AC #3 (test tĩnh) ở tests/test_architecture.py; AC #4 (script baseline) ở T
 
 import pytest
 
-from src.common.regime import REGIMES, Regime, is_heavy_rain, rain_threshold, tag_regime
+from src.common.regime import REGIMES, Regime, is_heavy_rain, is_rain, rain_threshold, tag_regime
 
 
 def test_dung_bon_nhan_khong_hon_khong_kem() -> None:
@@ -63,3 +63,32 @@ def test_mua_to_theo_nguong_rieng(rain_mm_h: float, expected: bool) -> None:
     assert is_heavy_rain(rain_mm_h) is expected
     # và nó không làm đổi nhãn regime
     assert tag_regime(rain_mm_h, 1) == "rain_peak"
+
+
+# ------------------------------------------------------- is_rain: cửa cho Optimizer §5.4 (T3)
+
+
+@pytest.mark.parametrize(("rain_mm_h", "expected"), [(0.49, False), (0.5, True), (12.0, True)])
+def test_co_mua_dung_cung_bien_voi_tag_regime(rain_mm_h: float, expected: bool) -> None:
+    """`is_rain` và `tag_regime` phải cùng một định nghĩa "mưa".
+
+    Hai định nghĩa lệch nhau thì Optimizer nhân hệ số mưa ở những step mà bảng KPI xếp là
+    `normal` — số liệu và hành vi nói hai chuyện khác nhau mà không test nào thấy.
+    """
+    assert is_rain(rain_mm_h) is expected
+    assert (tag_regime(rain_mm_h, 0) == "rain") is expected
+
+
+def test_ba_muc_mua_khong_chong_lan() -> None:
+    """Ba nhánh hệ số di chuyển §5.4 (khô / vừa / to) phải phân hoạch được dải mưa."""
+    assert (is_rain(0.2), is_heavy_rain(0.2)) == (False, False)
+    assert (is_rain(2.0), is_heavy_rain(2.0)) == (True, False)
+    assert (is_rain(6.0), is_heavy_rain(6.0)) == (True, True)
+
+
+def test_truyen_nguong_tay_cho_ca_hai_muc() -> None:
+    """Optimizer nhận ngưỡng qua tham số (CLAUDE.md §5.2) nên phải ghi đè được, mặc định giữ nguyên."""
+    assert is_rain(0.3) is False
+    assert is_rain(0.3, threshold=0.2) is True
+    assert is_heavy_rain(3.0) is False
+    assert is_heavy_rain(3.0, threshold=2.0) is True

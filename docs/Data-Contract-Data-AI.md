@@ -73,7 +73,7 @@
 |---|---|---|
 | Khóa | `zone_id`, `ts_bucket` | join key với A3 |
 | Định danh | `zone_id` (categorical) | |
-| Thời gian | `hour_of_day`, `day_of_week`, `peak_flag`, `holiday_flag` | derive từ `ts_bucket`, KHÔNG dùng raw timestamp |
+| Thời gian | `hour_of_day`, `bucket_in_hour`, `day_of_week`, `peak_flag`, `holiday_flag` | derive từ `ts_bucket`, KHÔNG dùng raw timestamp. `bucket_in_hour = minute(ts_bucket) // 5` để model phân biệt đầu/cuối giờ khi dự báo `t0+15` |
 | Lịch sử demand | `demand_observed_lag_0` … `demand_observed_lag_6` | 7 cột, lookback N=6 bước (30 phút) — đã chốt |
 | Lịch sử supply | `idle_supply_lag_0` … `idle_supply_lag_6` | 7 cột |
 | Rolling | `demand_roll_mean_30`, `demand_roll_std_30`, `supply_roll_mean_30`, `supply_roll_std_30` | window 30 phút |

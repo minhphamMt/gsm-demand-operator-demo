@@ -326,12 +326,12 @@ Ba bộ còn thiếu (A2/A3/A4) đều là **đầu ra của T1/T2**, không ph�
 
 **Ranh giới thực thi đã chốt (§4.1):** role Data giao A2/A3 **hoàn chỉnh**, gồm cả các cột lag/rolling. Role AI bắt đầu từ việc đọc Parquet và train, **không tự bù cột lag/rolling còn thiếu**.
 
-### 3.1. A2 — feature store (26 cột, §5.2 + `docs/feature_dictionary.md`)
+### 3.1. A2 — feature store (36 feature, §5.2 + `docs/feature_dictionary.md`)
 
 | Nhóm | Cột | Bắt buộc |
 |---|---|---|
 | Khóa | `zone_id`, `ts_bucket` | ✅ |
-| Thời gian | `hour_of_day`, `day_of_week` — derive từ `ts_bucket`, **KHÔNG dùng raw timestamp** | ✅ |
+| Thời gian | `hour_of_day`, `bucket_in_hour`, `day_of_week` — derive từ `ts_bucket`, **KHÔNG dùng raw timestamp**. `bucket_in_hour = minute(ts_bucket) // 5` | ✅ |
 | Lag cầu | `demand_observed_lag_0..6` (7 cột) | ✅ |
 | Lag cung | `idle_supply_lag_0..6` (7 cột) | ✅ |
 | Rolling 30' | `demand_roll_mean_30`, `demand_roll_std_30`, `supply_roll_mean_30`, `supply_roll_std_30` | ✅ |

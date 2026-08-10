@@ -9,6 +9,8 @@ Phạm vi hiện tại:
     T0.1        không chép cứng 19 ngưỡng của policy.yaml       (CLAUDE.md §5.2)
     T0.2 AC #3  chỉ src/common/regime.py được gắn nhãn regime
     T0.3 AC #1  src/simulation/metrics.py không nhiễm tham số
+    T3   AC #7  giá trị tốc độ xe chỉ đến từ policy, không chép lại ở đâu
+    T3   AC #1  không OR-Tools, không min-cost flow (§7.1 #1)
 Sẽ thêm ở T4: simulator.py phải import metrics.py, không cài lại công thức
 (docs/design/ARCHITECTURE.md §6.3).
 """
@@ -16,7 +18,7 @@ Sẽ thêm ở T4: simulator.py phải import metrics.py, không cài lại côn
 import re
 from pathlib import Path
 
-from src.common.policy import REQUIRED_RULE_KEYS
+from src.common.policy import DEFAULT_POLICY_PATH, REQUIRED_RULE_KEYS, get_policy
 from src.config import PROJECT_ROOT
 
 SRC_DIR = PROJECT_ROOT / "src"
@@ -36,6 +38,17 @@ REGIME_CONDITION = re.compile(r"\b(rain_mm_h|rain_forecast_\d+|peak_flag)\s*(==|
 
 # T0.3 AC #1 — bốn dấu hiệu nhiễm tham số, so khớp không phân biệt hoa thường.
 METRICS_FORBIDDEN_WORDS = ("policy", "yaml", "forecasting", "lgbm")
+
+# T3 AC #7 — mọi cách gán một con số cho định danh mang nghĩa "tốc độ".
+SPEED_LITERAL_ASSIGN = re.compile(r"\b\w*(?:speed|kmh|km_h|velocity)\w*\b\s*(?::[^=]+)?=\s*[-.\d]")
+
+# T3 AC #1 — §7.1 #1 cắt hẳn min-cost flow và OR-Tools khỏi MVP. Bắt IMPORT và LỜI GỌI chứ
+# không bắt chuỗi ký tự: docstring của greedy.py phải nói được "OR-Tools đã bị cắt" mà không
+# tự vi phạm luật do chính nó giải thích.
+OPTIMIZER_FORBIDDEN_CALL = re.compile(
+    r"^\s*(?:from|import)\s+\S*(?:ortools|networkx|pulp|cvxpy|csgraph)"
+    r"|\b(?:min_cost_flow|max_flow_min_cost|linear_sum_assignment|min_weight_full_bipartite_matching)\s*\("
+)
 
 
 def _src_files() -> list[Path]:
@@ -116,6 +129,64 @@ def test_metrics_khong_nhiem_tham_so() -> None:
     lowered = METRICS_FILE.read_text(encoding="utf-8").lower()
     offenders = [word for word in METRICS_FORBIDDEN_WORDS if word in lowered]
     assert offenders == [], f"metrics.py bị nhiễm tham số: {offenders}"
+
+
+def test_gia_tri_toc_do_xe_khong_xuat_hien_o_dau_trong_src() -> None:
+    """T3 AC #7 — `avg_vehicle_speed_kmh` chỉ có một giá trị, và nó nằm ở config/policy.yaml.
+
+    Ba nơi dùng tốc độ này — Optimizer (§5.4), Generator/Simulator (§5.5) và Activation Engine
+    (§5.11) — phải cùng một con số, nếu không thì `eta_steps` của plan và thời điểm xe thực sự
+    tới trong Simulator lệch nhau, và mọi so sánh before/after nói về hai thế giới khác nhau.
+    Cách duy nhất chắc chắn không lệch là con số không tồn tại trong `src/` dưới bất kỳ dạng
+    hằng nào.
+
+    Quét cả comment và docstring: một chú thích "mặc định 25 km/h" hôm nay đúng, nhưng nó sẽ ở
+    lại nguyên vẹn sau lần đầu tiên ai đó đổi giá trị trong policy.yaml.
+    """
+    speed = get_policy(DEFAULT_POLICY_PATH).rules.avg_vehicle_speed_kmh
+    forms = sorted({f"{speed:g}", f"{speed}"}, key=len, reverse=True)
+    literal = re.compile(r"(?<![\w.])(?:" + "|".join(re.escape(form) for form in forms) + r")(?![\w.])")
+
+    offenders = [
+        f"{_rel(path)}:{lineno}: {line.strip()}"
+        for path in _src_files()
+        if _rel(path) not in YAML_READER_ALLOWLIST
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1)
+        if literal.search(line)
+    ]
+    assert offenders == [], f"Tốc độ xe ({speed}) chỉ được đến từ policy.yaml qua policy.py. Vi phạm: {offenders}"
+
+
+def test_khong_gan_hang_so_cho_bat_ky_dinh_danh_toc_do_nao() -> None:
+    """T3 AC #7, vế thứ hai — bắt cả cách né bằng cách đổi tên biến.
+
+    Test trên khoá đúng con số đang dùng; test này khoá dạng viết. Đặt `speed_kmh = 30.0` ở
+    một module khác vẫn tạo ra hai giá trị tốc độ trong hệ thống dù không trùng số nào.
+    """
+    offenders = [
+        f"{_rel(path)}:{lineno}: {line.strip()}"
+        for path in _src_files()
+        if _rel(path) not in YAML_READER_ALLOWLIST
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1)
+        if SPEED_LITERAL_ASSIGN.search(line)
+    ]
+    assert offenders == [], f"Tốc độ phải nhận qua tham số từ policy, không gán hằng. Vi phạm: {offenders}"
+
+
+def test_optimizer_khong_dung_or_tools_hay_min_cost_flow() -> None:
+    """T3 AC #1 — §7.1 #1 cắt hẳn hai hướng này để đổi lấy thời gian làm Khối C.
+
+    Kiểm bằng test tĩnh chứ không bằng requirements.txt: một `from scipy.sparse.csgraph import
+    min_weight_full_bipartite_matching` không thêm dependency mới nào mà vẫn thay đổi bản chất
+    thuật toán, và khi đó "greedy theo severity" trong báo cáo không còn mô tả đúng code.
+    """
+    offenders = [
+        f"{_rel(path)}:{lineno}: {line.strip()}"
+        for path in _src_files()
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1)
+        if OPTIMIZER_FORBIDDEN_CALL.search(line)
+    ]
+    assert offenders == [], f"MVP dùng greedy theo severity (§7.1 #1). Vi phạm: {offenders}"
 
 
 def test_common_khong_import_nguoc_len_tang_tren() -> None:

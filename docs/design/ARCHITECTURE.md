@@ -172,7 +172,7 @@ Một hàm `simulate()` duy nhất với tham số `include_activation: bool` �
 | — Scenario loader | `src/replay/scenario.py` | tên kịch bản (`normal`/`rain_peak_1700`/`holiday`) | reset timeline + **xóa hàng đợi offer + reset driver_registry** | §5.10 | W5 |
 | — Snapshot store | `src/replay/store.py` | Parquet | random-access theo index thời gian | §5.1 | W1 |
 | **Model 1 Forecasting** | `src/forecasting/lgbm_quantile.py` | A2 feature + A3 label | Forecast §4.2 (p10/p50/p90 **cả demand và supply**) | §5.2 | W2–W3 |
-| — Feature builder | `src/forecasting/features.py` | A1 → A2 | 26 feature theo `docs/feature_dictionary.md` | §5.2 | W2 |
+| — Feature builder | `src/forecasting/features.py` | A1 → A2 | 36 feature theo `docs/feature_dictionary.md` | §5.2 | W2 |
 | — Baseline hist-avg | `src/forecasting/baseline_hist_avg.py` | phần **train** của A3 | bảng tra `zone × hour × dow` | §5.14.2 | W1 |
 | — Mock forecast | `src/forecasting/mock.py` | snapshot | Forecast §4.2 hợp lệ | §5.14.2, C-06 | W1 |
 
@@ -501,7 +501,7 @@ src/
     scenario.py               §5.10 · reset gồm xóa offer queue + driver_registry
     store.py                  Parquet random-access
   forecasting/
-    features.py               A1 → A2, 26 feature
+    features.py               A1 → A2, 36 feature
     baseline_hist_avg.py      §5.14.2 · mock Model 1 · chỉ đọc split train
     lgbm_quantile.py          §5.2 · p10/p50/p90 demand + supply
     mock.py                   C-06

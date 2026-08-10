@@ -50,10 +50,25 @@ def rain_threshold(policy_path: Path = DEFAULT_POLICY_PATH) -> float:
     return get_policy(policy_path).derived.rain_threshold_mm_h
 
 
-def is_heavy_rain(rain_mm_h: float, policy_path: Path = DEFAULT_POLICY_PATH) -> bool:
+def is_rain(rain_mm_h: float, policy_path: Path = DEFAULT_POLICY_PATH, *, threshold: float | None = None) -> bool:
+    """Có mưa hay không — CÙNG ngưỡng `tag_regime` dùng để tách `rain`/`rain_peak`.
+
+    Tồn tại vì Optimizer (§5.4) cần phân biệt "không mưa / mưa vừa / mưa to" để chọn hệ số
+    kéo dài thời gian di chuyển, mà so sánh `rain_mm_h` trực tiếp ở module khác là điều test
+    tĩnh tests/test_architecture.py chặn. Không có hàm này thì mỗi nơi lại tự viết một phép so.
+
+    `threshold` truyền tay để module nhận ngưỡng qua tham số (CLAUDE.md §5.2) và để kiểm biên;
+    không phải cửa sau để mỗi nơi chọn một ngưỡng khác.
+    """
+    limit = threshold if threshold is not None else rain_threshold(policy_path)
+    return rain_mm_h >= limit
+
+
+def is_heavy_rain(rain_mm_h: float, policy_path: Path = DEFAULT_POLICY_PATH, *, threshold: float | None = None) -> bool:
     """Mưa to theo `derived.heavy_rain_mm_h` — dùng cho hệ số di chuyển (§5.4), KHÔNG đổi nhãn regime.
 
     Tách riêng khỏi tag_regime vì spec chỉ có 4 regime; gộp "mưa to" vào sẽ thành 6 regime
     và mọi bảng KPI đã chốt phải làm lại.
     """
-    return rain_mm_h >= get_policy(policy_path).derived.heavy_rain_mm_h
+    limit = threshold if threshold is not None else get_policy(policy_path).derived.heavy_rain_mm_h
+    return rain_mm_h >= limit
