@@ -21,9 +21,9 @@ export function ZoneDetailsDialog({ forecastMinutes, onClose, zone }: ZoneDetail
       {zone && <div className="space-y-4">
         <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 p-4 text-white">
           <div className="flex items-start justify-between gap-3"><div><p className="flex items-center gap-1.5 text-xs font-semibold text-white/80"><MapPin className="size-3.5" />{timeLabel}</p><p className="mt-1 text-xl font-bold">{zone.label}</p></div><span className="rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold">{zone.confidence === null ? 'Chưa có độ tin cậy' : `Tin cậy ${zone.confidence}%`}</span></div>
-          <p className="mt-3 text-xs text-white/75">{zone.zoneCode ?? zone.h3Index} · {zone.sourceCellCount ?? 0} ô H3 nguồn</p>
+          <p className="mt-3 text-xs text-white/75">{zone.zoneCode} · zone_id {zone.aiZoneId}</p>
         </div>
-        {zone.dataStatus === 'no_live_cells' && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Zone đã có trong DB và đồng bộ với AI, nhưng pipeline chưa nạp ô H3/snapshot live cho khu vực này. Các giá trị cung–cầu chưa được xem là dữ liệu vận hành.</div>}
+        {zone.dataStatus === 'missing' && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Zone đã được tạo trong DB nhưng chưa có observation live. AI sẽ không chạy cho đến khi đủ dữ liệu thật của cả 30 zone.</div>}
         <dl className="grid grid-cols-3 gap-2.5">
           <Metric label="Xe sẵn sàng" value={formatNumber(zone.supply)} />
           <Metric label="Nhu cầu" value={formatNumber(zone.demand)} />

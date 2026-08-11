@@ -1,5 +1,4 @@
--- Bridge the AI branch's district-level zone contract (zone_id 1..30) to the
--- H3 cells consumed by the operator web application.
+-- Canonical AI zone contract (zone_id 1..30) shared by DB, inference and web.
 begin;
 
 create table if not exists public.ai_zone_registry (
@@ -48,30 +47,6 @@ on conflict (zone_id) do update set
   center_lat = excluded.center_lat,
   center_lng = excluded.center_lng;
 
-alter table public.h3_cells
-  add column if not exists ai_zone_id smallint references public.ai_zone_registry(zone_id);
-
--- District names already stored by the map are the safest deterministic bridge.
--- More than one H3 cell may belong to one AI zone, so ai_zone_id is intentionally
--- indexed but not unique.
-update public.h3_cells cells
-set ai_zone_id = zones.zone_id
-from public.ai_zone_registry zones
-where cells.ai_zone_id is null
-  and lower(trim(cells.district_name)) = lower(trim(zones.zone_name));
-
-create index if not exists h3_cells_ai_zone_idx
-  on public.h3_cells (ai_zone_id) where ai_zone_id is not null;
-
-create or replace view public.h3_cells_api_v
-with (security_invoker = true)
-as
-select
-  h.*,
-  st_asgeojson(h.center_point::geometry)::jsonb as center_geojson,
-  st_asgeojson(h.boundary::geometry)::jsonb as boundary_geojson
-from public.h3_cells h;
-
 create table if not exists public.ai_zone_forecasts (
   snapshot_id bigint not null references public.supply_demand_snapshots(id) on delete cascade,
   zone_id smallint not null references public.ai_zone_registry(zone_id),
@@ -101,12 +76,9 @@ alter table public.ai_zone_registry enable row level security;
 alter table public.ai_zone_forecasts enable row level security;
 revoke all on public.ai_zone_registry, public.ai_zone_forecasts from anon, authenticated;
 grant all on public.ai_zone_registry, public.ai_zone_forecasts to service_role;
-grant select on public.h3_cells_api_v to authenticated, service_role;
 
 comment on table public.ai_zone_registry is
   'Canonical zone_id 1..30 from origin/AI config/zone_registry.json.';
-comment on column public.h3_cells.ai_zone_id is
-  'District-level AI zone owning this web H3 cell; nullable until explicitly mapped.';
 comment on table public.ai_zone_forecasts is
   'Validated Model 1 quantile output. Model 2 and the operator API read the same persisted forecast.';
 

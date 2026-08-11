@@ -1,16 +1,15 @@
-type SnapshotCellRow = {
-  available_supply?: unknown;
-  current_demand?: unknown;
-  current_supply?: unknown;
-  h3_index?: unknown;
-  predicted_demand?: unknown;
+type ZoneObservationRow = {
+  data_status?: unknown;
+  demand_observed?: unknown;
+  idle_supply?: unknown;
 }
 
-type H3CellRow = {
-  ai_zone_id?: unknown;
-  boundary_geojson?: { coordinates?: unknown } | null;
+type AiZoneRow = {
   center_geojson?: { coordinates?: unknown } | null;
-  district_name?: unknown;
+  service_area_geojson?: { coordinates?: unknown } | null;
+  zone_code?: unknown;
+  zone_id?: unknown;
+  zone_name?: unknown;
 }
 
 type AiForecastRow = {
@@ -23,59 +22,17 @@ type AiForecastRow = {
   supply_p90?: unknown;
 }
 
-type AiZoneRow = {
-  center_geojson?: { coordinates?: unknown } | null;
-  service_area_geojson?: { coordinates?: unknown } | null;
-  zone_code?: unknown;
-  zone_id?: unknown;
-  zone_name?: unknown;
-}
-
 const numeric = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0
-
-export function mapSnapshotZone(
-  cell: SnapshotCellRow,
-  h3?: H3CellRow,
-  forecasts?: { horizon15?: AiForecastRow; horizon30?: AiForecastRow },
-) {
-  const supply = numeric(cell.available_supply ?? cell.current_supply)
-  const demand = numeric(cell.current_demand)
-  const forecast15 = numeric(forecasts?.horizon15?.predicted_demand ?? cell.predicted_demand)
-  const forecast30 = numeric(forecasts?.horizon30?.predicted_demand ?? forecast15)
-  const forecastSupply15 = numeric(forecasts?.horizon15?.predicted_supply ?? supply)
-  const forecastSupply30 = numeric(forecasts?.horizon30?.predicted_supply ?? forecastSupply15)
-  const gap = Math.max(0, demand - supply)
-
-  return {
-    id: String(cell.h3_index ?? ''),
-    h3Index: String(cell.h3_index ?? ''),
-    label: String(h3?.district_name ?? cell.h3_index ?? ''),
-    center: Array.isArray(h3?.center_geojson?.coordinates) ? h3.center_geojson.coordinates : null,
-    boundary: Array.isArray(h3?.boundary_geojson?.coordinates)
-      && Array.isArray(h3.boundary_geojson.coordinates[0]) ? h3.boundary_geojson.coordinates[0] : [],
-    supply,
-    demand,
-    gap,
-    severity: severityForGap(gap),
-    confidence: forecasts?.horizon15?.confidence === null || forecasts?.horizon15?.confidence === undefined
-      ? null
-      : numeric(forecasts.horizon15.confidence) * 100,
-    forecast15,
-    forecast30,
-    forecastSupply15,
-    forecastSupply30,
-  }
-}
 
 export function mapAiZone(
   zone: AiZoneRow,
-  cells: SnapshotCellRow[],
+  observation?: ZoneObservationRow,
   forecasts?: { horizon15?: AiForecastRow; horizon30?: AiForecastRow },
 ) {
-  const supply = cells.reduce((total, cell) => total + numeric(cell.available_supply ?? cell.current_supply), 0)
-  const demand = cells.reduce((total, cell) => total + numeric(cell.current_demand), 0)
-  const cellForecast = cells.reduce((total, cell) => total + numeric(cell.predicted_demand), 0)
-  const forecast15 = numeric(forecasts?.horizon15?.predicted_demand ?? cellForecast)
+  const hasLiveData = observation?.data_status === 'live'
+  const supply = hasLiveData ? numeric(observation.idle_supply) : 0
+  const demand = hasLiveData ? numeric(observation.demand_observed) : 0
+  const forecast15 = numeric(forecasts?.horizon15?.predicted_demand ?? demand)
   const forecast30 = numeric(forecasts?.horizon30?.predicted_demand ?? forecast15)
   const forecastSupply15 = numeric(forecasts?.horizon15?.predicted_supply ?? supply)
   const forecastSupply30 = numeric(forecasts?.horizon30?.predicted_supply ?? forecastSupply15)
@@ -85,15 +42,13 @@ export function mapAiZone(
 
   return {
     id: zoneCode,
-    h3Index: zoneCode,
     aiZoneId: zoneId,
     zoneCode,
     label: String(zone.zone_name ?? zoneCode),
     center: Array.isArray(zone.center_geojson?.coordinates) ? zone.center_geojson.coordinates : null,
     boundary: Array.isArray(zone.service_area_geojson?.coordinates)
       && Array.isArray(zone.service_area_geojson.coordinates[0]) ? zone.service_area_geojson.coordinates[0] : [],
-    sourceCellCount: cells.length,
-    dataStatus: cells.length ? 'live' : 'no_live_cells',
+    dataStatus: hasLiveData ? 'live' : 'missing',
     supply,
     demand,
     gap,

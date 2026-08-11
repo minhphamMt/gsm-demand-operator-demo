@@ -15,6 +15,7 @@ import type { AuditFilters, DemoScenario, OperationsReportFilters, OperatorDataA
 import { AppError, requestJson } from '@/shared/api/client'
 
 const body = (value: unknown) => JSON.stringify(value)
+const aiZoneNumber = (value: string) => Number(value.replace(/^AI-Z/i, ''))
 const auditSearch = (filters: AuditFilters) => {
   const search = new URLSearchParams({ page: String(filters.page), pageSize: String(filters.pageSize) })
   for (const [key, value] of Object.entries(filters)) if (key !== 'page' && key !== 'pageSize' && value) search.set(key, String(value))
@@ -71,8 +72,8 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
     const moves = plan.moves
       .map((move) => ({
         id: move.id,
-        from_h3: request.moveSourceZoneIds[move.id] ?? move.sourceZoneId,
-        to_h3: move.targetZoneId,
+        from_zone: aiZoneNumber(request.moveSourceZoneIds[move.id] ?? move.sourceZoneId),
+        to_zone: aiZoneNumber(move.targetZoneId),
         drivers: request.moveQuantities[move.id] ?? move.quantity,
       }))
       .filter((move) => move.drivers !== 0)

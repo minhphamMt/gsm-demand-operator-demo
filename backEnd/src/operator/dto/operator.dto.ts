@@ -24,15 +24,19 @@ class RevisionMoveDto {
   @IsString()
   id?: string;
 
-  @ApiProperty({ example: '8841436963fffff' })
-  @IsString()
-  @IsNotEmpty()
-  from_h3: string;
+  @ApiProperty({ example: 6, minimum: 1, maximum: 30 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  from_zone: number;
 
-  @ApiProperty({ example: '8841436961fffff' })
-  @IsString()
-  @IsNotEmpty()
-  to_h3: string;
+  @ApiProperty({ example: 2, minimum: 1, maximum: 30 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  to_zone: number;
 
   @ApiProperty({ example: 5, minimum: 0 })
   @Type(() => Number)
@@ -67,11 +71,13 @@ export class SnapshotQueryDto {
   @MaxLength(100)
   scenarioCode?: string;
 
-  @ApiPropertyOptional({ example: '8841436963fffff', maxLength: 32 })
+  @ApiPropertyOptional({ example: 2, minimum: 1, maximum: 30 })
   @IsOptional()
-  @IsString()
-  @MaxLength(32)
-  h3Index?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  zoneId?: number;
 
   @ApiPropertyOptional({ format: 'date-time' })
   @IsOptional()
@@ -172,7 +178,7 @@ export class AuditQueryDto {
 export class ReviseProposalDto {
   @ApiProperty({
     example: {
-      moves: [{ id: 'move-1', from_h3: '8841436961fffff', to_h3: '8841436965fffff', drivers: 5 }],
+      moves: [{ id: 'move-1', from_zone: 6, to_zone: 2, drivers: 5 }],
       residual_gap: [],
     },
     type: 'object',

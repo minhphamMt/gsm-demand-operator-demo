@@ -9,9 +9,11 @@ class SnapshotKpiDto {
 }
 
 class ZoneDto {
-  @ApiProperty({ example: '8841436961fffff' }) id: string;
-  @ApiProperty({ example: '8841436961fffff' }) h3Index: string;
+  @ApiProperty({ example: 'AI-Z06' }) id: string;
+  @ApiProperty({ example: 6 }) aiZoneId: number;
+  @ApiProperty({ example: 'AI-Z06' }) zoneCode: string;
   @ApiProperty({ example: 'Cầu Giấy' }) label: string;
+  @ApiProperty({ enum: ['live', 'missing'], example: 'live' }) dataStatus: string;
   @ApiProperty({ example: [105.79, 21.03], type: [Number] }) center: number[] | null;
   @ApiProperty({ example: [[105.78, 21.02], [105.80, 21.02], [105.79, 21.04]] }) boundary: number[][];
   @ApiProperty({ example: 12 }) supply: number;
@@ -24,7 +26,7 @@ class ZoneDto {
 }
 
 class HotspotDto {
-  @ApiProperty({ example: '8841436961fffff' }) zoneId: string;
+  @ApiProperty({ example: 'AI-Z06' }) zoneId: string;
   @ApiProperty({ example: 1 }) rank: number;
   @ApiProperty({ example: 'supply_shortage' }) reason: string;
   @ApiProperty({ example: 0 }) etaMinutes: number;

@@ -32,7 +32,9 @@ export const isDriverView: Guard<DriverView> = (value): value is DriverView => i
 
 export const isSnapshot: Guard<Snapshot> = (value): value is Snapshot => isRecord(value)
   && hasString(value, 'generatedAt') && hasString(value, 'scenario') && Array.isArray(value.zones)
-  && value.zones.every((zone) => isRecord(zone) && hasString(zone, 'id') && Array.isArray(zone.center) && Array.isArray(zone.boundary))
+  && value.zones.every((zone) => isRecord(zone) && hasString(zone, 'id') && hasNumber(zone, 'aiZoneId')
+    && hasString(zone, 'zoneCode') && (zone.dataStatus === 'live' || zone.dataStatus === 'missing')
+    && Array.isArray(zone.center) && Array.isArray(zone.boundary))
   && Array.isArray(value.hotspots) && isRecord(value.kpis)
 
 export const isBaseline: Guard<Baseline> = (value): value is Baseline => isRecord(value)

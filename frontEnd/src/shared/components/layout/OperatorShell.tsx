@@ -18,7 +18,7 @@ export function OperatorShell({ notifications, onSignOut, userEmail }: { notific
         <Navigation onNavigate={() => undefined} />
         <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-white/80 bg-white/70 p-3.5 text-ink shadow-sm backdrop-blur">
           <div className="flex items-center gap-2 text-xs font-semibold"><Radio className="size-4 text-brand-500" />Hệ thống trực tuyến</div>
-          <p className="mt-1.5 text-xs leading-5 text-muted">30 vùng H3 · Đồng bộ mỗi 2 phút</p>
+          <p className="mt-1.5 text-xs leading-5 text-muted">30 AI zone · Đồng bộ mỗi 2 phút</p>
         </div>
       </aside>
       {isMobileMenuOpen && (

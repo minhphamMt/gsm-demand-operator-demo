@@ -6,12 +6,12 @@ describe('operator mappers', () => {
       id: 'p1',
       status: 'GENERATED',
       generator_type: 'RULE_BASED',
-      target_h3_indexes: ['8928308280fffff'],
+      target_zone_ids: [2],
       target_driver_count: 5,
       bonus_amount: '50000',
       fare_multiplier: '1.2',
       window_end_at: '2026-08-09T17:00:00.000Z',
-      source_plan: { moves: [{ from_h3: 'source', to_h3: 'target', drivers: 3 }] },
+      source_plan: { moves: [{ from_zone: 6, to_zone: 2, drivers: 3 }] },
       simulation_details: {
         confidence: 0.8,
         metrics_before: { gap: 12, eta_p50_min: 11 },
@@ -19,10 +19,10 @@ describe('operator mappers', () => {
       },
     });
     expect(mapped.status).toBe('Generated');
-    expect(mapped.targetZoneId).toBe('8928308280fffff');
+    expect(mapped.targetZoneId).toBe('AI-Z02');
     expect(mapped.relocationBonus).toBe(50000);
     expect(mapped.moves).toHaveLength(1);
-    expect(mapped.moves[0]).toMatchObject({ sourceZoneId: 'source', targetZoneId: 'target', quantity: 3 });
+    expect(mapped.moves[0]).toMatchObject({ sourceZoneId: 'AI-Z06', targetZoneId: 'AI-Z02', quantity: 3 });
     expect(mapped.metricsBefore).toMatchObject({ residualGap: 12, avgWaitProxy: 11 });
     expect(mapped.metrics).toMatchObject({ residualGap: 4, avgWaitProxy: 6 });
     expect(mapped.confidence).toBe(0.8);
@@ -62,12 +62,12 @@ describe('operator mappers', () => {
       },
     });
 
-    expect(mapped.targetZoneId).toBe('zone-02');
+    expect(mapped.targetZoneId).toBe('AI-Z02');
     expect(mapped.targetZoneLabel).toBe('Hoàn Kiếm');
     expect(mapped.moves[0]).toMatchObject({
-      sourceZoneId: 'zone-06',
+      sourceZoneId: 'AI-Z06',
       sourceZoneLabel: 'Cầu Giấy',
-      targetZoneId: 'zone-02',
+      targetZoneId: 'AI-Z02',
       targetZoneLabel: 'Hoàn Kiếm',
       quantity: 4,
       etaMinutes: 15,

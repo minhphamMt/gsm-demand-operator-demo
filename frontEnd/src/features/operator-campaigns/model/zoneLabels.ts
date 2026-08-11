@@ -1,9 +1,3 @@
-const zoneLabels: Readonly<Record<string, string>> = {
-  'zone-04': 'Hoàn Kiếm',
-  'zone-07': 'Tây Hồ',
-  'zone-10': 'Hoàng Mai',
-}
+import { getAiZoneLabel } from '@/features/operator-data/model/aiZoneCatalog'
 
-export function getZoneLabel(zoneId: string) {
-  return zoneLabels[zoneId] ?? zoneId
-}
+export const getZoneLabel = getAiZoneLabel

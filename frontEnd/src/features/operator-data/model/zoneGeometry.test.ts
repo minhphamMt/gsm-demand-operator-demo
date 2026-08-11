@@ -1,28 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { areNeighborCells } from 'h3-js'
 
 import { createZones, zonesToFeatureCollection } from '@/features/operator-data/model/zoneGeometry'
 
-describe('operator H3 zones', () => {
-  it('creates 30 deterministic H3 cells with closed GeoJSON polygons', () => {
+describe('canonical AI zones', () => {
+  it('creates exactly the 30 AI registry zones with closed polygons', () => {
     const zones = createZones()
     const geometry = zonesToFeatureCollection(zones)
     expect(zones).toHaveLength(30)
-    expect(new Set(zones.map((zone) => zone.h3Index)).size).toBe(30)
+    expect(zones.map((zone) => zone.aiZoneId)).toEqual(Array.from({ length: 30 }, (_, index) => index + 1))
+    expect(zones.map((zone) => zone.zoneCode)).toEqual(Array.from({ length: 30 }, (_, index) => `AI-Z${String(index + 1).padStart(2, '0')}`))
     expect(geometry.features).toHaveLength(30)
     expect(geometry.features[0]?.geometry.coordinates[0]?.at(0)).toEqual(geometry.features[0]?.geometry.coordinates[0]?.at(-1))
-  })
-
-  it('creates one connected cluster of adjacent H3 cells', () => {
-    const indexes = createZones().map((zone) => zone.h3Index)
-    const visited = new Set<string>([indexes[0] ?? ''])
-
-    while (true) {
-      const next = indexes.find((candidate) => !visited.has(candidate) && [...visited].some((cell) => areNeighborCells(cell, candidate)))
-      if (!next) break
-      visited.add(next)
-    }
-
-    expect(visited.size).toBe(indexes.length)
   })
 })

@@ -14,6 +14,7 @@ type ForecastToolbarProps = {
 const horizons = [0, 15, 30] as const
 
 export function ForecastToolbar({ ai, forecastMinutes, generatedAt, onForecastChange, zoneCount }: ForecastToolbarProps) {
+  const isLiveReady = ai?.registeredZones === 30 && ai.liveZones === 30
   const pipelineLabel = ai?.forecastMode === 'live_snapshot_baseline'
     ? 'Baseline snapshot live → Hotspot detection → Greedy optimizer'
     : ai?.modelVersion
@@ -26,7 +27,7 @@ export function ForecastToolbar({ ai, forecastMinutes, generatedAt, onForecastCh
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-teal-300"><BrainCircuit className="size-5" /></span>
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2"><h1 className="font-bold text-slate-950">Trung tâm điều phối AI · Hà Nội</h1><span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700"><Radio className="size-3" />Live</span></div>
+            <div className="flex flex-wrap items-center gap-2"><h1 className="font-bold text-slate-950">Trung tâm điều phối AI · Hà Nội</h1><span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${isLiveReady ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}><Radio className="size-3" />{isLiveReady ? 'Đủ dữ liệu' : 'Chờ dữ liệu'}</span></div>
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500"><span className="flex items-center gap-1"><CloudRain className="size-3.5" />Khu vực vận hành Hà Nội</span><span>•</span><span>{zoneCount} zone từ DB</span>{ai && <><span>•</span><span>{ai.liveZones}/{ai.registeredZones} zone có dữ liệu live</span></>}</p>
           </div>
         </div>

@@ -22,7 +22,7 @@ export function OperatorDashboard() {
 
   if (snapshot.isPending) return <DashboardSkeleton />
   if (snapshot.isError && snapshot.data === undefined) return <ErrorState onRetry={() => void snapshot.refetch()} />
-  if (!snapshot.data.zones.length) return <div className="space-y-3"><DataRefreshState hasError={snapshot.isRefetchError} isFetching={snapshot.isFetching} onRetry={() => void snapshot.refetch()} /><EmptyState title="Snapshot chưa có vùng" description="Chưa có dữ liệu H3 để hiển thị; hãy thử tải lại sau khi pipeline snapshot hoàn tất." /></div>
+  if (!snapshot.data.zones.length) return <div className="space-y-3"><DataRefreshState hasError={snapshot.isRefetchError} isFetching={snapshot.isFetching} onRetry={() => void snapshot.refetch()} /><EmptyState title="Snapshot chưa có zone" description="Chưa có 30 bản ghi AI zone cho snapshot này; hãy kiểm tra pipeline ingestion." /></div>
 
   const projectedZones = projectZonesAtMinute(snapshot.data.zones, forecastMinutes)
   const selectedZone = projectedZones.find((zone) => zone.id === selectedZoneId)

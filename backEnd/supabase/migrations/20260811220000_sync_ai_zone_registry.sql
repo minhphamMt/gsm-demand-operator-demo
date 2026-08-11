@@ -1,6 +1,5 @@
 -- Keep the database zone catalog byte-for-byte aligned with AI/config/zone_registry.json.
--- H3 cells remain optional children of a canonical AI zone; the dashboard reads this
--- registry so zones without live cells are visible as "no data", never fabricated as 0.
+-- The dashboard reads this registry directly; no H3 mapping participates in the AI path.
 begin;
 
 alter table public.ai_zone_registry
@@ -17,6 +16,164 @@ alter table public.ai_zone_registry
 alter table public.ai_zone_forecasts
   add column if not exists forecast_mode text,
   add column if not exists data_source text;
+
+alter table public.proposals add column if not exists target_zone_ids smallint[];
+alter table public.campaigns add column if not exists target_zone_ids smallint[];
+
+alter table public.proposals drop constraint if exists proposals_target_zone_ids_check;
+alter table public.proposals add constraint proposals_target_zone_ids_check check (
+  target_zone_ids is null or (
+    cardinality(target_zone_ids) > 0 and
+    target_zone_ids <@ array[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]::smallint[]
+  )
+);
+
+alter table public.campaigns drop constraint if exists campaigns_target_zone_ids_check;
+alter table public.campaigns add constraint campaigns_target_zone_ids_check check (
+  target_zone_ids is null or (
+    cardinality(target_zone_ids) > 0 and
+    target_zone_ids <@ array[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]::smallint[]
+  )
+);
+
+-- Replace the legacy revision implementation so new proposal versions preserve
+-- canonical AI zone targets and never copy target_h3_indexes.
+create or replace function public.revise_proposal(
+  p_proposal_id uuid,
+  p_actor_id uuid,
+  p_source_plan jsonb,
+  p_target_driver_count integer,
+  p_bonus_amount numeric,
+  p_fare_multiplier numeric,
+  p_note text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_current public.proposals%rowtype;
+  v_new_id uuid;
+begin
+  select * into v_current from public.proposals where id = p_proposal_id for update;
+  if not found then raise exception using errcode = 'P0002', message = 'Proposal not found'; end if;
+  if v_current.status not in ('GENERATED', 'UNDER_REVIEW') then
+    raise exception using errcode = '23514', message = 'Proposal cannot be revised in its current state';
+  end if;
+  if p_target_driver_count < 1 or p_bonus_amount < 0 or p_fare_multiplier < 1 or p_fare_multiplier > 5 then
+    raise exception using errcode = '22023', message = 'Invalid revision values';
+  end if;
+
+  insert into public.proposals (
+    hotspot_id, input_snapshot_id, root_proposal_id, parent_proposal_id, version,
+    generator_type, generator_version, status, policy_status, target_zone_ids,
+    target_geofence, source_plan, target_driver_count, offer_count,
+    window_start_at, window_end_at, bonus_amount, fare_multiplier, estimated_cost,
+    simulation_details, explanation, review_note
+  ) values (
+    v_current.hotspot_id, v_current.input_snapshot_id,
+    coalesce(v_current.root_proposal_id, v_current.id), v_current.id, coalesce(v_current.version, 1) + 1,
+    v_current.generator_type, v_current.generator_version, 'UNDER_REVIEW', v_current.policy_status,
+    v_current.target_zone_ids, v_current.target_geofence, p_source_plan,
+    p_target_driver_count, greatest(coalesce(v_current.offer_count, p_target_driver_count), p_target_driver_count),
+    v_current.window_start_at, v_current.window_end_at, p_bonus_amount, p_fare_multiplier,
+    p_target_driver_count * p_bonus_amount, v_current.simulation_details,
+    v_current.explanation, p_note
+  ) returning id into v_new_id;
+
+  update public.proposals set status = 'STALE' where id = v_current.id;
+  insert into public.audit_logs (actor_id, actor_type, entity_type, entity_id, action, before_data, after_data)
+  values (
+    p_actor_id, 'OPERATOR', 'proposal', v_new_id::text, 'Revised',
+    jsonb_build_object('proposal_id', v_current.id, 'version', v_current.version),
+    jsonb_build_object('proposal_id', v_new_id, 'version', coalesce(v_current.version, 1) + 1)
+  );
+  return v_new_id;
+end;
+$$;
+
+-- Activation derives its geometry and display name from the same AI registry.
+create or replace function public.activate_proposal(
+  p_proposal_id uuid,
+  p_actor_id uuid,
+  p_response_mode text default 'mixed',
+  p_driver_ids uuid[] default array[]::uuid[]
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_proposal public.proposals%rowtype;
+  v_campaign_id uuid;
+  v_driver_id uuid;
+  v_selected_count integer := 0;
+  v_area_name text;
+  v_geofence geography(Polygon, 4326);
+begin
+  if p_response_mode not in ('human', 'simulated', 'mixed') then
+    raise exception using errcode = '22023', message = 'Invalid response mode';
+  end if;
+  select * into v_proposal from public.proposals where id = p_proposal_id for update;
+  if not found then raise exception using errcode = 'P0002', message = 'Proposal not found'; end if;
+  if v_proposal.status <> 'APPROVED' then raise exception using errcode = '23514', message = 'Only APPROVED proposals can be activated'; end if;
+  if v_proposal.target_zone_ids is null or cardinality(v_proposal.target_zone_ids) = 0 then
+    raise exception using errcode = '23514', message = 'Proposal has no AI target zones';
+  end if;
+  if exists (select 1 from public.campaigns where proposal_id = p_proposal_id) then
+    raise exception using errcode = '23505', message = 'Proposal already has a campaign';
+  end if;
+
+  select
+    string_agg(zone_name, ', ' order by zone_id),
+    st_convexhull(st_collect(service_area::geometry))::geography
+  into v_area_name, v_geofence
+  from public.ai_zone_registry
+  where zone_id = any(v_proposal.target_zone_ids);
+
+  insert into public.campaigns (
+    proposal_id, status, target_zone_ids, geofence, navigation_target,
+    target_driver_count, batch_size, start_at, end_at, reward_cutoff_at,
+    bonus_amount, fare_multiplier, budget_limit, budget_used, created_by, display_area_name
+  ) values (
+    v_proposal.id, 'ACTIVE', v_proposal.target_zone_ids, v_geofence,
+    st_centroid(v_geofence::geometry)::geography,
+    v_proposal.target_driver_count, v_proposal.offer_count, now(),
+    coalesce(v_proposal.window_end_at, now() + interval '60 minutes'),
+    coalesce(v_proposal.window_end_at, now() + interval '60 minutes'),
+    v_proposal.bonus_amount, v_proposal.fare_multiplier,
+    greatest(coalesce(v_proposal.estimated_cost, 0), 0), 0, p_actor_id, v_area_name
+  ) returning id into v_campaign_id;
+
+  for v_driver_id in
+    select candidates.driver_id from (
+      select unnest(p_driver_ids) as driver_id where coalesce(array_length(p_driver_ids, 1), 0) > 0
+      union all
+      select ds.driver_id from public.driver_states ds
+      join public.profiles p on p.id = ds.driver_id
+      where coalesce(array_length(p_driver_ids, 1), 0) = 0
+        and ds.is_online = true and ds.operational_status = 'IDLE'
+        and p.role = 'DRIVER' and p.is_active = true
+      order by driver_id
+      limit coalesce(v_proposal.offer_count, v_proposal.target_driver_count, 0)
+    ) candidates
+  loop
+    insert into public.driver_offers (campaign_id, driver_id, batch_no, status, sent_at, expires_at)
+    values (v_campaign_id, v_driver_id, 1, 'SENT', now(), least(coalesce(v_proposal.window_end_at, now() + interval '10 minutes'), now() + interval '10 minutes'));
+    v_selected_count := v_selected_count + 1;
+  end loop;
+
+  insert into public.audit_logs (actor_id, actor_type, entity_type, entity_id, action, after_data, metadata)
+  values (
+    p_actor_id, 'OPERATOR', 'campaign', v_campaign_id::text, 'ActivationStarted',
+    jsonb_build_object('campaign_id', v_campaign_id, 'proposal_id', p_proposal_id, 'status', 'ACTIVE'),
+    jsonb_build_object('response_mode', p_response_mode, 'offers_sent', v_selected_count, 'proposal_id', p_proposal_id)
+  );
+  return v_campaign_id;
+end;
+$$;
 
 insert into public.ai_zone_registry (
   zone_id, zone_code, zone_name, tier, center_lat, center_lng, area_km2,
@@ -77,13 +234,6 @@ set
 alter table public.ai_zone_registry alter column zone_code set not null;
 create unique index if not exists ai_zone_registry_code_uidx
   on public.ai_zone_registry (zone_code);
-
--- Rebuild the deterministic district-name bridge, including existing rows. This
--- intentionally does not invent H3 cells for the 23 zones not yet ingested.
-update public.h3_cells cells
-set ai_zone_id = zones.zone_id
-from public.ai_zone_registry zones
-where lower(trim(cells.district_name)) = lower(trim(zones.zone_name));
 
 create or replace view public.ai_zone_registry_api_v
 with (security_invoker = true)

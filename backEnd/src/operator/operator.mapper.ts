@@ -16,7 +16,7 @@ const aiZoneNames: Record<number, string> = {
 const normalizeZoneId = (value: unknown) => {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 30
-    ? `zone-${String(parsed).padStart(2, '0')}`
+    ? `AI-Z${String(parsed).padStart(2, '0')}`
     : String(value ?? '');
 };
 
@@ -69,7 +69,9 @@ export const mapProposal = (row: Row) => {
   const after = simulation.metrics_after ?? simulation.metricsAfter ?? simulation.metrics ?? {};
   const residual = Array.isArray(sourcePlan.residual_gap) ? sourcePlan.residual_gap : [];
   const derivedTargets = residual.map((item: Row) => normalizeZoneId(item.zone_id));
-  const targetZoneIds = row.target_h3_indexes?.length ? row.target_h3_indexes : derivedTargets;
+  const targetZoneIds = row.target_zone_ids?.length
+    ? row.target_zone_ids.map(normalizeZoneId)
+    : derivedTargets;
   const rawWarnings = Array.isArray(simulation.warnings)
     ? simulation.warnings
     : Array.isArray(sourcePlan.warnings) ? sourcePlan.warnings : [];
@@ -103,12 +105,12 @@ export const mapProposal = (row: Row) => {
       : [],
     moves: rawMoves.map((move: Row, index: number) => ({
       id: move.id ?? `${row.id}-move-${index + 1}`,
-      sourceZoneId: normalizeZoneId(move.from_h3 ?? move.from_zone ?? move.sourceZoneId),
-      sourceZoneLabel: zoneLabel(move.from_zone, move.source_zone_label ?? move.from_h3),
-      targetZoneId: normalizeZoneId(move.to_h3 ?? move.to_zone ?? move.targetZoneId ?? targetZoneIds[0]),
+      sourceZoneId: normalizeZoneId(move.from_zone ?? move.sourceZoneId),
+      sourceZoneLabel: zoneLabel(move.from_zone, move.source_zone_label),
+      targetZoneId: normalizeZoneId(move.to_zone ?? move.targetZoneId ?? targetZoneIds[0]),
       targetZoneLabel: move.to_zone !== undefined
-        ? zoneLabel(move.to_zone, move.target_zone_label ?? move.to_h3)
-        : String(move.target_zone_label ?? move.to_h3 ?? targetZoneIds[0] ?? ''),
+        ? zoneLabel(move.to_zone, move.target_zone_label)
+        : String(move.target_zone_label ?? targetZoneIds[0] ?? ''),
       quantity: number(move.drivers ?? move.units_to_move ?? move.quantity),
       distanceKm: number(move.estimated_distance_km ?? move.distance_km ?? move.distanceKm),
       etaMinutes: number(move.eta_minutes ?? move.etaMinutes ?? number(move.eta_steps) * 5),
@@ -154,8 +156,8 @@ export const mapOffer = (row: Row) => ({
   id: row.id,
   campaignId: row.campaign_id,
   driverId: row.driver_id,
-  targetZoneId: row.campaigns?.target_h3_indexes?.[0] ?? null,
-  targetZoneIds: row.campaigns?.target_h3_indexes ?? [],
+  targetZoneId: row.campaigns?.target_zone_ids?.length ? normalizeZoneId(row.campaigns.target_zone_ids[0]) : null,
+  targetZoneIds: row.campaigns?.target_zone_ids?.map(normalizeZoneId) ?? [],
   reasonText: row.campaigns?.display_area_name
     ? `Điều phối tới ${row.campaigns.display_area_name}`
     : 'Điều phối tới vùng thiếu cung',
@@ -194,8 +196,8 @@ export const mapCampaign = (row: Row, offers: Row[], participations: Row[], trip
     planId: row.proposal_id,
     status: campaignStatus[row.status] ?? row.status,
     databaseStatus: row.status,
-    targetZoneId: row.target_h3_indexes?.[0] ?? null,
-    targetZoneIds: row.target_h3_indexes ?? [],
+    targetZoneId: row.target_zone_ids?.length ? normalizeZoneId(row.target_zone_ids[0]) : null,
+    targetZoneIds: row.target_zone_ids?.map(normalizeZoneId) ?? [],
     candidateCount: campaignOffers.length,
     offersSent: campaignOffers.filter((item) => item.sent_at).length,
     viewed: campaignOffers.filter((item) => item.viewed_at).length,
