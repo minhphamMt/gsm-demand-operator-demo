@@ -25,14 +25,14 @@ describe('mock proposal review engine', () => {
       zoneTripBonus: 30_000,
       fareMultiplier: 1.2,
       budgetLimit: 500_000,
-      note: 'Kiá»ƒm tra trÆ°á»ng há»£p ngÃ¢n sÃ¡ch khÃ´ng Ä‘áº¡t',
+      note: 'Kiểm tra trường hợp ngân sách không đạt',
     })
 
     expect(revised.status).toBe('Revised')
     expect(revised.version).toBe(2)
     expect(revised.metrics.residualGap).toBeGreaterThan(plan.metrics.residualGap)
     expect(revised.policyChecks.find((check) => check.id === 'POL-BUDGET')?.passed).toBe(false)
-    expect(revised.explanation.at(-1)).toContain('Kiá»ƒm tra trÆ°á»ng há»£p ngÃ¢n sÃ¡ch khÃ´ng Ä‘áº¡t')
+    expect(revised.explanation.at(-1)).toContain('Kiểm tra trường hợp ngân sách không đạt')
   })
 
   it('blocks a revision that drains one source through multiple moves', () => {
@@ -46,7 +46,7 @@ describe('mock proposal review engine', () => {
       zoneTripBonus: plan.zoneTripBonus,
       fareMultiplier: plan.fareMultiplier,
       budgetLimit: plan.budgetLimit,
-      note: 'Dá»“n hai lá»‡nh vÃ o cÃ¹ng vÃ¹ng nguá»“n',
+      note: 'Dồn hai lệnh vào cùng vùng nguồn',
     })
 
     expect(revised.policyChecks.find((check) => check.id === 'POL-SOURCE')?.passed).toBe(false)
