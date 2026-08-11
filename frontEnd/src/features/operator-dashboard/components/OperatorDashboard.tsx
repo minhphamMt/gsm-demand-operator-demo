@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useState } from 'react'
 
-import { plansQuery, snapshotQuery } from '@/features/operator-data'
+import { plansQuery, snapshotQuery, useOperatorActions } from '@/features/operator-data'
 import { AiDecisionPanel } from '@/features/operator-dashboard/components/AiDecisionPanel'
 import { ForecastToolbar } from '@/features/operator-dashboard/components/ForecastToolbar'
 import { SnapshotStaleAlert } from '@/features/operator-dashboard/components/SnapshotStaleAlert'
@@ -18,6 +18,7 @@ export function OperatorDashboard() {
   const [forecastMinutes, setForecastMinutes] = useState(0)
   const snapshot = useQuery(snapshotQuery('baseline'))
   const plans = useQuery(plansQuery())
+  const actions = useOperatorActions()
 
   if (snapshot.isPending) return <DashboardSkeleton />
   if (snapshot.isError && snapshot.data === undefined) return <ErrorState onRetry={() => void snapshot.refetch()} />
@@ -34,7 +35,13 @@ export function OperatorDashboard() {
     <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_250px_350px]">
       <section className="min-h-[520px] overflow-hidden rounded-panel border border-slate-200 bg-white shadow-panel lg:min-h-0"><Suspense fallback={<Skeleton className="h-full" />}><OperatorMap forecastMinutes={forecastMinutes} zones={projectedZones} selectedZoneId={selectedZoneId} onZoneSelect={setSelectedZoneId} /></Suspense></section>
       <div className="hidden min-h-0 xl:block"><ZoneWatchlist zones={projectedZones} selectedZoneId={selectedZoneId} onSelect={setSelectedZoneId} /></div>
-      <AiDecisionPanel isLoading={plans.isPending} plan={aiPlan} />
+      <AiDecisionPanel
+        generationError={actions.generateAiDecision.error?.message}
+        isGenerating={actions.generateAiDecision.isPending}
+        isLoading={plans.isPending}
+        onGenerate={() => actions.generateAiDecision.mutate(forecastMinutes === 30 ? 30 : 15)}
+        plan={aiPlan}
+      />
     </div>
     <ZoneDetailsDialog forecastMinutes={forecastMinutes} zone={selectedZone} onClose={() => setSelectedZoneId(undefined)} />
   </div>

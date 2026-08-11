@@ -73,6 +73,7 @@ const mockOperationsReport = (filters: OperationsReportFilters): OperationsRepor
 }
 
 export const mockOperatorAdapter: OperatorDataAdapter = {
+  generateAiDecision: async () => undefined,
   getSnapshot: (comparison, demoScenarioId = state.scenarioId, replayIndex = 0) => requestLocal(() => {
     const scenario = scenarios.find((item) => item.id === demoScenarioId) ?? scenarios[0]!
     const gain = state.campaigns.reduce((sum, campaign) => sum + campaign.unitsGained, 0)

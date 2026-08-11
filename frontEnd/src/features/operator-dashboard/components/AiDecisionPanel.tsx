@@ -1,4 +1,4 @@
-import { ArrowRight, Bot, CheckCircle2, CircleAlert, Route, Sparkles } from 'lucide-react'
+import { ArrowRight, Bot, CheckCircle2, CircleAlert, LoaderCircle, RefreshCw, Route, Sparkles } from 'lucide-react'
 import { Link } from 'react-router'
 
 import type { Proposal } from '@/features/operator-data'
@@ -7,12 +7,15 @@ import { formatCurrency } from '@/shared/lib/format'
 
 type AiDecisionPanelProps = {
   isLoading: boolean
+  generationError?: string | undefined
+  isGenerating: boolean
+  onGenerate: () => void
   plan?: Proposal | undefined
 }
 
 const stages = ['Quan sát', 'Dự báo', 'Đề xuất', 'Phê duyệt'] as const
 
-export function AiDecisionPanel({ isLoading, plan }: AiDecisionPanelProps) {
+export function AiDecisionPanel({ generationError, isGenerating, isLoading, onGenerate, plan }: AiDecisionPanelProps) {
   const movedUnits = plan?.moves.reduce((sum, move) => sum + move.quantity, 0) ?? 0
   const gapReduction = plan ? Math.max(0, plan.metricsBefore.residualGap - plan.metrics.residualGap) : 0
 
@@ -24,7 +27,7 @@ export function AiDecisionPanel({ isLoading, plan }: AiDecisionPanelProps) {
             <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-teal-300"><Sparkles className="size-3.5" />AI decision engine</p>
             <h2 className="mt-2 text-xl font-bold">Đề xuất điều phối</h2>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-300"><span className="size-1.5 rounded-full bg-emerald-400" />Sẵn sàng</span>
+          <button className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-400/20 disabled:opacity-50" disabled={isGenerating} onClick={onGenerate} type="button">{isGenerating ? <LoaderCircle className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}{isGenerating ? 'Đang chạy' : 'Chạy AI'}</button>
         </div>
         <ol className="mt-5 grid grid-cols-4 gap-1" aria-label="Tiến trình quyết định AI">
           {stages.map((stage, index) => <li className="min-w-0" key={stage}><span className={`block h-1 rounded-full ${index < 3 ? 'bg-teal-400' : 'bg-white/15'}`} /><span className={`mt-1.5 block truncate text-[9px] font-semibold ${index === 2 ? 'text-white' : 'text-slate-500'}`}>{stage}</span></li>)}
@@ -62,12 +65,13 @@ export function AiDecisionPanel({ isLoading, plan }: AiDecisionPanelProps) {
           </div>
 
           <div className="border-t border-white/10 p-4">
+            {generationError && <p className="mb-3 rounded-lg border border-rose-400/20 bg-rose-400/10 p-2 text-xs leading-5 text-rose-200" role="alert">{generationError}</p>}
             <div className="mb-3 flex items-center justify-between text-xs"><span className="text-slate-400">Ngân sách dự kiến</span><strong>{formatCurrency(plan.estimatedRewardCost)}</strong></div>
             <Link className="flex min-h-11 items-center justify-between rounded-xl bg-teal-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-teal-300" to={routes.operator.planDetail(plan.id)}><span>Xem xét & quyết định</span><ArrowRight className="size-4" /></Link>
           </div>
         </div>
       ) : (
-        <div className="grid flex-1 place-items-center p-6 text-center"><div><CircleAlert className="mx-auto size-8 text-amber-300" /><h3 className="mt-3 font-bold">Chưa có đề xuất AI</h3><p className="mt-2 text-sm leading-6 text-slate-400">Model chưa ghi proposal `AGENT` ở trạng thái chờ duyệt. Bản đồ vẫn hiển thị snapshot mới nhất.</p><Link className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-teal-300" to={routes.operator.plans}>Mở danh sách phương án <ArrowRight className="size-4" /></Link></div></div>
+        <div className="grid flex-1 place-items-center p-6 text-center"><div><CircleAlert className="mx-auto size-8 text-amber-300" /><h3 className="mt-3 font-bold">Chưa có đề xuất AI</h3><p className="mt-2 text-sm leading-6 text-slate-400">Chạy model trên snapshot Supabase mới nhất để tạo proposal.</p>{generationError && <p className="mt-3 rounded-lg bg-rose-400/10 p-2 text-xs leading-5 text-rose-200" role="alert">{generationError}</p>}<button className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl bg-teal-400 px-4 text-sm font-bold text-slate-950 disabled:opacity-50" disabled={isGenerating} onClick={onGenerate} type="button">{isGenerating ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{isGenerating ? 'Đang phân tích…' : 'Chạy AI với dữ liệu live'}</button></div></div>
       )}
     </aside>
   )

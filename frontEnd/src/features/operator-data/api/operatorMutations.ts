@@ -29,6 +29,15 @@ export function useOperatorActions() {
   }
 
   return {
+    generateAiDecision: useMutation({
+      mutationFn: (horizonMinutes: 15 | 30) => operatorAdapter.generateAiDecision(horizonMinutes),
+      onSuccess: async () => {
+        await Promise.all([
+          refreshPlans(),
+          queryClient.invalidateQueries({ queryKey: operatorQueryKeys.snapshot('baseline', 'rain-peak', 0) }),
+        ])
+      },
+    }),
     revise: useMutation({
       mutationFn: ({ planId, request }: { planId: string; request: RevisePlanRequest }) => operatorAdapter.revisePlan(planId, request),
       onError: refreshProposalConflict,

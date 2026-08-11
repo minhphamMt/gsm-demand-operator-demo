@@ -117,6 +117,7 @@ export type OperationsReport = {
 export type DriverView = { driver: DemoDriver; activeOffers: readonly Offer[]; acceptedOffers: readonly Offer[]; history: readonly Offer[] }
 
 export type OperatorDataAdapter = {
+  generateAiDecision: (horizonMinutes: 15 | 30) => Promise<void>
   getSnapshot: (scenario: Scenario, demoScenarioId?: DemoScenarioId, replayIndex?: number) => Promise<Snapshot>
   listScenarios: () => Promise<readonly DemoScenario[]>
   getBaselines: () => Promise<readonly Baseline[]>

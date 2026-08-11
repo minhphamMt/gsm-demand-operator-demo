@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { AuthModule } from './auth/auth.module';
+import { AiModule } from './ai/ai.module';
 import { HealthModule } from './health/health.module';
 import { OperatorModule } from './operator/operator.module';
 import { SupabaseModule } from './supabase/supabase.module';
@@ -14,6 +15,7 @@ import { SupabaseModule } from './supabase/supabase.module';
       { name: 'sensitive', ttl: 60_000, limit: 10, blockDuration: 60_000 },
     ]),
     SupabaseModule,
+    AiModule,
     AuthModule,
     HealthModule,
     OperatorModule,
