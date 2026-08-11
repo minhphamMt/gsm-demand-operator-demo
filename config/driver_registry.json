@@ -1,0 +1,5402 @@
+[
+  {
+    "driver_id": "DRV-0001",
+    "display_name": "Tài xế 1",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0002",
+    "display_name": "Tài xế 2",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0003",
+    "display_name": "Tài xế 3",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0004",
+    "display_name": "Tài xế 4",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0005",
+    "display_name": "Tài xế 5",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0006",
+    "display_name": "Tài xế 6",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0007",
+    "display_name": "Tài xế 7",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0008",
+    "display_name": "Tài xế 8",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0009",
+    "display_name": "Tài xế 9",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0010",
+    "display_name": "Tài xế 10",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0011",
+    "display_name": "Tài xế 11",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0012",
+    "display_name": "Tài xế 12",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0013",
+    "display_name": "Tài xế 13",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0014",
+    "display_name": "Tài xế 14",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0015",
+    "display_name": "Tài xế 15",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0016",
+    "display_name": "Tài xế 16",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0017",
+    "display_name": "Tài xế 17",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0018",
+    "display_name": "Tài xế 18",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0019",
+    "display_name": "Tài xế 19",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0020",
+    "display_name": "Tài xế 20",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0021",
+    "display_name": "Tài xế 21",
+    "home_zone": 23,
+    "current_zone": 23,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0022",
+    "display_name": "Tài xế 22",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0023",
+    "display_name": "Tài xế 23",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0024",
+    "display_name": "Tài xế 24",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0025",
+    "display_name": "Tài xế 25",
+    "home_zone": 13,
+    "current_zone": 13,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0026",
+    "display_name": "Tài xế 26",
+    "home_zone": 13,
+    "current_zone": 13,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0027",
+    "display_name": "Tài xế 27",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0028",
+    "display_name": "Tài xế 28",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0029",
+    "display_name": "Tài xế 29",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0030",
+    "display_name": "Tài xế 30",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0031",
+    "display_name": "Tài xế 31",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0032",
+    "display_name": "Tài xế 32",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0033",
+    "display_name": "Tài xế 33",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0034",
+    "display_name": "Tài xế 34",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0035",
+    "display_name": "Tài xế 35",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0036",
+    "display_name": "Tài xế 36",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0037",
+    "display_name": "Tài xế 37",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0038",
+    "display_name": "Tài xế 38",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0039",
+    "display_name": "Tài xế 39",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0040",
+    "display_name": "Tài xế 40",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0041",
+    "display_name": "Tài xế 41",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0042",
+    "display_name": "Tài xế 42",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0043",
+    "display_name": "Tài xế 43",
+    "home_zone": 13,
+    "current_zone": 13,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0044",
+    "display_name": "Tài xế 44",
+    "home_zone": 21,
+    "current_zone": 21,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0045",
+    "display_name": "Tài xế 45",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0046",
+    "display_name": "Tài xế 46",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0047",
+    "display_name": "Tài xế 47",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0048",
+    "display_name": "Tài xế 48",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0049",
+    "display_name": "Tài xế 49",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0050",
+    "display_name": "Tài xế 50",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0051",
+    "display_name": "Tài xế 51",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0052",
+    "display_name": "Tài xế 52",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0053",
+    "display_name": "Tài xế 53",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0054",
+    "display_name": "Tài xế 54",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0055",
+    "display_name": "Tài xế 55",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0056",
+    "display_name": "Tài xế 56",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0057",
+    "display_name": "Tài xế 57",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0058",
+    "display_name": "Tài xế 58",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0059",
+    "display_name": "Tài xế 59",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0060",
+    "display_name": "Tài xế 60",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0061",
+    "display_name": "Tài xế 61",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0062",
+    "display_name": "Tài xế 62",
+    "home_zone": 22,
+    "current_zone": 22,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0063",
+    "display_name": "Tài xế 63",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0064",
+    "display_name": "Tài xế 64",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0065",
+    "display_name": "Tài xế 65",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0066",
+    "display_name": "Tài xế 66",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0067",
+    "display_name": "Tài xế 67",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0068",
+    "display_name": "Tài xế 68",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0069",
+    "display_name": "Tài xế 69",
+    "home_zone": 20,
+    "current_zone": 20,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0070",
+    "display_name": "Tài xế 70",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0071",
+    "display_name": "Tài xế 71",
+    "home_zone": 29,
+    "current_zone": 29,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0072",
+    "display_name": "Tài xế 72",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0073",
+    "display_name": "Tài xế 73",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0074",
+    "display_name": "Tài xế 74",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0075",
+    "display_name": "Tài xế 75",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0076",
+    "display_name": "Tài xế 76",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0077",
+    "display_name": "Tài xế 77",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0078",
+    "display_name": "Tài xế 78",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0079",
+    "display_name": "Tài xế 79",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0080",
+    "display_name": "Tài xế 80",
+    "home_zone": 28,
+    "current_zone": 28,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0081",
+    "display_name": "Tài xế 81",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0082",
+    "display_name": "Tài xế 82",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0083",
+    "display_name": "Tài xế 83",
+    "home_zone": 19,
+    "current_zone": 19,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0084",
+    "display_name": "Tài xế 84",
+    "home_zone": 27,
+    "current_zone": 27,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0085",
+    "display_name": "Tài xế 85",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0086",
+    "display_name": "Tài xế 86",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0087",
+    "display_name": "Tài xế 87",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0088",
+    "display_name": "Tài xế 88",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0089",
+    "display_name": "Tài xế 89",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0090",
+    "display_name": "Tài xế 90",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0091",
+    "display_name": "Tài xế 91",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0092",
+    "display_name": "Tài xế 92",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0093",
+    "display_name": "Tài xế 93",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0094",
+    "display_name": "Tài xế 94",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0095",
+    "display_name": "Tài xế 95",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0096",
+    "display_name": "Tài xế 96",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0097",
+    "display_name": "Tài xế 97",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0098",
+    "display_name": "Tài xế 98",
+    "home_zone": 24,
+    "current_zone": 24,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0099",
+    "display_name": "Tài xế 99",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0100",
+    "display_name": "Tài xế 100",
+    "home_zone": 27,
+    "current_zone": 27,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0101",
+    "display_name": "Tài xế 101",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0102",
+    "display_name": "Tài xế 102",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0103",
+    "display_name": "Tài xế 103",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0104",
+    "display_name": "Tài xế 104",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0105",
+    "display_name": "Tài xế 105",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0106",
+    "display_name": "Tài xế 106",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0107",
+    "display_name": "Tài xế 107",
+    "home_zone": 22,
+    "current_zone": 22,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0108",
+    "display_name": "Tài xế 108",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0109",
+    "display_name": "Tài xế 109",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0110",
+    "display_name": "Tài xế 110",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0111",
+    "display_name": "Tài xế 111",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0112",
+    "display_name": "Tài xế 112",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0113",
+    "display_name": "Tài xế 113",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0114",
+    "display_name": "Tài xế 114",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0115",
+    "display_name": "Tài xế 115",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0116",
+    "display_name": "Tài xế 116",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0117",
+    "display_name": "Tài xế 117",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0118",
+    "display_name": "Tài xế 118",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0119",
+    "display_name": "Tài xế 119",
+    "home_zone": 25,
+    "current_zone": 25,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0120",
+    "display_name": "Tài xế 120",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0121",
+    "display_name": "Tài xế 121",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0122",
+    "display_name": "Tài xế 122",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0123",
+    "display_name": "Tài xế 123",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0124",
+    "display_name": "Tài xế 124",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0125",
+    "display_name": "Tài xế 125",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0126",
+    "display_name": "Tài xế 126",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0127",
+    "display_name": "Tài xế 127",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0128",
+    "display_name": "Tài xế 128",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0129",
+    "display_name": "Tài xế 129",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0130",
+    "display_name": "Tài xế 130",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0131",
+    "display_name": "Tài xế 131",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0132",
+    "display_name": "Tài xế 132",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0133",
+    "display_name": "Tài xế 133",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0134",
+    "display_name": "Tài xế 134",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0135",
+    "display_name": "Tài xế 135",
+    "home_zone": 26,
+    "current_zone": 26,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0136",
+    "display_name": "Tài xế 136",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0137",
+    "display_name": "Tài xế 137",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0138",
+    "display_name": "Tài xế 138",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0139",
+    "display_name": "Tài xế 139",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0140",
+    "display_name": "Tài xế 140",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0141",
+    "display_name": "Tài xế 141",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0142",
+    "display_name": "Tài xế 142",
+    "home_zone": 14,
+    "current_zone": 14,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0143",
+    "display_name": "Tài xế 143",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0144",
+    "display_name": "Tài xế 144",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0145",
+    "display_name": "Tài xế 145",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0146",
+    "display_name": "Tài xế 146",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0147",
+    "display_name": "Tài xế 147",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0148",
+    "display_name": "Tài xế 148",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0149",
+    "display_name": "Tài xế 149",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0150",
+    "display_name": "Tài xế 150",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0151",
+    "display_name": "Tài xế 151",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0152",
+    "display_name": "Tài xế 152",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0153",
+    "display_name": "Tài xế 153",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0154",
+    "display_name": "Tài xế 154",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0155",
+    "display_name": "Tài xế 155",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0156",
+    "display_name": "Tài xế 156",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0157",
+    "display_name": "Tài xế 157",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0158",
+    "display_name": "Tài xế 158",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0159",
+    "display_name": "Tài xế 159",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0160",
+    "display_name": "Tài xế 160",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0161",
+    "display_name": "Tài xế 161",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0162",
+    "display_name": "Tài xế 162",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0163",
+    "display_name": "Tài xế 163",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0164",
+    "display_name": "Tài xế 164",
+    "home_zone": 14,
+    "current_zone": 14,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0165",
+    "display_name": "Tài xế 165",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0166",
+    "display_name": "Tài xế 166",
+    "home_zone": 20,
+    "current_zone": 20,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0167",
+    "display_name": "Tài xế 167",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0168",
+    "display_name": "Tài xế 168",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0169",
+    "display_name": "Tài xế 169",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0170",
+    "display_name": "Tài xế 170",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0171",
+    "display_name": "Tài xế 171",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0172",
+    "display_name": "Tài xế 172",
+    "home_zone": 17,
+    "current_zone": 17,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0173",
+    "display_name": "Tài xế 173",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0174",
+    "display_name": "Tài xế 174",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0175",
+    "display_name": "Tài xế 175",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0176",
+    "display_name": "Tài xế 176",
+    "home_zone": 23,
+    "current_zone": 23,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0177",
+    "display_name": "Tài xế 177",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0178",
+    "display_name": "Tài xế 178",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0179",
+    "display_name": "Tài xế 179",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0180",
+    "display_name": "Tài xế 180",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0181",
+    "display_name": "Tài xế 181",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0182",
+    "display_name": "Tài xế 182",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0183",
+    "display_name": "Tài xế 183",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0184",
+    "display_name": "Tài xế 184",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0185",
+    "display_name": "Tài xế 185",
+    "home_zone": 14,
+    "current_zone": 14,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0186",
+    "display_name": "Tài xế 186",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0187",
+    "display_name": "Tài xế 187",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0188",
+    "display_name": "Tài xế 188",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0189",
+    "display_name": "Tài xế 189",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0190",
+    "display_name": "Tài xế 190",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0191",
+    "display_name": "Tài xế 191",
+    "home_zone": 15,
+    "current_zone": 15,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0192",
+    "display_name": "Tài xế 192",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0193",
+    "display_name": "Tài xế 193",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0194",
+    "display_name": "Tài xế 194",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0195",
+    "display_name": "Tài xế 195",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0196",
+    "display_name": "Tài xế 196",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0197",
+    "display_name": "Tài xế 197",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0198",
+    "display_name": "Tài xế 198",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0199",
+    "display_name": "Tài xế 199",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0200",
+    "display_name": "Tài xế 200",
+    "home_zone": 30,
+    "current_zone": 30,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0201",
+    "display_name": "Tài xế 201",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0202",
+    "display_name": "Tài xế 202",
+    "home_zone": 26,
+    "current_zone": 26,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0203",
+    "display_name": "Tài xế 203",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0204",
+    "display_name": "Tài xế 204",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0205",
+    "display_name": "Tài xế 205",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0206",
+    "display_name": "Tài xế 206",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0207",
+    "display_name": "Tài xế 207",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0208",
+    "display_name": "Tài xế 208",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0209",
+    "display_name": "Tài xế 209",
+    "home_zone": 17,
+    "current_zone": 17,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0210",
+    "display_name": "Tài xế 210",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0211",
+    "display_name": "Tài xế 211",
+    "home_zone": 27,
+    "current_zone": 27,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0212",
+    "display_name": "Tài xế 212",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0213",
+    "display_name": "Tài xế 213",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0214",
+    "display_name": "Tài xế 214",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0215",
+    "display_name": "Tài xế 215",
+    "home_zone": 18,
+    "current_zone": 18,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0216",
+    "display_name": "Tài xế 216",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0217",
+    "display_name": "Tài xế 217",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0218",
+    "display_name": "Tài xế 218",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0219",
+    "display_name": "Tài xế 219",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0220",
+    "display_name": "Tài xế 220",
+    "home_zone": 22,
+    "current_zone": 22,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0221",
+    "display_name": "Tài xế 221",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0222",
+    "display_name": "Tài xế 222",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0223",
+    "display_name": "Tài xế 223",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0224",
+    "display_name": "Tài xế 224",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0225",
+    "display_name": "Tài xế 225",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0226",
+    "display_name": "Tài xế 226",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0227",
+    "display_name": "Tài xế 227",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0228",
+    "display_name": "Tài xế 228",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0229",
+    "display_name": "Tài xế 229",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0230",
+    "display_name": "Tài xế 230",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0231",
+    "display_name": "Tài xế 231",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0232",
+    "display_name": "Tài xế 232",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0233",
+    "display_name": "Tài xế 233",
+    "home_zone": 19,
+    "current_zone": 19,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0234",
+    "display_name": "Tài xế 234",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0235",
+    "display_name": "Tài xế 235",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0236",
+    "display_name": "Tài xế 236",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0237",
+    "display_name": "Tài xế 237",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0238",
+    "display_name": "Tài xế 238",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0239",
+    "display_name": "Tài xế 239",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0240",
+    "display_name": "Tài xế 240",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0241",
+    "display_name": "Tài xế 241",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0242",
+    "display_name": "Tài xế 242",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0243",
+    "display_name": "Tài xế 243",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0244",
+    "display_name": "Tài xế 244",
+    "home_zone": 30,
+    "current_zone": 30,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0245",
+    "display_name": "Tài xế 245",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0246",
+    "display_name": "Tài xế 246",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0247",
+    "display_name": "Tài xế 247",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0248",
+    "display_name": "Tài xế 248",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0249",
+    "display_name": "Tài xế 249",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0250",
+    "display_name": "Tài xế 250",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0251",
+    "display_name": "Tài xế 251",
+    "home_zone": 18,
+    "current_zone": 18,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0252",
+    "display_name": "Tài xế 252",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0253",
+    "display_name": "Tài xế 253",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0254",
+    "display_name": "Tài xế 254",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0255",
+    "display_name": "Tài xế 255",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0256",
+    "display_name": "Tài xế 256",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0257",
+    "display_name": "Tài xế 257",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0258",
+    "display_name": "Tài xế 258",
+    "home_zone": 13,
+    "current_zone": 13,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0259",
+    "display_name": "Tài xế 259",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0260",
+    "display_name": "Tài xế 260",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0261",
+    "display_name": "Tài xế 261",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0262",
+    "display_name": "Tài xế 262",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0263",
+    "display_name": "Tài xế 263",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0264",
+    "display_name": "Tài xế 264",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0265",
+    "display_name": "Tài xế 265",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0266",
+    "display_name": "Tài xế 266",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0267",
+    "display_name": "Tài xế 267",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0268",
+    "display_name": "Tài xế 268",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0269",
+    "display_name": "Tài xế 269",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0270",
+    "display_name": "Tài xế 270",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0271",
+    "display_name": "Tài xế 271",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0272",
+    "display_name": "Tài xế 272",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0273",
+    "display_name": "Tài xế 273",
+    "home_zone": 28,
+    "current_zone": 28,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0274",
+    "display_name": "Tài xế 274",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0275",
+    "display_name": "Tài xế 275",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0276",
+    "display_name": "Tài xế 276",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0277",
+    "display_name": "Tài xế 277",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0278",
+    "display_name": "Tài xế 278",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0279",
+    "display_name": "Tài xế 279",
+    "home_zone": 22,
+    "current_zone": 22,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0280",
+    "display_name": "Tài xế 280",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0281",
+    "display_name": "Tài xế 281",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0282",
+    "display_name": "Tài xế 282",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0283",
+    "display_name": "Tài xế 283",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0284",
+    "display_name": "Tài xế 284",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0285",
+    "display_name": "Tài xế 285",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0286",
+    "display_name": "Tài xế 286",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0287",
+    "display_name": "Tài xế 287",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0288",
+    "display_name": "Tài xế 288",
+    "home_zone": 25,
+    "current_zone": 25,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0289",
+    "display_name": "Tài xế 289",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0290",
+    "display_name": "Tài xế 290",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0291",
+    "display_name": "Tài xế 291",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0292",
+    "display_name": "Tài xế 292",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0293",
+    "display_name": "Tài xế 293",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0294",
+    "display_name": "Tài xế 294",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0295",
+    "display_name": "Tài xế 295",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0296",
+    "display_name": "Tài xế 296",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0297",
+    "display_name": "Tài xế 297",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0298",
+    "display_name": "Tài xế 298",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0299",
+    "display_name": "Tài xế 299",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0300",
+    "display_name": "Tài xế 300",
+    "home_zone": 14,
+    "current_zone": 14,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0301",
+    "display_name": "Tài xế 301",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0302",
+    "display_name": "Tài xế 302",
+    "home_zone": 13,
+    "current_zone": 13,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0303",
+    "display_name": "Tài xế 303",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0304",
+    "display_name": "Tài xế 304",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0305",
+    "display_name": "Tài xế 305",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0306",
+    "display_name": "Tài xế 306",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0307",
+    "display_name": "Tài xế 307",
+    "home_zone": 29,
+    "current_zone": 29,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0308",
+    "display_name": "Tài xế 308",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0309",
+    "display_name": "Tài xế 309",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0310",
+    "display_name": "Tài xế 310",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0311",
+    "display_name": "Tài xế 311",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0312",
+    "display_name": "Tài xế 312",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0313",
+    "display_name": "Tài xế 313",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0314",
+    "display_name": "Tài xế 314",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0315",
+    "display_name": "Tài xế 315",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0316",
+    "display_name": "Tài xế 316",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0317",
+    "display_name": "Tài xế 317",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0318",
+    "display_name": "Tài xế 318",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0319",
+    "display_name": "Tài xế 319",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0320",
+    "display_name": "Tài xế 320",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0321",
+    "display_name": "Tài xế 321",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0322",
+    "display_name": "Tài xế 322",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0323",
+    "display_name": "Tài xế 323",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0324",
+    "display_name": "Tài xế 324",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0325",
+    "display_name": "Tài xế 325",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0326",
+    "display_name": "Tài xế 326",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0327",
+    "display_name": "Tài xế 327",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0328",
+    "display_name": "Tài xế 328",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0329",
+    "display_name": "Tài xế 329",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0330",
+    "display_name": "Tài xế 330",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0331",
+    "display_name": "Tài xế 331",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0332",
+    "display_name": "Tài xế 332",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0333",
+    "display_name": "Tài xế 333",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0334",
+    "display_name": "Tài xế 334",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0335",
+    "display_name": "Tài xế 335",
+    "home_zone": 30,
+    "current_zone": 30,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0336",
+    "display_name": "Tài xế 336",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0337",
+    "display_name": "Tài xế 337",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0338",
+    "display_name": "Tài xế 338",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0339",
+    "display_name": "Tài xế 339",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0340",
+    "display_name": "Tài xế 340",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0341",
+    "display_name": "Tài xế 341",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0342",
+    "display_name": "Tài xế 342",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0343",
+    "display_name": "Tài xế 343",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0344",
+    "display_name": "Tài xế 344",
+    "home_zone": 15,
+    "current_zone": 15,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0345",
+    "display_name": "Tài xế 345",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0346",
+    "display_name": "Tài xế 346",
+    "home_zone": 24,
+    "current_zone": 24,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0347",
+    "display_name": "Tài xế 347",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0348",
+    "display_name": "Tài xế 348",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0349",
+    "display_name": "Tài xế 349",
+    "home_zone": 29,
+    "current_zone": 29,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0350",
+    "display_name": "Tài xế 350",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0351",
+    "display_name": "Tài xế 351",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0352",
+    "display_name": "Tài xế 352",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0353",
+    "display_name": "Tài xế 353",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0354",
+    "display_name": "Tài xế 354",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0355",
+    "display_name": "Tài xế 355",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0356",
+    "display_name": "Tài xế 356",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0357",
+    "display_name": "Tài xế 357",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0358",
+    "display_name": "Tài xế 358",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0359",
+    "display_name": "Tài xế 359",
+    "home_zone": 19,
+    "current_zone": 19,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0360",
+    "display_name": "Tài xế 360",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0361",
+    "display_name": "Tài xế 361",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0362",
+    "display_name": "Tài xế 362",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0363",
+    "display_name": "Tài xế 363",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0364",
+    "display_name": "Tài xế 364",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0365",
+    "display_name": "Tài xế 365",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0366",
+    "display_name": "Tài xế 366",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0367",
+    "display_name": "Tài xế 367",
+    "home_zone": 29,
+    "current_zone": 29,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0368",
+    "display_name": "Tài xế 368",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0369",
+    "display_name": "Tài xế 369",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0370",
+    "display_name": "Tài xế 370",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0371",
+    "display_name": "Tài xế 371",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0372",
+    "display_name": "Tài xế 372",
+    "home_zone": 23,
+    "current_zone": 23,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0373",
+    "display_name": "Tài xế 373",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0374",
+    "display_name": "Tài xế 374",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0375",
+    "display_name": "Tài xế 375",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0376",
+    "display_name": "Tài xế 376",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0377",
+    "display_name": "Tài xế 377",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0378",
+    "display_name": "Tài xế 378",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0379",
+    "display_name": "Tài xế 379",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0380",
+    "display_name": "Tài xế 380",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0381",
+    "display_name": "Tài xế 381",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0382",
+    "display_name": "Tài xế 382",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0383",
+    "display_name": "Tài xế 383",
+    "home_zone": 16,
+    "current_zone": 16,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0384",
+    "display_name": "Tài xế 384",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0385",
+    "display_name": "Tài xế 385",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0386",
+    "display_name": "Tài xế 386",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0387",
+    "display_name": "Tài xế 387",
+    "home_zone": 13,
+    "current_zone": 13,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0388",
+    "display_name": "Tài xế 388",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0389",
+    "display_name": "Tài xế 389",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0390",
+    "display_name": "Tài xế 390",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0391",
+    "display_name": "Tài xế 391",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0392",
+    "display_name": "Tài xế 392",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0393",
+    "display_name": "Tài xế 393",
+    "home_zone": 23,
+    "current_zone": 23,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0394",
+    "display_name": "Tài xế 394",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0395",
+    "display_name": "Tài xế 395",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0396",
+    "display_name": "Tài xế 396",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0397",
+    "display_name": "Tài xế 397",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0398",
+    "display_name": "Tài xế 398",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0399",
+    "display_name": "Tài xế 399",
+    "home_zone": 23,
+    "current_zone": 23,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0400",
+    "display_name": "Tài xế 400",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0401",
+    "display_name": "Tài xế 401",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0402",
+    "display_name": "Tài xế 402",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0403",
+    "display_name": "Tài xế 403",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0404",
+    "display_name": "Tài xế 404",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0405",
+    "display_name": "Tài xế 405",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0406",
+    "display_name": "Tài xế 406",
+    "home_zone": 21,
+    "current_zone": 21,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0407",
+    "display_name": "Tài xế 407",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0408",
+    "display_name": "Tài xế 408",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0409",
+    "display_name": "Tài xế 409",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0410",
+    "display_name": "Tài xế 410",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0411",
+    "display_name": "Tài xế 411",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0412",
+    "display_name": "Tài xế 412",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0413",
+    "display_name": "Tài xế 413",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0414",
+    "display_name": "Tài xế 414",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0415",
+    "display_name": "Tài xế 415",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0416",
+    "display_name": "Tài xế 416",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0417",
+    "display_name": "Tài xế 417",
+    "home_zone": 27,
+    "current_zone": 27,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0418",
+    "display_name": "Tài xế 418",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0419",
+    "display_name": "Tài xế 419",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0420",
+    "display_name": "Tài xế 420",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0421",
+    "display_name": "Tài xế 421",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0422",
+    "display_name": "Tài xế 422",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0423",
+    "display_name": "Tài xế 423",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0424",
+    "display_name": "Tài xế 424",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0425",
+    "display_name": "Tài xế 425",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0426",
+    "display_name": "Tài xế 426",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0427",
+    "display_name": "Tài xế 427",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0428",
+    "display_name": "Tài xế 428",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0429",
+    "display_name": "Tài xế 429",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0430",
+    "display_name": "Tài xế 430",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0431",
+    "display_name": "Tài xế 431",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0432",
+    "display_name": "Tài xế 432",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0433",
+    "display_name": "Tài xế 433",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0434",
+    "display_name": "Tài xế 434",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0435",
+    "display_name": "Tài xế 435",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0436",
+    "display_name": "Tài xế 436",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0437",
+    "display_name": "Tài xế 437",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0438",
+    "display_name": "Tài xế 438",
+    "home_zone": 21,
+    "current_zone": 21,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0439",
+    "display_name": "Tài xế 439",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0440",
+    "display_name": "Tài xế 440",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0441",
+    "display_name": "Tài xế 441",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0442",
+    "display_name": "Tài xế 442",
+    "home_zone": 13,
+    "current_zone": 13,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0443",
+    "display_name": "Tài xế 443",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0444",
+    "display_name": "Tài xế 444",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0445",
+    "display_name": "Tài xế 445",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0446",
+    "display_name": "Tài xế 446",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0447",
+    "display_name": "Tài xế 447",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0448",
+    "display_name": "Tài xế 448",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0449",
+    "display_name": "Tài xế 449",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0450",
+    "display_name": "Tài xế 450",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0451",
+    "display_name": "Tài xế 451",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0452",
+    "display_name": "Tài xế 452",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0453",
+    "display_name": "Tài xế 453",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0454",
+    "display_name": "Tài xế 454",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0455",
+    "display_name": "Tài xế 455",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0456",
+    "display_name": "Tài xế 456",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0457",
+    "display_name": "Tài xế 457",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0458",
+    "display_name": "Tài xế 458",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0459",
+    "display_name": "Tài xế 459",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0460",
+    "display_name": "Tài xế 460",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0461",
+    "display_name": "Tài xế 461",
+    "home_zone": 15,
+    "current_zone": 15,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0462",
+    "display_name": "Tài xế 462",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0463",
+    "display_name": "Tài xế 463",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0464",
+    "display_name": "Tài xế 464",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0465",
+    "display_name": "Tài xế 465",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0466",
+    "display_name": "Tài xế 466",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0467",
+    "display_name": "Tài xế 467",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0468",
+    "display_name": "Tài xế 468",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0469",
+    "display_name": "Tài xế 469",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0470",
+    "display_name": "Tài xế 470",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0471",
+    "display_name": "Tài xế 471",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0472",
+    "display_name": "Tài xế 472",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0473",
+    "display_name": "Tài xế 473",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0474",
+    "display_name": "Tài xế 474",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0475",
+    "display_name": "Tài xế 475",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0476",
+    "display_name": "Tài xế 476",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0477",
+    "display_name": "Tài xế 477",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0478",
+    "display_name": "Tài xế 478",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0479",
+    "display_name": "Tài xế 479",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0480",
+    "display_name": "Tài xế 480",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0481",
+    "display_name": "Tài xế 481",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0482",
+    "display_name": "Tài xế 482",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0483",
+    "display_name": "Tài xế 483",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0484",
+    "display_name": "Tài xế 484",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0485",
+    "display_name": "Tài xế 485",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0486",
+    "display_name": "Tài xế 486",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0487",
+    "display_name": "Tài xế 487",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0488",
+    "display_name": "Tài xế 488",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0489",
+    "display_name": "Tài xế 489",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0490",
+    "display_name": "Tài xế 490",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0491",
+    "display_name": "Tài xế 491",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0492",
+    "display_name": "Tài xế 492",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0493",
+    "display_name": "Tài xế 493",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0494",
+    "display_name": "Tài xế 494",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0495",
+    "display_name": "Tài xế 495",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0496",
+    "display_name": "Tài xế 496",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0497",
+    "display_name": "Tài xế 497",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0498",
+    "display_name": "Tài xế 498",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0499",
+    "display_name": "Tài xế 499",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0500",
+    "display_name": "Tài xế 500",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0501",
+    "display_name": "Tài xế 501",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0502",
+    "display_name": "Tài xế 502",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0503",
+    "display_name": "Tài xế 503",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0504",
+    "display_name": "Tài xế 504",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0505",
+    "display_name": "Tài xế 505",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0506",
+    "display_name": "Tài xế 506",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0507",
+    "display_name": "Tài xế 507",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0508",
+    "display_name": "Tài xế 508",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0509",
+    "display_name": "Tài xế 509",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0510",
+    "display_name": "Tài xế 510",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0511",
+    "display_name": "Tài xế 511",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0512",
+    "display_name": "Tài xế 512",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0513",
+    "display_name": "Tài xế 513",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0514",
+    "display_name": "Tài xế 514",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0515",
+    "display_name": "Tài xế 515",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0516",
+    "display_name": "Tài xế 516",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0517",
+    "display_name": "Tài xế 517",
+    "home_zone": 23,
+    "current_zone": 23,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0518",
+    "display_name": "Tài xế 518",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0519",
+    "display_name": "Tài xế 519",
+    "home_zone": 22,
+    "current_zone": 22,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0520",
+    "display_name": "Tài xế 520",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0521",
+    "display_name": "Tài xế 521",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0522",
+    "display_name": "Tài xế 522",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0523",
+    "display_name": "Tài xế 523",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0524",
+    "display_name": "Tài xế 524",
+    "home_zone": 24,
+    "current_zone": 24,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0525",
+    "display_name": "Tài xế 525",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0526",
+    "display_name": "Tài xế 526",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0527",
+    "display_name": "Tài xế 527",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0528",
+    "display_name": "Tài xế 528",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0529",
+    "display_name": "Tài xế 529",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0530",
+    "display_name": "Tài xế 530",
+    "home_zone": 16,
+    "current_zone": 16,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0531",
+    "display_name": "Tài xế 531",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0532",
+    "display_name": "Tài xế 532",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0533",
+    "display_name": "Tài xế 533",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0534",
+    "display_name": "Tài xế 534",
+    "home_zone": 9,
+    "current_zone": 9,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0535",
+    "display_name": "Tài xế 535",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0536",
+    "display_name": "Tài xế 536",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0537",
+    "display_name": "Tài xế 537",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0538",
+    "display_name": "Tài xế 538",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0539",
+    "display_name": "Tài xế 539",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0540",
+    "display_name": "Tài xế 540",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0541",
+    "display_name": "Tài xế 541",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0542",
+    "display_name": "Tài xế 542",
+    "home_zone": 26,
+    "current_zone": 26,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0543",
+    "display_name": "Tài xế 543",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0544",
+    "display_name": "Tài xế 544",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0545",
+    "display_name": "Tài xế 545",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0546",
+    "display_name": "Tài xế 546",
+    "home_zone": 28,
+    "current_zone": 28,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0547",
+    "display_name": "Tài xế 547",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0548",
+    "display_name": "Tài xế 548",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0549",
+    "display_name": "Tài xế 549",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0550",
+    "display_name": "Tài xế 550",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0551",
+    "display_name": "Tài xế 551",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0552",
+    "display_name": "Tài xế 552",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0553",
+    "display_name": "Tài xế 553",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0554",
+    "display_name": "Tài xế 554",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0555",
+    "display_name": "Tài xế 555",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0556",
+    "display_name": "Tài xế 556",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0557",
+    "display_name": "Tài xế 557",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0558",
+    "display_name": "Tài xế 558",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0559",
+    "display_name": "Tài xế 559",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0560",
+    "display_name": "Tài xế 560",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0561",
+    "display_name": "Tài xế 561",
+    "home_zone": 14,
+    "current_zone": 14,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0562",
+    "display_name": "Tài xế 562",
+    "home_zone": 20,
+    "current_zone": 20,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0563",
+    "display_name": "Tài xế 563",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0564",
+    "display_name": "Tài xế 564",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0565",
+    "display_name": "Tài xế 565",
+    "home_zone": 18,
+    "current_zone": 18,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0566",
+    "display_name": "Tài xế 566",
+    "home_zone": 24,
+    "current_zone": 24,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0567",
+    "display_name": "Tài xế 567",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0568",
+    "display_name": "Tài xế 568",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0569",
+    "display_name": "Tài xế 569",
+    "home_zone": 13,
+    "current_zone": 13,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0570",
+    "display_name": "Tài xế 570",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0571",
+    "display_name": "Tài xế 571",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0572",
+    "display_name": "Tài xế 572",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0573",
+    "display_name": "Tài xế 573",
+    "home_zone": 11,
+    "current_zone": 11,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0574",
+    "display_name": "Tài xế 574",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0575",
+    "display_name": "Tài xế 575",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0576",
+    "display_name": "Tài xế 576",
+    "home_zone": 8,
+    "current_zone": 8,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0577",
+    "display_name": "Tài xế 577",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0578",
+    "display_name": "Tài xế 578",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0579",
+    "display_name": "Tài xế 579",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0580",
+    "display_name": "Tài xế 580",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0581",
+    "display_name": "Tài xế 581",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0582",
+    "display_name": "Tài xế 582",
+    "home_zone": 5,
+    "current_zone": 5,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0583",
+    "display_name": "Tài xế 583",
+    "home_zone": 15,
+    "current_zone": 15,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0584",
+    "display_name": "Tài xế 584",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0585",
+    "display_name": "Tài xế 585",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0586",
+    "display_name": "Tài xế 586",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0587",
+    "display_name": "Tài xế 587",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0588",
+    "display_name": "Tài xế 588",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0589",
+    "display_name": "Tài xế 589",
+    "home_zone": 1,
+    "current_zone": 1,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0590",
+    "display_name": "Tài xế 590",
+    "home_zone": 18,
+    "current_zone": 18,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0591",
+    "display_name": "Tài xế 591",
+    "home_zone": 6,
+    "current_zone": 6,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0592",
+    "display_name": "Tài xế 592",
+    "home_zone": 13,
+    "current_zone": 13,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0593",
+    "display_name": "Tài xế 593",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0594",
+    "display_name": "Tài xế 594",
+    "home_zone": 4,
+    "current_zone": 4,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0595",
+    "display_name": "Tài xế 595",
+    "home_zone": 2,
+    "current_zone": 2,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0596",
+    "display_name": "Tài xế 596",
+    "home_zone": 7,
+    "current_zone": 7,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0597",
+    "display_name": "Tài xế 597",
+    "home_zone": 10,
+    "current_zone": 10,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0598",
+    "display_name": "Tài xế 598",
+    "home_zone": 12,
+    "current_zone": 12,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0599",
+    "display_name": "Tài xế 599",
+    "home_zone": 3,
+    "current_zone": 3,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  },
+  {
+    "driver_id": "DRV-0600",
+    "display_name": "Tài xế 600",
+    "home_zone": 15,
+    "current_zone": 15,
+    "status": "offline",
+    "shift_end_ts": null,
+    "is_demo_account": true
+  }
+]

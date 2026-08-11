@@ -1,0 +1,54 @@
+# -*- coding: utf-8 -*-
+# config/driver_response.yaml — tham số mô phỏng phản hồi tài xế (§5.11, DATA_CONTRACT §6.2)
+#
+# ⚠️ ĐÂY LÀ GIẢ ĐỊNH THÔ, KHÔNG HỌC TỪ DỮ LIỆU THẬT (C-07).
+# Mọi con số accept rate sinh ra từ file này là simulation proxy. Bản ghi phải mang
+# `accept_rate_source: "simulated_model"`, và kết quả phải trình bày dạng phân tích độ nhạy
+# 3 mức (0.25 / 0.45 / 0.65) chứ KHÔNG phải một con số duy nhất.
+#
+# C-08: file này KHÔNG chấm điểm tài xế. Không có tham số nào phụ thuộc lịch sử nhận/từ chối
+# của cá nhân; từ chối không để lại hậu quả gì.
+#
+# p_accept = clip(base_rate
+#                 + w_incentive × (incentive_amount / incentive_max_per_offer)
+#                 − w_distance  × (distance_km / activation_radius_km)
+#                 − w_shift_end × is_near_shift_end,
+#                 clip[0], clip[1])
+
+seed: 7                          # độc lập seed synthetic (train 42 / test 2026) và nowcast (13)
+
+base_rate: 0.55                  # ASSUMPTION-22 (đã hiệu chỉnh — xem "Hiệu chỉnh" bên dưới)
+w_incentive: 0.40                # ASSUMPTION-23
+w_distance: 0.25                 # ASSUMPTION-24
+w_shift_end: 0.20                # ASSUMPTION-19
+near_shift_end_minutes: 30       # is_near_shift_end = (shift_end_ts − t) <= 30 phút
+clip: [0.05, 0.95]               # cứng theo §5.11 — KHÔNG chỉnh
+mode: "simulated"                # human | simulated | mixed (§5.11) -> accept_rate_source
+
+# ---------------------------------------------------------------------------
+# Hiệu chỉnh base_rate ↔ assumed_accept_rate  (T0.6 AC #6)
+# ---------------------------------------------------------------------------
+# `assumed_accept_rate` (policy.yaml, ASSUMPTION-16) là con số HIỂN THỊ RA UI khi preview
+# chiến dịch. `base_rate` là con số QUYẾT ĐỊNH KẾT QUẢ mô phỏng. Hai giá trị lệch nhau nghĩa
+# là preview nói một đằng, kết quả ra một nẻo — nên chúng bắt buộc phải khớp.
+#
+# Offer trung vị: incentive = 33.000đ, distance = 4.2 km, không sắp hết ca.
+#   p_accept = 0.55 + 0.40×(33000/50000) − 0.25×(4.2/5.0) − 0
+#            = 0.55 + 0.264 − 0.210
+#            = 0.604        vs assumed_accept_rate = 0.60   → lệch 0.004 ≤ 0.05 ✅
+#
+# DATA_CONTRACT §6.2 nêu hai cách đóng khoảng lệch 0.404 vs 0.600:
+#   (a) nâng base_rate lên ≈0.55           ← ĐÃ CHỌN
+#   (b) hạ assumed_accept_rate xuống 0.40
+# Chọn (a) vì `assumed_accept_rate` đang được `overbooking_factor` tham chiếu
+# (1/0.6 ≈ 1.67 → 1.6); đổi nó kéo theo phải tính lại trần ngân sách incentive, trong khi
+# `base_rate` chưa có consumer nào. PM muốn lật sang (b) thì đổi CẢ HAI cùng lúc.
+# Test chặn: tests/test_driver_registry.py::test_hieu_chinh_base_rate_khop_assumed_accept_rate
+
+# ---------------------------------------------------------------------------
+# Nợ chưa trả
+# ---------------------------------------------------------------------------
+# `w_shift_end` hiện KHÔNG có tác dụng: A6 để `shift_end_ts = null` cho toàn bộ 600 tài xế vì
+# chưa có lịch ca nào trong tài liệu, nên `is_near_shift_end` luôn false. Tham số vẫn giữ
+# nguyên trong file để công thức §5.11 đầy đủ. Cần Data/BA cấp lịch ca trước khi dùng số
+# activation nào phụ thuộc yếu tố "sắp hết ca".

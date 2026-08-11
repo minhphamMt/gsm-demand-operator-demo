@@ -1,0 +1,64 @@
+{
+  "scenario": "no_action",
+  "source_snapshot": "data/snapshots/snapshot_test.parquet",
+  "rain_threshold_mm_h": 0.5,
+  "total_steps": 60480,
+  "overall": {
+    "unmet_demand": 65027.0,
+    "avg_wait_proxy": 4.83395,
+    "est_cancel_rate": 0.249867,
+    "total_demand": 352978.0,
+    "hotspot_rate": 0.340245
+  },
+  "by_regime": [
+    {
+      "regime": "normal",
+      "n_steps": 19488,
+      "unmet_demand": 11995.0,
+      "avg_wait_proxy": 3.873713,
+      "est_cancel_rate": 0.198611,
+      "avg_gap": -0.271449,
+      "hotspot_rate": 0.375975
+    },
+    {
+      "regime": "peak",
+      "n_steps": 3344,
+      "unmet_demand": 8451.0,
+      "avg_wait_proxy": 5.382745,
+      "est_cancel_rate": 0.286383,
+      "avg_gap": 1.933313,
+      "hotspot_rate": 0.269737
+    },
+    {
+      "regime": "rain",
+      "n_steps": 30912,
+      "unmet_demand": 17352.0,
+      "avg_wait_proxy": 3.5421,
+      "est_cancel_rate": 0.179952,
+      "avg_gap": -0.76129,
+      "hotspot_rate": 0.265334
+    },
+    {
+      "regime": "rain_peak",
+      "n_steps": 6736,
+      "unmet_demand": 27229.0,
+      "avg_wait_proxy": 8.595921,
+      "est_cancel_rate": 0.448878,
+      "avg_gap": 3.831651,
+      "hotspot_rate": 0.615647
+    }
+  ],
+  "artifacts": {
+    "no_action_metrics.parquet": {
+      "rows": 60480,
+      "sha256": "1efdbb0b226cdcb7a55209ec5d9f3c80c87fa87c309d88319fe3c34e4a83b363"
+    },
+    "snapshot_test.parquet": {
+      "sha256": "e84208dc6294e90ada05ca1b1143e1638dbedae8ccad29ebea03dbfd11cbcf45"
+    },
+    "src/simulation/metrics.py": {
+      "git_blob_sha1": "82f41b85e10ec55f1938716140ec46430fca70d0"
+    }
+  },
+  "computed_at": "2026-08-08T22:57:55+07:00"
+}

@@ -5,12 +5,14 @@ Reads JSON from stdin, normalizes to common format, appends to .ai-log/session.j
 """
 import json
 import os
+import re
 import sys
 import subprocess
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 VN_TZ = timezone(timedelta(hours=7))
+CLAUDE_MODEL_RE = re.compile(r'"model"\s*:\s*"([^"]+)"')
 
 
 def git(cmd):
@@ -50,6 +52,74 @@ def detect_tool(data: dict) -> str:
     return "unknown"
 
 
+def _find_nested_model(value):
+    """Best-effort recursive model lookup across heterogenous hook payloads."""
+    if isinstance(value, dict):
+        for key in ("model", "model_name", "modelName", "assistant_model"):
+            model = value.get(key)
+            if isinstance(model, str) and model.strip():
+                return model.strip()
+        for nested in value.values():
+            model = _find_nested_model(nested)
+            if model:
+                return model
+    elif isinstance(value, list):
+        for item in value:
+            model = _find_nested_model(item)
+            if model:
+                return model
+    return ""
+
+
+def _extract_claude_model_from_session(session_id: str) -> str:
+    """Claude hooks often omit model; recover it from the local session transcript."""
+    if not session_id:
+        return ""
+
+    claude_projects = Path.home() / ".claude" / "projects"
+    if not claude_projects.exists():
+        return ""
+
+    session_files = list(claude_projects.glob(f"*\\{session_id}.jsonl"))
+    if not session_files:
+        return ""
+
+    latest_model = ""
+    for session_file in session_files:
+        try:
+            with open(session_file, encoding="utf-8") as f:
+                for line in f:
+                    if '"model"' not in line:
+                        continue
+                    match = CLAUDE_MODEL_RE.search(line)
+                    if match:
+                        latest_model = match.group(1)
+        except OSError:
+            continue
+
+    return latest_model
+
+
+def resolve_model(data: dict, tool: str) -> str:
+    """Resolve model from payload first, then tool-specific fallbacks."""
+    model = _find_nested_model(data)
+    if model:
+        return model
+
+    if tool == "claude":
+        session_id = (
+            data.get("session_id") or
+            data.get("sessionId") or
+            data.get("conversation_id") or
+            ""
+        )
+        model = _extract_claude_model_from_session(session_id)
+        if model:
+            return model
+
+    return ""
+
+
 def normalize(data: dict, tool: str) -> dict | None:
     """Normalize tool-specific payload to common log entry."""
     event = data.get("hook_event_name") or data.get("event", "")
@@ -75,7 +145,7 @@ def normalize(data: dict, tool: str) -> dict | None:
             data.get("conversation_id") or
             data.get("generation_id") or ""
         ),
-        "model": data.get("model", ""),
+        "model": resolve_model(data, tool),
         "repo": repo,
         "branch": git("git rev-parse --abbrev-ref HEAD"),
         "commit": git("git rev-parse --short HEAD"),
@@ -180,8 +250,11 @@ def main():
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-    # Output valid JSON (required by some tools like Gemini)
-    print(json.dumps({"status": "logged"}))
+    # Some tools validate hook stdout against a tool-specific schema.
+    # Gemini expects JSON, while Codex accepts a successful no-output hook
+    # when we are only doing side-effect logging.
+    if tool == "gemini":
+        print(json.dumps({"status": "logged"}))
 
 
 if __name__ == "__main__":

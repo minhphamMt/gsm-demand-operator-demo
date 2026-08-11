@@ -637,7 +637,11 @@ Danh sách tài xế mô phỏng, tương tự `zone_registry.json`. **Không ch
 
 - Synthetic generator: 30 zone, seed cố định (C-02, reproducibility); **rain injection** theo hệ số research (+0.59% ridership/mm/h; cung giảm giờ cao điểm chiều khi mưa).
 - Kho snapshot: Parquet hoặc SQLite; random-access theo index thời gian, không cần streaming thật.
-- **Nguồn dữ liệu: synthetic thuần**, tham số hóa từ research (Brodeur & Nield; Liu et al.; Kamga & Yazici) — xem lý do quyết định trong [DataBA-Decisions.md](DataBA-Decisions.md#1-nguồn-dữ-liệu).
+- **Nguồn dữ liệu (chốt tại T0.4, nợ dữ liệu D3): lai — mưa thật, phần còn lại synthetic.**
+  - `rain_mm_h` lấy từ **NASA POWER 2025** (`data/external/rain_hanoi_2025.csv`, hourly, quy đổi mm/ngày → mm/h), cắt theo cửa sổ khai ở `config/generator.yaml → rain.source_window`; upsample 1 giờ → 5 phút. Biến thiên không gian giữa 30 zone là **synthetic tất định** từ toạ độ zone (mô hình dải mưa quét qua thành phố), trung bình hệ số trên 30 zone = 1 nên tổng lượng mưa toàn thành phố vẫn đúng bằng chuỗi NASA.
+  - `demand_observed`, `idle_supply`, `enroute_supply`, `rain_forecast_15/30`, `peak_flag`, `holiday_flag`, `price_index`: **synthetic 100%**, tham số hóa từ research (Brodeur & Nield; Liu et al.; Kamga & Yazici) — xem lý do quyết định trong [DataBA-Decisions.md](DataBA-Decisions.md#1-nguồn-dữ-liệu).
+  - Vì sao dùng mưa thật thay vì sinh mưa: chuỗi mưa synthetic không tái tạo được tương quan thời gian của mưa thật (cụm mưa, thời lượng, phân bố cường độ lệch mạnh), mà đúng những đặc tính đó mới quyết định `rain_peak` xuất hiện bao nhiêu lần và kéo dài bao lâu — tức quyết định chính thước đo thành công của dự án. Không có mưa thật, số sự kiện `rain_peak` trở thành tham số ta tự chọn.
+  - Ràng buộc C-02 (reproducibility) **không đổi**: file mưa là input tĩnh nằm trong repo, cùng seed + cùng file → cùng kịch bản 100%. Không gọi API thời tiết lúc chạy (§1.5 vẫn cấm kết nối radar/API thời tiết thật).
 
 **Acceptance:** replay 1 ngày (288 step) < 5 phút toàn pipeline; cùng seed → cùng kịch bản 100%.
 
@@ -653,7 +657,7 @@ Danh sách tài xế mô phỏng, tương tự `zone_registry.json`. **Không ch
 | Feature | Ghi chú |
 |---|---|
 | `zone_id` | categorical 1–30 |
-| `hour_of_day`, `day_of_week` | derive từ `ts_bucket` — KHÔNG dùng raw timestamp |
+| `hour_of_day`, `bucket_in_hour`, `day_of_week` | derive từ `ts_bucket` — KHÔNG dùng raw timestamp. `bucket_in_hour = minute(ts_bucket) // 5`, giá trị 0..11 |
 | `demand_observed_lag_0..6`, `idle_supply_lag_0..6` | **Lookback N = 6 bước (30 phút)** — tên cột A2 đã chốt theo Data Contract |
 | `demand_roll_mean_30`, `demand_roll_std_30`, `supply_roll_mean_30`, `supply_roll_std_30` | Rolling window 30 phút |
 | `peak_flag`, `holiday_flag` | |
@@ -998,7 +1002,7 @@ Thiếu commit hash thì "khóa" là vô nghĩa: sửa công thức về sau s�
 
 | Tuần | Sprint | Khối A (Dự báo) | Khối B (Điều phối) + UI vận hành | **Khối C (Huy động) + Driver App** | Mốc / Bàn giao |
 |---|---|---|---|---|---|
-| **W1** (27/07) | S1–S2 | Synthetic generator + rain injection (nguồn đã chốt: synthetic thuần); feature store; baseline historical average | Chốt contract 4.1–4.4 + policy.yaml; mock forecast + mock plan; khung UI heatmap | — (chưa phát sinh ở thời điểm đó) | **M1** Charter; **M2** gặp đối tác (W1–W2); phỏng vấn/expert review xác minh workflow Dispatcher |
+| **W1** (27/07) | S1–S2 | Synthetic generator + rain injection (nguồn: **lai — mưa thật NASA POWER 2025 + phần còn lại synthetic**, chốt lại tại T0.4 ngày 08/08, xem §5.1); feature store; baseline historical average | Chốt contract 4.1–4.4 + policy.yaml; mock forecast + mock plan; khung UI heatmap | — (chưa phát sinh ở thời điểm đó) | **M1** Charter; **M2** gặp đối tác (W1–W2); phỏng vấn/expert review xác minh workflow Dispatcher |
 | **W2** | S3–S4 | LightGBM demand + supply + **quantile p10/p50/p90 bắt buộc** (Sprint 4), backtest walk-forward, ablation `rain×peak` | Model 2 hotspot (Sprint 4): công thức + hysteresis; khóa test set deterministic; **`metrics.py` (lõi metric) + khóa baseline no-action + `BASELINE_FREEZE.md` (5.14)** | 🔴 **Chốt contract 4.7–4.9 + 10 key policy activation + `driver_registry.json`** — phải kịp mốc khóa contract, không được để sang W3 | **M3** thiết kế giải pháp; **khóa contract + KPI target cuối W2 (I-08) — nay gồm cả contract activation** |
 | **W3** | S5–S6 | Tune model + calibration p10/p90 | Model 3 optimizer greedy (Sprint 5, benchmark ≤5s); simulator bản đầu (Sprint 6) — **import `metrics.py` của W2, kèm test hồi quy khớp baseline** | **Activation Engine lõi**: chọn ứng viên + định mức thưởng + phát hành offer (API, chưa có UI); **driver response simulator có seed** | **M4** Demo 1 — bản thử nghiệm chạy được (luồng B; luồng C demo bằng API/log) |
 | **W4** | S7–S8 | Freeze model, hỗ trợ tune ngưỡng | Simulator 3 kịch bản + Explanation; HITL revise/approve/reject (Sprint 7); audit trail (Sprint 8) | 🔴 **Driver App màn chính (Nhận/Từ chối) + vòng phản hồi đóng → re-simulate**; khối "Huy động thêm" trên UI vận hành | **M5** xử lý phản hồi Demo 1; **freeze scope cuối W4** |

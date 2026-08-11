@@ -29,7 +29,7 @@ env/
 Thumbs.db
 
 # Data (never commit large data)
-data/
+
 *.db
 *.sqlite3
 
@@ -41,6 +41,11 @@ logs/
 htmlcov/
 .coverage
 coverage.xml
+
+# Cache của công cụ
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Docker
 docker-compose.override.yml
@@ -58,3 +63,10 @@ out/
 # AI logs — tracked structure, ignored content
 .ai-log/*.jsonl
 .ai-log/archive/
+
+# Project-generated artifacts
+runs/
+eval/results/*.json
+frontend/dist/
+
+SEA

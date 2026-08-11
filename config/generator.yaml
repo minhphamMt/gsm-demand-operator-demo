@@ -1,0 +1,119 @@
+# =====================================================================
+# config/generator.yaml — Tham số synthetic generator (T-008)
+# Bám theo A1 trong Data-Contract-Data-AI.md, chi tiết ở Phần 3 checklist
+# =====================================================================
+
+seed:
+  train: 42
+  test: 2026        # seed khác train, dùng riêng cho A5 test set (freeze)
+
+time:
+  step_minutes: 5
+  steps_per_day: 288
+  days_train: 42     # 6 tuần
+  days_test: 7       # 1 tuần, freeze
+  timezone: "+07:00"
+
+demand_supply_baseline:
+  # ⚠️ tier_base_demand/supply KHÔNG được code đọc (nợ dữ liệu D6) — giữ nguyên, xử lý ngoài T0.4
+  tier_base_demand:
+    high: 18
+    medium: 10
+    low: 5
+  tier_base_supply:
+    high: 15
+    medium: 9
+    low: 6
+
+  # T0.4/D7 — peak_multiplier_demand & peak_multiplier_supply ĐÃ BỎ, thay bằng hourly_curve_*.
+  # Lý do: nhân 1.8 cho demand và 0.85 cho supply đúng vào 4 giờ cao điểm tạo ra thiếu cung
+  # mang tính hệ thống ở MỌI zone -> hotspot rate ở rain_peak bão hòa 0.99986 (AC #7 không đạt),
+  # đồng thời hour_of_day gần như vô nghĩa với Model 1 (D7).
+  noise_std_pct: 0.15           # nhiễu ngẫu nhiên +-15% quanh baseline
+
+  # Trọng số suy ra mức nền từ zone_registry. Demand và supply dùng HAI trọng số khác nhau
+  # một cách có chủ đích: nếu cả hai cùng một điểm số thì mọi zone có cùng tỷ lệ cung/cầu,
+  # không zone nào dư xe, và Optimizer không có nguồn để rút (đúng hệ quả nêu ở D4).
+  # Demand bám mật độ tòa nhà (điểm đến: văn phòng, TTTM); supply bám mật độ dân cư (nơi tài xế đỗ chờ).
+  demand_score_weights: {population: 0.40, building: 0.60}   # ASSUMPTION-35
+  supply_score_weights: {population: 0.80, building: 0.20}   # ASSUMPTION-36
+  base_demand_range: [3, 22]    # ASSUMPTION-37 — chuyến/5 phút/zone, thấp nhất -> cao nhất
+  base_supply_range: [3, 20]    # ASSUMPTION-38
+
+  # Đường cong 24 giờ (D7). Giá trị tương đối, code TỰ CHUẨN HÓA về trung bình = 1
+  # nên sửa một giờ không làm trôi tổng lượng cả ngày.
+  # Cung trễ pha và nông hơn cầu: tài xế phản ứng SAU khi nhu cầu lên, không lường trước.
+  hourly_curve_demand:          # ASSUMPTION-39
+    [0.45, 0.30, 0.22, 0.20, 0.25, 0.45, 0.80, 1.55, 1.75, 1.15, 0.90, 0.95,
+     1.10, 0.95, 0.85, 0.90, 1.10, 1.70, 1.80, 1.35, 1.10, 0.95, 0.75, 0.60]
+  hourly_curve_supply:          # ASSUMPTION-40
+    [0.55, 0.40, 0.30, 0.28, 0.35, 0.55, 0.85, 1.30, 1.50, 1.25, 1.05, 1.00,
+     1.05, 1.00, 0.95, 0.95, 1.05, 1.40, 1.55, 1.35, 1.15, 1.00, 0.80, 0.65]
+
+peak_hours:
+  - ["07:00", "09:00"]
+  - ["17:00", "19:00"]
+
+holiday_injection:
+  enabled: true
+  inject_days: 1              # inject 1 ngày lễ giả để test (mục 4.4 checklist)
+  holiday_demand_multiplier: 0.6   # nhu cầu giảm ngày lễ (giả định — đi lại giảm)
+
+rain:
+  enabled: true
+  target_rain_peak_pct: 0.30     # ~30% số ngày có sự kiện rain_peak (yêu cầu contract)
+  demand_elasticity_per_mm: 0.0059   # +0.59%/mm/h theo Liu et al. (đã chốt trong contract)
+  supply_drop_at_peak_rain_pct: 0.30 # % giảm cung khi zone ở regime rain_peak (Kamga & Yazici, chốt tại checklist mục 0.3)
+  rain_event_duration_steps_range: [6, 24]   # 1 sự kiện mưa kéo dài 30 phút - 2 giờ
+  # D11 — [2,25] là con số tưởng tượng, không khớp nguồn thật. Dải quan sát được của
+  # NASA POWER 2025 trên hai cửa sổ đang dùng: 0 -> 9.19 mm/h. Key này chỉ còn được
+  # generate_rain_series() (nhánh fallback synthetic thuần) đọc, giữ lại cho đúng thực tế.
+  rain_intensity_mm_h_range: [0.0, 9.2]
+
+  # Cửa sổ mưa thật lấy từ data/external/rain_hanoi_2025.csv. Ngày/tháng ở đây dùng chung
+  # cho cả timestamp 2026 của snapshot: rain 2025-08-14 -> ts_bucket 2026-08-14.
+  # Chọn cửa sổ theo tiêu chí CÔNG KHAI: nhiều sự kiện rain_peak nhất trong năm và train/test
+  # liền kề, không chồng lấn (train 25 sự kiện, test 10 sự kiện, đỉnh 9.19 mm/h > heavy 5.0).
+  source_window:
+    train: {start_month: 8, start_day: 14}    # 14/08 -> 24/09 (42 ngày)
+    test:  {start_month: 9, start_day: 25}    # 25/09 -> 01/10 (7 ngày)
+
+  # D4 — biến thiên mưa theo zone. Mô hình dải mưa quét qua thành phố: tại mỗi step, một
+  # nửa thành phố mưa nặng hơn nửa kia, và hướng quay chậm theo thời gian.
+  # Hoàn toàn tất định từ toạ độ zone, KHÔNG cần seed riêng.
+  #     factor(zone, t) = clip(1 + amplitude × u(zone, t), lo, hi)
+  #     u = x̂·cos θ + ŷ·sin θ,  θ = 2π · t / rotation_period_hours
+  # Trung bình factor trên 30 zone = 1 (toạ độ đã căn tâm) nên lượng mưa TOÀN THÀNH PHỐ
+  # vẫn khớp NASA; chỉ phân bố không gian thay đổi.
+  spatial:
+    enabled: true
+    amplitude: 0.55              # ASSUMPTION-41
+    rotation_period_hours: 6.0   # ASSUMPTION-42
+    factor_range: [0.30, 1.70]   # ASSUMPTION-43 — kẹp để không sinh mưa âm hay đột biến
+
+  # A-06 / DATA_CONTRACT §7 — sai số nowcast. Không thuộc policy.yaml: đây là tham số
+  # SINH dữ liệu, module runtime không được đọc.
+  nowcast:
+    sigma_rel_15: 0.20    # ASSUMPTION-28
+    sigma_abs_15: 0.20    # ASSUMPTION-29 (mm/h)
+    sigma_rel_30: 0.35    # ASSUMPTION-30
+    sigma_abs_30: 0.40    # ASSUMPTION-31 (mm/h)
+    p_miss_15: 0.05       # ASSUMPTION-32 — xác suất bỏ sót TRỌN một sự kiện mưa
+    p_miss_30: 0.10       # ASSUMPTION-33
+    seed: 13              # ASSUMPTION-34 — độc lập seed train=42 / test=2026
+
+enroute_supply:
+  avg_vehicle_speed_kmh_ref: "config/policy.yaml#rules.avg_vehicle_speed_kmh"
+  note: >
+    enroute_supply chỉ sinh ra do relocation plan (giả lập), KHÔNG mô phỏng xe tự di chuyển tự nhiên.
+    Thời gian chuyển từ enroute_supply -> idle_supply = haversine(from_zone, to_zone) / avg_vehicle_speed_kmh.
+
+price_index:
+  status: "PLACEHOLDER — chưa có công thức tính giá (2 bài toán pricing chưa được chốt spec)"
+  fallback_value: 1.0
+  note: "Giữ cột với giá trị mặc định 1.0, KHÔNG dùng làm feature Model 1/2 (đã chốt). Sẽ cập nhật công thức khi có spec pricing."
+
+output:
+  format: "parquet"
+  path_snapshots: "data/snapshots/"
+  checksum_required: true

@@ -1,0 +1,49 @@
+# =====================================================================
+# data/splits.yaml — T-012 / T0.4: Test set deterministic + Walk-forward folds
+# =====================================================================
+# [D5] Bản trước để fold ở 01–02/2026 trong khi snapshot sinh ra ở 06–07/2026 —
+# walk-forward trỏ vào dữ liệu không tồn tại. Dải dưới đây bám ĐÚNG dải ngày mà
+# generate_snapshots.py sinh ra (config/generator.yaml → rain.source_window):
+#     train  2026-08-14 .. 2026-09-24  (42 ngày, 362.880 dòng)
+#     test   2026-09-25 .. 2026-10-01  ( 7 ngày,  60.480 dòng)
+# Ngày/tháng khớp cửa sổ mưa thật NASA POWER 2025 để giữ đúng mùa vụ.
+
+data_range:
+  train_start: "2026-08-14"
+  train_end: "2026-09-24"
+  test_start: "2026-09-25"
+  test_end: "2026-10-01"
+  step_minutes: 5
+  zones: 30
+
+# Fold nằm HOÀN TOÀN trong dải train: bộ test đóng băng không được chạm tới khi tune.
+walk_forward_folds:
+  - fold: 1
+    train_start: "2026-08-14"
+    train_end: "2026-09-03"   # 3 tuần train
+    test_start: "2026-09-04"
+    test_end: "2026-09-10"    # 1 tuần test
+  - fold: 2
+    train_start: "2026-08-14"
+    train_end: "2026-09-10"   # 4 tuần train
+    test_start: "2026-09-11"
+    test_end: "2026-09-17"
+  - fold: 3
+    train_start: "2026-08-14"
+    train_end: "2026-09-17"   # 5 tuần train
+    test_start: "2026-09-18"
+    test_end: "2026-09-24"
+note: "Trượt theo thời gian, KHÔNG shuffle. Dùng cho tune trong lúc train."
+
+frozen_test_set:
+  seed: 2026
+  seed_nowcast: 13
+  days: 7
+  path: "data/test_set/"
+  rule: "KHÔNG được dùng để train Model 1 hay tune ngưỡng hotspot/optimizer. Freeze cuối W2 cùng thời điểm khóa KPI (I-08). Sau đó không sửa."
+  # [D12] Định nghĩa chốt: MỘT sự kiện rain_peak = một chuỗi ts_bucket LIÊN TIẾP có ít nhất
+  # một zone ở regime rain_peak (mưa >= 0.5 mm/h VÀ peak_flag = 1); chuỗi đứt khi không zone
+  # nào rain_peak. Con số cũ `41` là số STEP, không phải số sự kiện — acceptance ">= 2 sự kiện"
+  # của §5.14.1 không kiểm được bằng nó. Đếm bằng count_rain_peak_events() trong generate_snapshots.py.
+  rain_peak_events_verified: 13   # >= 2 theo yêu cầu; tương ứng 256 step có ít nhất 1 zone rain_peak
+  rain_peak_events_train: 34      # để đối chiếu, KHÔNG dùng cho acceptance
