@@ -11,12 +11,13 @@
       <section class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Model 1 + Model 2</p>
-            <h1>Forecast & Hotspot Map</h1>
+            <p class="eyebrow">Model 1 + Model 2 + Model 3</p>
+            <h1>Forecast, Hotspot & Relocation Map</h1>
           </div>
           <div class="mode-tabs" role="tablist" aria-label="View mode">
             <button class="tab active" type="button" data-mode="forecast">Forecast</button>
             <button class="tab" type="button" data-mode="hotspot">Hotspot</button>
+            <button class="tab" type="button" data-mode="relocation">Relocation</button>
           </div>
         </header>
 
@@ -50,6 +51,23 @@
             </div>
 
             <div class="map-wrap">
+              <div class="playback-bar" id="playback-bar">
+                <div class="playback-copy">
+                  <strong id="relocation-phase">Initial forecast pressure</strong>
+                  <span id="relocation-caption">Hot zones are building faster than supply can respond.</span>
+                </div>
+                <div class="playback-controls">
+                  <button class="ghost-button" id="replay-button" type="button">Replay relocation</button>
+                  <div class="progress-track" aria-hidden="true">
+                    <div class="progress-fill" id="progress-fill"></div>
+                  </div>
+                  <div class="progress-labels" aria-hidden="true">
+                    <span>Trước điều phối</span>
+                    <span>Đang điều xe</span>
+                    <span>Sau điều phối</span>
+                  </div>
+                </div>
+              </div>
               <svg id="zone-map" viewBox="0 0 100 100" role="img" aria-label="Hanoi zone forecast map">
                 <defs>
                   <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
@@ -60,6 +78,7 @@
                   class="river"
                   d="M75 5 C69 15, 80 25, 72 35 C63 47, 76 58, 68 71 C62 82, 71 90, 64 98"
                 />
+                <g id="flow-layer"></g>
                 <g id="zone-layer"></g>
               </svg>
               <div class="tooltip" id="tooltip" hidden></div>
@@ -84,6 +103,14 @@
                 <span>Total gap</span>
                 <strong id="stat-gap">-</strong>
               </div>
+              <div class="stat">
+                <span>Relocation moves</span>
+                <strong id="stat-moves">-</strong>
+              </div>
+              <div class="stat">
+                <span>Gap after plan</span>
+                <strong id="stat-gap-after">-</strong>
+              </div>
             </div>
 
             <section class="list-section">
@@ -100,6 +127,14 @@
                 <span id="surplus-count">-</span>
               </div>
               <div class="zone-list" id="surplus-list"></div>
+            </section>
+
+            <section class="list-section">
+              <div class="section-heading">
+                <h2>Relocation Plan</h2>
+                <span id="plan-count">-</span>
+              </div>
+              <div class="zone-list" id="plan-list"></div>
             </section>
           </aside>
         </section>
