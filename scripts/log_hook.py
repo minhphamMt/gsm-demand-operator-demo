@@ -180,8 +180,10 @@ def main():
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-    # Output valid JSON (required by some tools like Gemini)
-    print(json.dumps({"status": "logged"}))
+    # Output a valid Codex hook response. Keep it empty so the hook does not
+    # inject unrecognized fields into the model context. `{}` is also valid
+    # JSON for tools such as Gemini that require hook output.
+    print(json.dumps({}))
 
 
 if __name__ == "__main__":
