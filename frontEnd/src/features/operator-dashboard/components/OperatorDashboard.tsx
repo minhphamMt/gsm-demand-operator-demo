@@ -28,11 +28,11 @@ export function OperatorDashboard() {
   const selectedZone = projectedZones.find((zone) => zone.id === selectedZoneId)
   const aiPlan = selectAiProposal(plans.data)
 
-  return <div className="flex flex-col gap-3 lg:h-[calc(100vh-6.5rem)] lg:overflow-hidden">
+  return <div className="flex flex-col gap-2 lg:h-full lg:overflow-hidden">
     <DataRefreshState hasError={snapshot.isRefetchError} isFetching={snapshot.isFetching} onRetry={() => void snapshot.refetch()} />
     <ForecastToolbar ai={snapshot.data.ai} forecastMinutes={forecastMinutes} generatedAt={snapshot.data.generatedAt} onForecastChange={setForecastMinutes} zoneCount={snapshot.data.zones.length} />
     <SnapshotStaleAlert generatedAt={snapshot.data.generatedAt} isRefreshing={snapshot.isFetching} onRefresh={() => void snapshot.refetch()} />
-    <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_250px_350px]">
+    <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,58fr)_minmax(220px,18fr)_minmax(310px,24fr)]">
       <section className="min-h-[520px] overflow-hidden rounded-panel border border-slate-200 bg-white shadow-panel lg:min-h-0"><Suspense fallback={<Skeleton className="h-full" />}><OperatorMap forecastMinutes={forecastMinutes} zones={projectedZones} selectedZoneId={selectedZoneId} onZoneSelect={setSelectedZoneId} /></Suspense></section>
       <div className="hidden min-h-0 xl:block"><ZoneWatchlist zones={projectedZones} selectedZoneId={selectedZoneId} onSelect={setSelectedZoneId} /></div>
       <AiDecisionPanel
