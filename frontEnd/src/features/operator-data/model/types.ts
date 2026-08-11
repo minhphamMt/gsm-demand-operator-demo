@@ -7,9 +7,10 @@ export type ResponseMode = 'human' | 'simulated' | 'mixed'
 export type DriverStatus = 'offline' | 'online_idle' | 'online_busy' | 'en_route' | 'activated' | 'on_trip'
 export type OfferStatus = 'Open' | 'Accepted' | 'Declined' | 'Expired' | 'Cancelled'
 
-export type Zone = { id: string; h3Index: string; label: string; center: [longitude: number, latitude: number]; boundary: [longitude: number, latitude: number][]; supply: number; demand: number; gap: number; severity: Severity | string; confidence: number | null; forecast15: number; forecast30: number }
+export type Zone = { id: string; h3Index: string; aiZoneId?: number; zoneCode?: string; label: string; center: [longitude: number, latitude: number]; boundary: [longitude: number, latitude: number][]; sourceCellCount?: number; dataStatus?: 'live' | 'no_live_cells'; supply: number; demand: number; gap: number; severity: Severity | string; confidence: number | null; forecast15: number; forecast30: number; forecastSupply15?: number; forecastSupply30?: number; demandRange15?: readonly [number, number] | null; demandRange30?: readonly [number, number] | null; supplyRange15?: readonly [number, number] | null; supplyRange30?: readonly [number, number] | null }
 export type Hotspot = { zoneId: string; rank: number; reason: string; etaMinutes: number; isPersistent: boolean }
-export type Snapshot = { generatedAt: string; replayStep: string; scenario: Scenario; demoScenarioId: DemoScenarioId; regime: 'normal' | 'peak' | 'rain' | 'rain_peak'; zones: readonly Zone[]; hotspots: readonly Hotspot[]; kpis: { fleetAvailable: number; requests: number; fulfillmentRate: number; residualGap: number; avgWaitProxy: number } }
+export type AiSnapshotStatus = { zoneContract: 'AI_ZONE_1_30'; registeredZones: number; liveZones: number; forecastedZones: number; horizons: readonly number[]; modelVersion: string | null; forecastMode: string | null; dataSource: string | null; forecastAt: string | null }
+export type Snapshot = { generatedAt: string; replayStep: string; scenario: Scenario; demoScenarioId: DemoScenarioId; regime: 'normal' | 'peak' | 'rain' | 'rain_peak'; ai?: AiSnapshotStatus; zones: readonly Zone[]; hotspots: readonly Hotspot[]; kpis: { fleetAvailable: number; requests: number; fulfillmentRate: number; residualGap: number; avgWaitProxy: number } }
 export type DemoScenario = { id: DemoScenarioId; label: string; description: string; regime: Snapshot['regime']; startTime: string; replaySteps: number; responseMode: ResponseMode }
 export type Baseline = { id: 'no-action' | 'historical-average'; label: string; fulfillmentRate: number; residualGap: number; avgWaitProxy: number; frozenAt: string; source: string }
 
@@ -30,6 +31,8 @@ export type Proposal = {
   scenarioId: DemoScenarioId
   generatorType: 'MOCK' | 'RULE_BASED' | 'AGENT' | 'MANUAL'
   generatorVersion: string
+  forecastMode?: string | null
+  dataSource?: string | null
   inputSnapshotId: string
   hotspotId: string
   targetZoneId: string | null

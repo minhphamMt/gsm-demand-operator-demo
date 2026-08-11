@@ -30,7 +30,7 @@ export function OperatorDashboard() {
 
   return <div className="flex flex-col gap-3 lg:h-[calc(100vh-6.5rem)] lg:overflow-hidden">
     <DataRefreshState hasError={snapshot.isRefetchError} isFetching={snapshot.isFetching} onRetry={() => void snapshot.refetch()} />
-    <ForecastToolbar forecastMinutes={forecastMinutes} generatedAt={snapshot.data.generatedAt} onForecastChange={setForecastMinutes} />
+    <ForecastToolbar ai={snapshot.data.ai} forecastMinutes={forecastMinutes} generatedAt={snapshot.data.generatedAt} onForecastChange={setForecastMinutes} zoneCount={snapshot.data.zones.length} />
     <SnapshotStaleAlert generatedAt={snapshot.data.generatedAt} isRefreshing={snapshot.isFetching} onRefresh={() => void snapshot.refetch()} />
     <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_250px_350px]">
       <section className="min-h-[520px] overflow-hidden rounded-panel border border-slate-200 bg-white shadow-panel lg:min-h-0"><Suspense fallback={<Skeleton className="h-full" />}><OperatorMap forecastMinutes={forecastMinutes} zones={projectedZones} selectedZoneId={selectedZoneId} onZoneSelect={setSelectedZoneId} /></Suspense></section>

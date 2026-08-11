@@ -59,8 +59,8 @@ function severityForGap(gap: number): Zone['severity'] {
   return 'Low'
 }
 
-export function zonesToFeatureCollection(zones: readonly Zone[]): FeatureCollection<Polygon, Pick<Zone, 'id' | 'label' | 'gap' | 'severity' | 'supply' | 'demand'>> {
+export function zonesToFeatureCollection(zones: readonly Zone[]): FeatureCollection<Polygon, Pick<Zone, 'id' | 'label' | 'gap' | 'severity' | 'supply' | 'demand' | 'dataStatus'>> {
   return featureCollection(zones.map((zone) => polygon([[...zone.boundary, zone.boundary[0] ?? zone.center]], {
-    id: zone.id, label: zone.label, gap: zone.gap, severity: zone.severity, supply: zone.supply, demand: zone.demand,
+    id: zone.id, label: zone.label, gap: zone.gap, severity: zone.severity, supply: zone.supply, demand: zone.demand, dataStatus: zone.dataStatus ?? 'live',
   })))
 }

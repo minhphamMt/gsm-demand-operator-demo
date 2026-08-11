@@ -86,6 +86,8 @@ export const mapProposal = (row: Row) => {
     scenarioId: simulation.scenario_id ?? 'normal',
     generatorType: row.generator_type,
     generatorVersion: row.generator_version ?? 'unknown',
+    forecastMode: simulation.forecast_mode ?? null,
+    dataSource: simulation.data_source ?? null,
     inputSnapshotId: row.input_snapshot_id ? String(row.input_snapshot_id) : null,
     hotspotId: row.hotspot_id,
     targetZoneId: targetZoneIds[0] ?? null,

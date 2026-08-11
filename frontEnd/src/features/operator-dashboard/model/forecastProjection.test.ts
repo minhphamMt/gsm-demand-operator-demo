@@ -22,6 +22,12 @@ describe('projectZonesAtMinute', () => {
     expect(projected30.map((item) => item.demand)).toEqual([40, 16])
   })
 
+  it('projects forecast supply instead of comparing future demand with stale current supply', () => {
+    const projected = projectZonesAtMinute([{ ...zone, forecastSupply15: 26, forecastSupply30: 38 }], 15)[0]
+
+    expect(projected).toMatchObject({ supply: 26, demand: 30, gap: 4, severity: 'Medium' })
+  })
+
   it('clamps the forecast range and keeps source data immutable', () => {
     expect(projectZonesAtMinute([zone], 45)).toEqual(projectZonesAtMinute([zone], 30))
     expect(zone).toMatchObject({ demand: 20, gap: 0, severity: 'Low' })

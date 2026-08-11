@@ -7,10 +7,19 @@ export function projectZonesAtMinute(zones: readonly Zone[], minute: number): re
 
   return zones.map((zone) => {
     const demand = projectDemand(zone, forecastMinute)
-    const gap = Math.max(0, demand - zone.supply)
+    const supply = projectSupply(zone, forecastMinute)
+    const gap = Math.max(0, demand - supply)
 
-    return { ...zone, demand, gap, severity: severityForGap(gap) }
+    return { ...zone, supply, demand, gap, severity: severityForGap(gap) }
   })
+}
+
+function projectSupply(zone: Zone, minute: number) {
+  if (minute === 0) return zone.supply
+  const forecast15 = zone.forecastSupply15 ?? zone.supply
+  const forecast30 = zone.forecastSupply30 ?? forecast15
+  if (minute <= 15) return interpolate(zone.supply, forecast15, minute / 15)
+  return interpolate(forecast15, forecast30, (minute - 15) / 15)
 }
 
 function projectDemand(zone: Zone, minute: number) {

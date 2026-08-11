@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 
 import { SupabaseService } from '../supabase/supabase.service';
-import { mapSnapshotZone } from './snapshot.mapper';
+import { mapAiZone } from './snapshot.mapper';
 import {
   ActivateProposalDto,
   ApproveProposalDto,
@@ -75,6 +75,7 @@ export class OperatorService {
   private async mapSnapshot(snapshot: any, query: SnapshotQueryDto) {
     let cellsQuery = this.db.client.from('supply_demand_cells').select('*').eq('snapshot_id', snapshot.id);
     let h3Query = this.db.client.from('h3_cells_api_v').select('*');
+    const aiZoneQuery = this.db.client.from('ai_zone_registry_api_v').select('*').eq('is_active', true).order('zone_id');
     let hotspotQuery = this.db.client.from('hotspots').select('*').eq('snapshot_id', snapshot.id).order('shortage_count', { ascending: false });
     const forecastQuery = this.db.client.from('ai_zone_forecasts').select('*').eq('snapshot_id', snapshot.id);
     if (query.h3Index) {
@@ -87,16 +88,19 @@ export class OperatorService {
       { data: h3Cells, error: h3Error },
       { data: hotspots, error: hotspotError },
       { data: forecasts, error: forecastError },
+      { data: aiZones, error: aiZonesError },
     ] = await Promise.all([
       cellsQuery,
       h3Query,
       hotspotQuery,
       forecastQuery,
+      aiZoneQuery,
     ]);
     this.db.unwrap(cells, cellsError);
     this.db.unwrap(h3Cells, h3Error);
     this.db.unwrap(hotspots, hotspotError);
     this.db.unwrap(forecasts, forecastError);
+    this.db.unwrap(aiZones, aiZonesError);
 
     const h3ById = new Map((h3Cells ?? []).map((cell: any) => [cell.h3_index, cell]));
     const forecastsByZone = new Map<number, { horizon15?: any; horizon30?: any }>();
@@ -106,6 +110,10 @@ export class OperatorService {
       if (Number(forecast.horizon_min) === 30) current.horizon30 = forecast;
       forecastsByZone.set(Number(forecast.zone_id), current);
     }
+    const liveZoneIds = new Set((cells ?? []).map((cell: any) => Number(h3ById.get(cell.h3_index)?.ai_zone_id)).filter(Number.isInteger));
+    const forecastedZoneIds = new Set((forecasts ?? []).map((forecast: any) => Number(forecast.zone_id)));
+    const latestForecast = [...(forecasts ?? [])].sort((left: any, right: any) =>
+      new Date(right.forecast_at).getTime() - new Date(left.forecast_at).getTime())[0];
 
     return {
       generatedAt: snapshot.captured_at,
@@ -113,12 +121,23 @@ export class OperatorService {
       scenario: query.scenario ?? 'baseline',
       demoScenarioId: snapshot.scenario_code ?? 'normal',
       regime: snapshot.scenario_code ?? 'normal',
-      zones: (cells ?? []).map((cell: any) => {
-        const h3Cell: any = h3ById.get(cell.h3_index);
-        return mapSnapshotZone(cell, h3Cell, forecastsByZone.get(Number(h3Cell?.ai_zone_id)));
+      ai: {
+        zoneContract: 'AI_ZONE_1_30',
+        registeredZones: (aiZones ?? []).length,
+        liveZones: liveZoneIds.size,
+        forecastedZones: forecastedZoneIds.size,
+        horizons: [...new Set((forecasts ?? []).map((forecast: any) => Number(forecast.horizon_min)))].sort(),
+        modelVersion: latestForecast?.model_version ?? null,
+        forecastMode: latestForecast?.forecast_mode ?? null,
+        dataSource: latestForecast?.data_source ?? null,
+        forecastAt: latestForecast?.forecast_at ?? null,
+      },
+      zones: (aiZones ?? []).map((zone: any) => {
+        const zoneCells = (cells ?? []).filter((cell: any) => Number(h3ById.get(cell.h3_index)?.ai_zone_id) === Number(zone.zone_id));
+        return mapAiZone(zone, zoneCells, forecastsByZone.get(Number(zone.zone_id)));
       }),
       hotspots: (hotspots ?? []).map((hotspot: any, index: number) => ({
-        zoneId: hotspot.affected_h3_indexes?.[0] ?? hotspot.id,
+        zoneId: this.hotspotAiZoneCode(hotspot.affected_h3_indexes, h3ById) ?? hotspot.id,
         rank: index + 1,
         reason: hotspot.cause_code ?? 'supply_shortage',
         etaMinutes: 0,
@@ -134,6 +153,14 @@ export class OperatorService {
         avgWaitProxy: 0,
       },
     };
+  }
+
+  private hotspotAiZoneCode(h3Indexes: unknown, h3ById: Map<any, any>) {
+    if (!Array.isArray(h3Indexes)) return null;
+    const zoneId = Number(h3ById.get(h3Indexes[0])?.ai_zone_id);
+    return Number.isInteger(zoneId) && zoneId >= 1 && zoneId <= 30
+      ? `AI-Z${String(zoneId).padStart(2, '0')}`
+      : null;
   }
 
   private validateSnapshotWindow(query: Pick<SnapshotQueryDto, 'from' | 'to'>) {

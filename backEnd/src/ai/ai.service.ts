@@ -122,6 +122,8 @@ export class AiService {
       forecast_at: decision.forecast.forecast_ts,
       regime: decision.forecast.regime,
       model_version: decision.forecast.model_version,
+      forecast_mode: decision.forecast_mode,
+      data_source: decision.data_source,
     }));
     const { error: forecastError } = await this.db.client
       .from('ai_zone_forecasts')
