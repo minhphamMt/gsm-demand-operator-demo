@@ -1,9 +1,11 @@
 """HTTP boundary for trained forecast, hotspot detection and relocation planning."""
 
+import math
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+import lightgbm as lgb
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import Field, model_validator
@@ -15,8 +17,8 @@ from src.config import get_settings
 from src.contracts import ContractModel, StepAlignedDatetime, ZoneId, ensure_full_zone_coverage
 from src.contracts.forecast import Forecast, HorizonMin
 from src.contracts.hotspot import Hotspot, HotspotOutput, SurplusZone
-from src.datasets.snapshot_replay import dataset_status, next_snapshot, snapshot_at, snapshot_window
-from src.forecasting.lgbm_quantile import forecast_at, load_models
+from src.datasets.snapshot_replay import dataset_status, next_snapshot, replay_features, snapshot_at, snapshot_window
+from src.forecasting.lgbm_quantile import ModelKey, forecast_at, load_models, verify_model_bundle
 from src.forecasting.live_snapshot_baseline import forecast_from_live_zones
 from src.hotspot.detector import gap_of, meets_condition, severity_of
 from src.optimizer.greedy import solve
@@ -99,44 +101,110 @@ class DecisionRequest(ContractModel):
 
 
 @lru_cache(maxsize=1)
-def _trained_models(model_directory: str):
+def _trained_models(model_directory: str) -> dict[ModelKey, lgb.Booster]:
     return load_models(Path(model_directory))
 
 
 @lru_cache(maxsize=1)
-def _simulation_features(feature_path: str) -> pd.DataFrame:
-    return pd.read_parquet(feature_path)
+def _simulation_features() -> pd.DataFrame:
+    return replay_features()
+
+
+@lru_cache(maxsize=1)
+def _verified_model_bundle(model_directory: str, configured_model_version: str) -> dict[str, object]:
+    return verify_model_bundle(
+        Path(model_directory),
+        configured_model_version=configured_model_version,
+    )
 
 
 def trained_model_readiness() -> dict[str, object]:
     """Load artifacts for real so health cannot report a false ready state."""
     settings = get_settings()
     model_directory = settings.data_dir / "models"
-    feature_path = settings.data_dir / "features" / "features_test.parquet"
     try:
+        bundle = _verified_model_bundle(str(model_directory), settings.model_version)
         models = _trained_models(str(model_directory))
-        features = _simulation_features(str(feature_path))
+        features = _simulation_features()
     except Exception as error:  # noqa: BLE001 - readiness reports loader failures.
         return {"ready": False, "error": str(error), "artifacts": len(list(model_directory.glob("*.txt")))}
     return {
-        "ready": len(models) == 18,
+        "ready": len(models) == 18 and bool(bundle["verified"]),
         "artifacts": len(models),
-        "model_version": "lgbm_quantile_v1",
+        "model_version": bundle["model_version"],
+        "bundle": bundle,
         "simulation_feature_rows": len(features),
+        "simulation_features_source": "derived_from_verified_snapshot_test.parquet",
     }
 
 
+def _validate_replay_provenance(request: DecisionRequest) -> None:
+    if request.replay_source_at is None:
+        return
+    source_at = pd.Timestamp(request.replay_source_at)
+    try:
+        expected = snapshot_at(source_at)
+    except LookupError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "REPLAY_SOURCE_NOT_FOUND", "message": str(error)},
+        ) from error
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+    expected_by_zone = {int(zone["zone_id"]): zone for zone in expected["zones"]}
+    integer_fields = ("demand_observed", "idle_supply", "enroute_supply", "peak_flag", "holiday_flag")
+    float_fields = ("rain_mm_h", "rain_forecast_15", "rain_forecast_30")
+    mismatches: list[dict[str, object]] = []
+    for actual in request.zones:
+        source = expected_by_zone[actual.zone_id]
+        actual_payload = actual.model_dump()
+        for field in integer_fields:
+            if int(actual_payload[field]) != int(source[field]):
+                mismatches.append({"zone_id": actual.zone_id, "field": field})
+        for field in float_fields:
+            if not math.isclose(
+                float(actual_payload[field]),
+                float(source[field]),
+                rel_tol=1e-9,
+                abs_tol=1e-9,
+            ):
+                mismatches.append({"zone_id": actual.zone_id, "field": field})
+
+    if mismatches:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "REPLAY_PROVENANCE_MISMATCH",
+                "message": "Replay zones do not match the checksummed source bucket; mixed-source inference was blocked.",
+                "mismatches": mismatches[:20],
+            },
+        )
+
+
+def _live_baseline_warnings(request: DecisionRequest, warning: dict[str, str]) -> list[dict[str, str]]:
+    warnings = [warning]
+    if any(zone.enroute_supply > 0 for zone in request.zones):
+        warnings.append({
+            "code": "ENROUTE_ETA_UNAVAILABLE",
+            "message": "Live input has aggregate en-route supply but no arrival ETA; it was excluded from predicted supply.",
+        })
+    return warnings
+
+
 def _forecast(request: DecisionRequest) -> tuple[Forecast, str, list[dict[str, str]]]:
-    """Run trained LightGBM for a frozen simulation bucket, with an explicit fallback."""
+    """Run trained LightGBM for verified replay; baseline only for live observations."""
     settings = get_settings()
     if request.replay_source_at is not None:
         try:
-            features = _simulation_features(str(settings.data_dir / "features" / "features_test.parquet"))
+            bundle = _verified_model_bundle(str(settings.data_dir / "models"), settings.model_version)
+            features = _simulation_features()
             source = forecast_at(
                 _trained_models(str(settings.data_dir / "models")),
                 features,
                 t=pd.Timestamp(request.replay_source_at),
                 horizon_min=request.horizon_min,
+                model_version=str(bundle["model_version"]),
             )
             forecast = Forecast(
                 t=request.t,
@@ -147,23 +215,26 @@ def _forecast(request: DecisionRequest) -> tuple[Forecast, str, list[dict[str, s
                 regime=source.regime,
             )
             return forecast, "trained_model_replay", []
-        except Exception as error:  # noqa: BLE001 - model errors must fall back audibly.
-            return (
-                forecast_from_live_zones(request.t, request.horizon_min, request.zones),
-                "live_snapshot_baseline",
-                [{
-                    "code": "FORECAST_FALLBACK_USED",
-                    "message": f"LightGBM không chạy được ({type(error).__name__}); đang dùng baseline snapshot.",
-                }],
-            )
+        except Exception as error:  # noqa: BLE001 - replay must fail closed for any bundle/inference error.
+            # Replay is explicitly selected to demonstrate the trained bundle. Falling
+            # back here would persist baseline output under a replay provenance path and
+            # make model failures look like legitimate forecasts.
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "REPLAY_MODEL_UNAVAILABLE",
+                    "message": "Verified replay requires the trained model bundle; no baseline was substituted.",
+                    "cause": type(error).__name__,
+                },
+            ) from error
 
     return (
         forecast_from_live_zones(request.t, request.horizon_min, request.zones),
         "live_snapshot_baseline",
-        [{
+        _live_baseline_warnings(request, {
             "code": "MODEL_HISTORY_INCOMPLETE",
             "message": "Snapshot không có nguồn replay hoặc lịch sử feature; đang dùng baseline snapshot.",
-        }],
+        }),
     )
 
 
@@ -212,6 +283,7 @@ def _detect_without_hidden_state(
 def generate_decision(request: DecisionRequest) -> dict[str, object]:
     settings = get_settings()
     policy = get_policy(settings.policy_path)
+    _validate_replay_provenance(request)
     forecast, forecast_mode, forecast_warnings = _forecast(request)
     hotspot_output = _detect_without_hidden_state(forecast, request, policy)
     rain = {zone.zone_id: zone.rain_mm_h for zone in request.zones}
@@ -237,6 +309,21 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         "snapshot_id": request.snapshot_id,
         "data_source": request.data_source,
         "forecast_mode": forecast_mode,
+        "data_provenance": {
+            "observation_source": request.data_source,
+            "forecast_feature_source": (
+                "derived_from_verified_snapshot_test.parquet"
+                if forecast_mode == "trained_model_replay"
+                else "request.zones"
+            ),
+            "replay_source_at": request.replay_source_at.isoformat() if request.replay_source_at else None,
+            "replay_snapshot_verified": request.replay_source_at is not None,
+            "source_kind": (
+                dataset_status()["provenance"]["source_kind"]
+                if request.replay_source_at is not None
+                else "caller_supplied_observation"
+            ),
+        },
         "activation_policy": {
             "incentive_amount": policy.rules.incentive_base,
             "incentive_budget_cap": policy.rules.incentive_budget_cap,

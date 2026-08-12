@@ -2,8 +2,8 @@
 
 **Bao nhiêu model.** §5.2 chốt "2 model riêng cho horizon 15/30", còn T1 AC #2 chốt
 "cả demand và supply, mỗi cái 3 objective quantile — 6 model". Hai câu này nhân với nhau:
-**6 booster cho mỗi horizon, 12 booster tất cả**. Không thể gộp hai horizon vào một model
-vì target khác nhau (`target_demand_15` ≠ `target_demand_30`), và không thể bỏ phía cung
+**6 booster cho mỗi horizon, 18 booster tất cả** sau khi replay thêm horizon 5 phút.
+Không thể gộp các horizon vào một model vì target khác nhau, và không thể bỏ phía cung
 vì §5.2 ghi rõ "model supply BẮT BUỘC dự báo song song với demand".
 
 **Quantile crossing.** Ba objective train độc lập nên p10 > p50 xảy ra được trên một số
@@ -20,6 +20,7 @@ hai model khác nhau, và `model_version` mất ý nghĩa truy vết (§3.2 #4).
 dùng gọi `load_models()` tường minh.
 """
 
+import hashlib
 import json
 import logging
 from collections.abc import Mapping, Sequence
@@ -125,13 +126,75 @@ def all_model_keys(
     horizons: Sequence[int] = HORIZONS,
     quantiles: Sequence[int] = QUANTILES,
 ) -> tuple[ModelKey, ...]:
-    """12 khóa mặc định. Thu hẹp `quantiles` khi chỉ cần p50 (backtest, ablation)."""
+    """18 khóa mặc định. Thu hẹp `quantiles` khi chỉ cần p50 (backtest, ablation)."""
     return tuple(
         ModelKey(target=target, horizon=horizon, quantile=quantile)
         for target in targets
         for horizon in horizons
         for quantile in quantiles
     )
+
+
+def _artifact_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_model_bundle(
+    directory: Path,
+    *,
+    configured_model_version: str | None = None,
+) -> dict[str, object]:
+    """Verify the manifest, exact artifact set and every model checksum."""
+    manifest_path = directory / "model_manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"Missing model bundle manifest: {manifest_path}")
+    raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("Model bundle manifest must be a JSON object")
+
+    version = raw.get("model_version")
+    if not isinstance(version, str) or not version:
+        raise ValueError("Model bundle manifest has no model_version")
+    if configured_model_version not in (None, "unset", version):
+        raise ValueError(
+            f"Configured model version {configured_model_version!r} does not match manifest version {version!r}"
+        )
+    if raw.get("feature_columns") != list(FEATURE_COLUMNS):
+        raise ValueError("Model bundle feature order does not match the runtime feature contract")
+
+    expected_names = {key.name for key in all_model_keys()}
+    artifacts = raw.get("artifacts")
+    checksums = raw.get("artifact_sha256")
+    if not isinstance(artifacts, dict) or set(artifacts) != expected_names:
+        raise ValueError("Model bundle manifest must declare exactly all 18 runtime artifacts")
+    if not isinstance(checksums, dict) or set(checksums) != expected_names:
+        raise ValueError("Model bundle manifest must contain a checksum for every runtime artifact")
+
+    total_bytes = 0
+    for name in sorted(expected_names):
+        expected_filename = f"{name}.txt"
+        if Path(str(artifacts[name])).name != expected_filename:
+            raise ValueError(f"Manifest path for {name} does not end in {expected_filename}")
+        path = directory / expected_filename
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing model artifact: {path}")
+        if _artifact_sha256(path) != str(checksums[name]).lower():
+            raise ValueError(f"Checksum mismatch for model artifact {name}")
+        total_bytes += path.stat().st_size
+
+    return {
+        "verified": True,
+        "bundle_id": raw.get("bundle_id"),
+        "model_version": version,
+        "artifacts": len(expected_names),
+        "horizons": list(HORIZONS),
+        "total_bytes": total_bytes,
+        "training_data": raw.get("training_data"),
+    }
 
 
 def train_models(
@@ -251,7 +314,10 @@ def load_models(directory: Path, keys: Sequence[ModelKey] | None = None) -> dict
         path = directory / f"{key.name}.txt"
         if not path.exists():
             raise FileNotFoundError(f"Thiếu artifact model {path} — chạy `python train_forecast.py` trước")
-        models[key] = lgb.Booster(model_file=str(path))
+        booster = lgb.Booster(model_file=str(path))
+        if tuple(booster.feature_name()) != FEATURE_COLUMNS:
+            raise ValueError(f"Artifact {path} dùng feature schema khác runtime contract")
+        models[key] = booster
     return models
 
 

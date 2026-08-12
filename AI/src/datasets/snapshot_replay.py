@@ -1,12 +1,17 @@
-"""Read one complete 30-zone step from the frozen Parquet test dataset."""
+"""Read verified 30-zone steps from the frozen hybrid-synthetic replay dataset."""
 
+import hashlib
+import json
 from functools import lru_cache
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 import pandas as pd
 
 from src.common.regime import REGIMES, Regime, tag_regime
 from src.config import get_settings
+from src.contracts import STEP_MINUTES, ZONE_COUNT, ZONE_ID_MAX, ZONE_ID_MIN
+from src.forecasting.features import build_feature_table
 
 SNAPSHOT_COLUMNS = (
     "ts_bucket",
@@ -23,39 +28,110 @@ SNAPSHOT_COLUMNS = (
 
 
 @lru_cache(maxsize=1)
+def _dataset_manifest() -> dict[str, Any]:
+    path = get_settings().replay_dataset_manifest_path
+    if not path.is_file():
+        raise FileNotFoundError(f"Replay dataset manifest is missing: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    required = {"dataset", "source_kind", "rows", "zones", "steps", "ts_start", "ts_end", "sha256"}
+    missing = sorted(required - payload.keys())
+    if missing:
+        raise ValueError(f"Replay dataset manifest is missing fields: {missing}")
+    return cast(dict[str, Any], payload)
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _validate_dataset_frame(frame: pd.DataFrame, manifest: dict[str, Any]) -> None:
+    expected_ids = tuple(range(ZONE_ID_MIN, ZONE_ID_MAX + 1))
+    if int(manifest["zones"]) != ZONE_COUNT:
+        raise ValueError(f"Replay manifest declares {manifest['zones']} zones; runtime contract requires {ZONE_COUNT}")
+    if len(frame) != int(manifest["rows"]):
+        raise ValueError(f"Replay dataset has {len(frame)} rows; manifest declares {manifest['rows']}")
+    if frame.duplicated(["ts_bucket", "zone_id"]).any():
+        raise ValueError("Replay dataset contains duplicate (ts_bucket, zone_id) rows")
+
+    grouped_ids = frame.groupby("ts_bucket", sort=True)["zone_id"].agg(lambda values: tuple(sorted(values)))
+    if len(grouped_ids) != int(manifest["steps"]):
+        raise ValueError(f"Replay dataset has {len(grouped_ids)} steps; manifest declares {manifest['steps']}")
+    invalid_steps = grouped_ids[grouped_ids.map(lambda zone_ids: zone_ids != expected_ids)]
+    if not invalid_steps.empty:
+        raise ValueError("Every replay step must contain exactly zone IDs 1..30 once")
+
+    timestamps = pd.Series(grouped_ids.index).sort_values().reset_index(drop=True)
+    if timestamps.empty:
+        raise ValueError("Replay dataset is empty")
+    if timestamps.iloc[0] != pd.Timestamp(manifest["ts_start"]):
+        raise ValueError("Replay dataset start timestamp does not match its manifest")
+    if timestamps.iloc[-1] != pd.Timestamp(manifest["ts_end"]):
+        raise ValueError("Replay dataset end timestamp does not match its manifest")
+    gaps = timestamps.diff().dropna()
+    if not gaps.eq(pd.Timedelta(minutes=STEP_MINUTES)).all():
+        raise ValueError(f"Replay timestamps must be contiguous {STEP_MINUTES}-minute buckets")
+
+
+@lru_cache(maxsize=1)
 def _dataset() -> pd.DataFrame:
-    path = get_settings().data_dir / "snapshots" / "snapshot_test.parquet"
+    settings = get_settings()
+    manifest = _dataset_manifest()
+    path = settings.data_dir / "snapshots" / str(manifest["dataset"])
     if not path.is_file():
         raise FileNotFoundError(f"Frozen replay dataset is missing: {path}")
+    actual_sha256 = _file_sha256(path)
+    if actual_sha256 != str(manifest["sha256"]).lower():
+        raise ValueError(
+            f"Replay dataset checksum mismatch: expected {manifest['sha256']}, received {actual_sha256}"
+        )
     frame = pd.read_parquet(path, columns=list(SNAPSHOT_COLUMNS))
     frame = frame.sort_values(["ts_bucket", "zone_id"]).reset_index(drop=True)
-    counts = frame.groupby("ts_bucket")["zone_id"].nunique()
-    if frame.empty or not counts.eq(30).all():
-        raise ValueError("Every frozen replay step must contain exactly 30 unique zones")
+    _validate_dataset_frame(frame, manifest)
     return frame
 
 
 @lru_cache(maxsize=1)
+def replay_features() -> pd.DataFrame:
+    """Derive inference features from the checksummed snapshot source of truth.
+
+    Runtime no longer depends on an ignored, potentially stale ``features_test`` file.
+    The same feature builder used during training is the only transformation path.
+    """
+    return build_feature_table(_dataset())
+
+
+@lru_cache(maxsize=1)
 def _inference_timestamps() -> frozenset[pd.Timestamp]:
-    path = get_settings().data_dir / "features" / "features_test.parquet"
-    if not path.is_file():
-        raise FileNotFoundError(f"Frozen feature dataset is missing: {path}")
-    values = pd.read_parquet(path, columns=["ts_bucket"])["ts_bucket"].drop_duplicates()
+    values = replay_features()["ts_bucket"].drop_duplicates()
     return frozenset(pd.Timestamp(value) for value in values)
 
 
 def dataset_status() -> dict[str, Any]:
     frame = _dataset()
+    manifest = _dataset_manifest()
     timestamps = frame["ts_bucket"].drop_duplicates().sort_values()
     inference_timestamps = sorted(_inference_timestamps())
     return {
-        "dataset": "snapshot_test.parquet",
+        "dataset": manifest["dataset"],
         "steps": int(len(timestamps)),
-        "zones_per_step": 30,
+        "zones_per_step": ZONE_COUNT,
         "first_source_at": timestamps.iloc[0].isoformat(),
         "last_source_at": timestamps.iloc[-1].isoformat(),
         "inference_ready_steps": len(inference_timestamps),
         "first_inference_source_at": inference_timestamps[0].isoformat(),
+        "last_inference_source_at": inference_timestamps[-1].isoformat(),
+        "provenance": {
+            "source_kind": manifest["source_kind"],
+            "generator": manifest.get("generator"),
+            "seed": manifest.get("seed"),
+            "seed_nowcast": manifest.get("seed_nowcast"),
+            "sha256": manifest["sha256"],
+            "field_provenance": manifest.get("field_provenance", {}),
+        },
     }
 
 
@@ -102,7 +178,7 @@ def next_snapshot(after_source_at: pd.Timestamp | None, regime: Regime | None) -
 
 
 def snapshot_at(source_at: pd.Timestamp) -> dict[str, Any]:
-    """Return the exact real 5-minute bucket; never interpolate or synthesize rows."""
+    """Return the exact stored 5-minute bucket; never interpolate or synthesize rows at runtime."""
     frame = _dataset()
     if source_at not in _inference_timestamps():
         raise LookupError(f"Dataset has no inference-ready snapshot at {source_at.isoformat()}")
@@ -128,12 +204,16 @@ def snapshot_at(source_at: pd.Timestamp) -> dict[str, Any]:
 
 
 def snapshot_window(center_at: pd.Timestamp, radius: int = 9) -> list[dict[str, Any]]:
-    """Return actual timeline metrics for contiguous inference-ready 5-minute buckets."""
+    """Return stored timeline metrics for contiguous inference-ready 5-minute buckets."""
     timestamps = sorted(_inference_timestamps())
     if center_at not in timestamps:
         raise LookupError(f"Dataset has no inference-ready snapshot at {center_at.isoformat()}")
     center_index = timestamps.index(center_at)
-    selected = timestamps[max(0, center_index - radius):center_index + radius + 1]
+    window_size = radius * 2 + 1
+    start = max(0, center_index - radius)
+    end = min(len(timestamps), start + window_size)
+    start = max(0, end - window_size)
+    selected = timestamps[start:end]
     frame = _dataset()
     return [
         {

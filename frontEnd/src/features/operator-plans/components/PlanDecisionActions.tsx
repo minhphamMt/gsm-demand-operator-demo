@@ -7,10 +7,10 @@ import { Dialog } from '@/shared/components/ui/Dialog'
 import { FieldLabel, Select, Textarea } from '@/shared/components/ui/Field'
 import { formatCurrency } from '@/shared/lib/format'
 
-type Props = { error?: string | undefined; hasCampaign?: boolean; isWorking: boolean; plan: Proposal; onActivate: () => void; onApprove: (note: string) => void; onReject: (request: RejectPlanRequest) => void }
+type Props = { campaignStatus?: string | undefined; error?: string | undefined; hasOperationalCampaign?: boolean; isWorking: boolean; plan: Proposal; onActivate: () => void; onApprove: (note: string) => void; onReject: (request: RejectPlanRequest) => void }
 const checklist = ['Đã kiểm tra snapshot và hotspot đầu vào', 'Đã xem policy, cảnh báo và tác động trước/sau', 'Đã kiểm tra chi phí, ngân sách và residual gap'] as const
 
-export function PlanDecisionActions({ error, hasCampaign = false, isWorking, plan, onActivate, onApprove, onReject }: Props) {
+export function PlanDecisionActions({ campaignStatus, error, hasOperationalCampaign = false, isWorking, plan, onActivate, onApprove, onReject }: Props) {
   const [dialog, setDialog] = useState<'approve' | 'reject' | 'activation'>()
   const [note, setNote] = useState('')
   const [reasonCode, setReasonCode] = useState<RejectPlanRequest['reasonCode']>('budget')
@@ -22,9 +22,9 @@ export function PlanDecisionActions({ error, hasCampaign = false, isWorking, pla
   const close = () => { setDialog(undefined); setConfirmed([]) }
 
   return <>
-    <div className="flex flex-wrap gap-2">{isReviewable && <><Button variant="danger" onClick={() => setDialog('reject')}>Từ chối</Button><Button disabled={!canApprove} onClick={() => setDialog('approve')}>Phê duyệt phương án</Button></>}{plan.status === 'Approved' && !hasCampaign && <Button disabled={!hasActivationTarget} onClick={() => setDialog('activation')}>Thiết lập huy động thêm</Button>}{hasCampaign && <Badge tone="success">Campaign đã phát hành</Badge>}</div>
+    <div className="flex flex-wrap gap-2">{isReviewable && <><Button variant="danger" onClick={() => setDialog('reject')}>Từ chối</Button><Button disabled={!canApprove} onClick={() => setDialog('approve')}>Phê duyệt phương án</Button></>}{plan.status === 'Approved' && !campaignStatus && <Button disabled={!hasActivationTarget} onClick={() => setDialog('activation')}>Thiết lập huy động thêm</Button>}{hasOperationalCampaign && <Badge tone="success">Campaign đang chạy</Badge>}{campaignStatus && !hasOperationalCampaign && <Badge tone="neutral">Campaign đã đóng · {campaignStatus}</Badge>}</div>
     {isReviewable && !canApprove && <p className="mt-2 max-w-md text-xs text-rose-700">Không thể duyệt khi snapshot hết hạn hoặc còn policy không đạt.</p>}
-    {plan.status === 'Approved' && !hasCampaign && !hasActivationTarget && <p role="alert" className="mt-2 max-w-md text-xs text-rose-700">Không thể phát hành offer vì proposal chưa có vùng mục tiêu AI.</p>}
+    {plan.status === 'Approved' && !campaignStatus && !hasActivationTarget && <p role="alert" className="mt-2 max-w-md text-xs text-rose-700">Không thể phát hành offer vì proposal chưa có vùng mục tiêu AI.</p>}
     {error && <p role="alert" className="mt-3 text-sm text-rose-700">{error}</p>}
 
     <Dialog isOpen={dialog === 'approve'} onClose={close} title="Xác nhận quyết định phê duyệt">

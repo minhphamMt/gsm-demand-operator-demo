@@ -20,10 +20,8 @@ import { DriverMap } from './DriverMap';
  * một lần là over-engineering.
  */
 const DEMO_MODE = import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === 'true';
-const DEMO_LOGIN_EMAIL = 'driver01@gsm14.local';
-const DEMO_LOGIN_PASSWORD = 'GsmDemo@2026';
 
-function DemoLoginCredentials() {
+function DemoLoginHint() {
   return (
     <div
       className="driver-app-stage"
@@ -39,9 +37,8 @@ function DemoLoginCredentials() {
         textAlign: 'left',
       }}
     >
-      <div style={{ fontWeight: 700, color: '#087f89', marginBottom: 3 }}>Thông tin đăng nhập test (development)</div>
-      <div>Tên đăng nhập: {DEMO_LOGIN_EMAIL}</div>
-      <div>Mật khẩu: {DEMO_LOGIN_PASSWORD}</div>
+      <div style={{ fontWeight: 700, color: '#087f89', marginBottom: 3 }}>Môi trường development</div>
+      <div>Dùng tài khoản test được cấu hình ngoài repository; ứng dụng không nhúng thông tin đăng nhập.</div>
     </div>
   );
 }
@@ -166,7 +163,7 @@ export function PhoneShell({ children, caption }: { children: ReactNode; caption
         </div>
         {DEMO_MODE && status === 'signedOut' && (
           <div className="demo-login-credentials">
-            <DemoLoginCredentials />
+            <DemoLoginHint />
           </div>
         )}
       </div>

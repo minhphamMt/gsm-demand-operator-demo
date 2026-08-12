@@ -6,7 +6,7 @@ Chạy: python eval_hotspot.py
   data/features/features_test.parquet + data/labels/labels_{train,test}.parquet
                                         (sinh bởi build_features.py)
   data/snapshots/snapshot_test.parquet  cột `idle_supply` — số xe rỗi THẬT tại `t` (AC #5)
-  data/models/lgbm_*.txt                12 booster của T1
+  data/models/lgbm_*.txt                18 booster (h5/h15/h30) của Model 1
   config/policy.yaml                    min_supply_per_zone, conservative_gap_mode (AC #6)
 
 Ghi:
@@ -190,7 +190,7 @@ def run_detection(
     min_supply_per_zone: int,
     policy_mode: str,
 ) -> dict:
-    """Chạy replay tuần tự toàn bộ test set × 2 horizon × 3 chế độ gap.
+    """Chạy replay tuần tự toàn bộ test set × 3 horizon × 3 chế độ gap.
 
     Tuần tự theo thời gian là bắt buộc: hysteresis mang trạng thái từ step trước, xáo trộn
     thứ tự làm chuỗi streak vô nghĩa. Mỗi (horizon, chế độ) giữ trạng thái RIÊNG — dùng
@@ -213,7 +213,11 @@ def run_detection(
         group = groups[t]
         idle_now = idle_table[t]
         for horizon in HORIZONS:
-            regime = baseline.city_regime(group[f"rain_forecast_{horizon}"].tolist(), int(group["peak_flag"].iloc[0]))
+            rain_horizon = 15 if horizon <= 15 else 30
+            regime = baseline.city_regime(
+                group[f"rain_forecast_{rain_horizon}"].tolist(),
+                int(group["peak_flag"].iloc[0]),
+            )
             forecast = baseline.build_forecast(
                 group,
                 t=t,

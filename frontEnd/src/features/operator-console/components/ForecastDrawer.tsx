@@ -5,6 +5,7 @@ import { formatNumber } from "@/shared/lib/format";
 
 type ForecastDrawerProps = {
   dataSource?: string | null | undefined;
+  forecastMode?: string | null | undefined;
   forecastTime: string;
   horizon: number;
   modelVersion?: string | null | undefined;
@@ -55,6 +56,7 @@ export function ForecastDrawer(props: ForecastDrawerProps) {
           <dt>Snapshot</dt><dd>{props.sourceTime} · 30/30 zone · dữ liệu dự án</dd>
           <dt>Horizon</dt><dd>{props.horizon} phút → {props.forecastTime}</dd>
           <dt>Model</dt><dd>{props.modelVersion ?? "Không xác định"}</dd>
+          <dt>Chế độ</dt><dd>{props.forecastMode ?? "Không xác định"}</dd>
           <dt>Nguồn</dt><dd>{props.dataSource ?? "AI zone observations"}</dd>
           <dt>Bất định</dt><dd>Dải p10–p90 do model trả về cho từng zone</dd>
         </dl>

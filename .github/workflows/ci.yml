@@ -6,27 +6,81 @@ on:
   pull_request:
     branches: [main]
 
-jobs:
-  lint-and-test:
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
 
+jobs:
+  root-template:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Lint with ruff
-        run: ruff check src/ tests/
-
-      - name: Run tests
-        run: pytest tests/ -v --tb=short
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - run: ruff check src tests
+      - run: pytest -q
         env:
           APP_ENV: test
           OPENAI_API_KEY: test-key
+
+  ai:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AI
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: AI/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: ruff check src tests
+      - run: mypy src
+      - run: pytest -q
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backEnd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backEnd/package-lock.json
+      - run: npm ci
+      - run: npm run check
+
+  frontend:
+    runs-on: ubuntu-latest
+    env:
+      VITE_DATA_SOURCE: mock
+    defaults:
+      run:
+        working-directory: frontEnd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontEnd/package-lock.json
+      - run: npm ci
+      - run: npm run check
+
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Materialize non-secret configuration templates
+        run: |
+          cp backEnd/.env.example backEnd/.env
+          cp frontEnd/.env.example frontEnd/.env
+      - run: docker compose config --quiet

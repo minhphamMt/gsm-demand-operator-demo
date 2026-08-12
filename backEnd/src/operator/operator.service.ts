@@ -1,7 +1,8 @@
 import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 
 import { SupabaseService } from '../supabase/supabase.service';
-import { mapAiZone } from './snapshot.mapper';
+import { buildRevisedSourcePlan } from './revision-source-plan';
+import { calculateSnapshotKpis, mapAiZone } from './snapshot.mapper';
 import {
   ActivateProposalDto,
   ApproveProposalDto,
@@ -17,7 +18,7 @@ import {
 import { mapCampaign, mapDriver, mapOffer, mapProposal } from './operator.mapper';
 import { buildOperationsReport } from './operations-report.mapper';
 import { revisionFieldErrors } from './revision-validation';
-import { proposalOperationalIssue, proposalReviewIssue, type ReviewDecision } from './review-validation';
+import { proposalActivationIssue, proposalReviewIssue, type ReviewDecision } from './review-validation';
 
 const auditActionAliases: Record<string, string[]> = {
   Created: ['Created', 'CREATE'],
@@ -51,7 +52,7 @@ export class OperatorService {
     let snapshotQuery = this.db.client
       .from('supply_demand_snapshots')
       .select('*')
-      .order('captured_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .order('id', { ascending: false });
     if (query.scenarioCode) snapshotQuery = snapshotQuery.eq('scenario_code', query.scenarioCode);
     if (query.from) snapshotQuery = snapshotQuery.gte('captured_at', query.from);
@@ -115,7 +116,10 @@ export class OperatorService {
     const latestForecast = [...(forecasts ?? [])].sort((left: any, right: any) =>
       new Date(right.forecast_at).getTime() - new Date(left.forecast_at).getTime())[0];
     const replaySource = String((observations ?? [])[0]?.source_name ?? '');
-    const sourceAt = replaySource.startsWith('AI_PARQUET_REPLAY:') ? replaySource.slice('AI_PARQUET_REPLAY:'.length) : snapshot.captured_at;
+    const replayPrefix = ['AI_PARQUET_REPLAY:', 'AI_BRANCH_TEST_REPLAY:']
+      .find((prefix) => replaySource.startsWith(prefix));
+    const sourceAt = replayPrefix ? replaySource.slice(replayPrefix.length) : snapshot.captured_at;
+    const kpis = calculateSnapshotKpis(observations ?? []);
 
     const scenarioCode = String(snapshot.scenario_code ?? 'normal').toLowerCase();
     const regime = scenarioCode.startsWith('rain_peak') ? 'rain_peak'
@@ -148,15 +152,7 @@ export class OperatorService {
         .filter(({ forecast }) => Number(forecast?.predicted_demand ?? 0) > Number(forecast?.predicted_supply ?? 0))
         .sort((left, right) => (Number(right.forecast.predicted_demand) - Number(right.forecast.predicted_supply)) - (Number(left.forecast.predicted_demand) - Number(left.forecast.predicted_supply)))
         .map(({ zoneId }, index) => ({ zoneId: `AI-Z${String(zoneId).padStart(2, '0')}`, rank: index + 1, reason: 'ai_supply_gap', etaMinutes: 0, isPersistent: false })),
-      kpis: {
-        fleetAvailable: snapshot.total_supply ?? 0,
-        requests: snapshot.total_demand ?? 0,
-        fulfillmentRate: snapshot.total_demand
-          ? Math.min(1, (snapshot.total_supply ?? 0) / snapshot.total_demand)
-          : 1,
-        residualGap: Math.max(0, (snapshot.total_demand ?? 0) - (snapshot.total_supply ?? 0)),
-        avgWaitProxy: 0,
-      },
+      kpis,
     };
   }
 
@@ -169,34 +165,41 @@ export class OperatorService {
   async baselines() {
     const { data, error } = await this.db.client
       .from('supply_demand_snapshots')
-      .select('id,captured_at,total_supply,total_demand')
-      .order('captured_at', { ascending: false })
+      .select('id,captured_at')
+      .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(30);
     const snapshots = this.db.unwrap(data, error);
     if (!snapshots.length) throw new NotFoundException('No supply-demand snapshot exists');
-
-    const score = (supply: number, demand: number) => ({
-      fulfillmentRate: demand > 0 ? Math.min(1, supply / demand) : 1,
-      residualGap: Math.max(0, demand - supply),
-      avgWaitProxy: demand > supply ? Math.round(((demand - supply) / Math.max(demand, 1)) * 30) : 0,
-    });
+    const snapshotIds = snapshots.map((snapshot: any) => snapshot.id);
+    const { data: observations, error: observationsError } = await this.db.client
+      .from('ai_zone_observations')
+      .select('snapshot_id,data_status,demand_observed,idle_supply')
+      .in('snapshot_id', snapshotIds);
+    const observationRows = this.db.unwrap(observations, observationsError);
+    const scores = snapshots.map((snapshot: any) => calculateSnapshotKpis(
+      observationRows.filter((observation: any) => Number(observation.snapshot_id) === Number(snapshot.id)),
+    ));
     const latest = snapshots[0];
-    const averageSupply = snapshots.reduce((sum: number, row: any) => sum + Number(row.total_supply ?? 0), 0) / snapshots.length;
-    const averageDemand = snapshots.reduce((sum: number, row: any) => sum + Number(row.total_demand ?? 0), 0) / snapshots.length;
+    const average = (field: 'avgWaitProxy' | 'fulfillmentRate' | 'residualGap') =>
+      scores.reduce((sum, score) => sum + score[field], 0) / scores.length;
 
     return [
       {
         id: 'no-action',
         label: 'Không điều phối',
-        ...score(Number(latest.total_supply ?? 0), Number(latest.total_demand ?? 0)),
+        avgWaitProxy: scores[0].avgWaitProxy,
+        fulfillmentRate: scores[0].fulfillmentRate,
+        residualGap: scores[0].residualGap,
         frozenAt: latest.captured_at,
         source: `snapshot:${latest.id}`,
       },
       {
         id: 'historical-average',
         label: 'Trung bình lịch sử',
-        ...score(averageSupply, averageDemand),
+        avgWaitProxy: average('avgWaitProxy'),
+        fulfillmentRate: average('fulfillmentRate'),
+        residualGap: average('residualGap'),
         frozenAt: latest.captured_at,
         source: `${snapshots.length} snapshots gần nhất`,
       },
@@ -221,7 +224,7 @@ export class OperatorService {
   async reviseProposal(id: string, dto: ReviseProposalDto, actorId: string, requestId: string) {
     const { data: current, error: currentError } = await this.db.client
       .from('proposals')
-      .select('status,source_plan')
+      .select('status,source_plan,window_end_at')
       .eq('id', id)
       .maybeSingle();
     if (currentError) this.db.unwrap(null, currentError);
@@ -230,6 +233,12 @@ export class OperatorService {
       throw new ConflictException({
         code: 'PROPOSAL_VERSION_CONFLICT',
         message: 'Proposal was changed by another operator.',
+      });
+    }
+    if (!current.window_end_at || new Date(current.window_end_at).getTime() <= Date.now()) {
+      throw new ConflictException({
+        code: 'STALE_PROPOSAL',
+        message: 'Proposal input window has expired; run the model again before editing.',
       });
     }
     const fieldErrors = revisionFieldErrors({
@@ -246,10 +255,11 @@ export class OperatorService {
         message: 'Revision values are invalid.',
       });
     }
+    const revisedSourcePlan = buildRevisedSourcePlan(current.source_plan, dto.sourcePlan.moves, dto.budgetLimit);
     const { data, error } = await this.db.client.rpc('revise_proposal', {
       p_proposal_id: id,
       p_actor_id: actorId,
-      p_source_plan: dto.sourcePlan,
+      p_source_plan: revisedSourcePlan,
       p_target_driver_count: dto.targetDriverCount,
       p_campaign_duration_minutes: dto.campaignDurationMinutes,
       p_bonus_amount: dto.bonusAmount,
@@ -272,7 +282,7 @@ export class OperatorService {
   ) {
     const { data: current, error: currentError } = await this.db.client
       .from('proposals')
-      .select('status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details')
+      .select('status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details,generator_type,parent_proposal_id,source_plan')
       .eq('id', id)
       .maybeSingle();
     if (currentError) this.db.unwrap(null, currentError);
@@ -303,7 +313,7 @@ export class OperatorService {
   async activateProposal(id: string, dto: ActivateProposalDto, actorId: string, requestId: string) {
     const [{ data: proposal, error: proposalError }, { data: existingCampaign, error: existingCampaignError }] = await Promise.all([
       this.db.client.from('proposals')
-        .select('status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details')
+        .select('status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details,generator_type,parent_proposal_id,source_plan')
         .eq('id', id)
         .maybeSingle(),
       this.db.client.from('campaigns').select('id').eq('proposal_id', id).maybeSingle(),
@@ -317,7 +327,13 @@ export class OperatorService {
         message: 'Proposal already has a campaign.',
       });
     }
-    const operationalIssue = proposalOperationalIssue(proposal);
+    if (!proposal.window_end_at || new Date(proposal.window_end_at).getTime() <= Date.now()) {
+      throw new ConflictException({
+        code: 'STALE_PROPOSAL',
+        message: 'Proposal input window has expired; run the model again before activation.',
+      });
+    }
+    const operationalIssue = proposalActivationIssue(proposal);
     if (operationalIssue) {
       throw new UnprocessableEntityException({
         code: operationalIssue.code,
@@ -339,14 +355,18 @@ export class OperatorService {
   }
 
   async listCampaigns() {
-    const [{ data: campaigns, error }, { data: offers }, { data: participations }, { data: trips }] = await Promise.all([
+    const [campaignResult, offerResult, participationResult, tripResult] = await Promise.all([
       this.db.client.from('campaigns').select('*').order('created_at', { ascending: false }),
       this.db.client.from('driver_offers').select('*'),
       this.db.client.from('campaign_participations').select('*'),
       this.db.client.from('trips').select('campaign_id,status'),
     ]);
-    return this.db.unwrap(campaigns, error).map((row: any) =>
-      mapCampaign(row, offers ?? [], participations ?? [], trips ?? []),
+    const campaigns = this.db.unwrap(campaignResult.data, campaignResult.error);
+    const offers = this.db.unwrap(offerResult.data, offerResult.error);
+    const participations = this.db.unwrap(participationResult.data, participationResult.error);
+    const trips = this.db.unwrap(tripResult.data, tripResult.error);
+    return campaigns.map((row: any) =>
+      mapCampaign(row, offers, participations, trips),
     );
   }
 

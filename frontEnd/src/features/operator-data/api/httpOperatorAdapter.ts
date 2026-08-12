@@ -12,6 +12,7 @@ import {
   parseEntity,
 } from '@/features/operator-data/api/responseGuards'
 import type { AuditFilters, DemoScenario, OperationsReportFilters, OperatorDataAdapter, Proposal } from '@/features/operator-data/model/types'
+import { latestAgentProposalForSnapshot } from '@/features/operator-data/model/proposalSelection'
 import { AppError, requestJson } from '@/shared/api/client'
 
 const body = (value: unknown) => JSON.stringify(value)
@@ -54,9 +55,8 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
   optimizeAiDecision: async (snapshotId, horizonMinutes) => {
     await requestJson('/operator/ai/optimize', { method: 'POST', body: body({ snapshotId, horizonMinutes }) })
     const proposals = parseEntities(await requestJson('/operator/proposals'), isProposal, 'proposals')
-    const proposal = proposals.find((candidate) => candidate.generatorType === 'AGENT' && candidate.inputSnapshotId === String(snapshotId))
-      ?? proposals.find((candidate) => candidate.generatorType === 'AGENT')
-    if (!proposal) throw new AppError('Model không tạo được phương án điều chuyển.', { code: 'INVALID_RESPONSE' })
+    const proposal = latestAgentProposalForSnapshot(proposals, String(snapshotId))
+    if (!proposal) throw new AppError('Model không trả về phương án cho đúng snapshot đang xem.', { code: 'AI_PROPOSAL_SNAPSHOT_MISMATCH' })
     return proposal
   },
   runReplayStep: async (sourceAt) => {
@@ -70,7 +70,7 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
     if (predictedByZone.size !== 30) throw new AppError('Model phải trả đủ dự báo cho 30 zone.', { code: 'INVALID_RESPONSE' })
     return {
       ...snapshot,
-      ai: { ...(snapshot.ai ?? { zoneContract: 'AI_ZONE_1_30', registeredZones: 30, liveZones: 30, forecastedZones: 30 }), horizons: [5], modelVersion: forecast.model_version, forecastMode: 'trained_model_replay', dataSource: `supabase:ai_zone_observations:${result.snapshot.id}`, forecastAt: forecast.forecast_ts },
+      ai: { ...(snapshot.ai ?? { zoneContract: 'AI_ZONE_1_30', registeredZones: 30, liveZones: 30, forecastedZones: 30 }), horizons: [5], modelVersion: forecast.model_version, forecastMode: 'trained_model_replay', dataSource: `project_parquet_replay→ai_zone_observations:${result.snapshot.id}`, forecastAt: forecast.forecast_ts },
       zones: snapshot.zones.map((zone) => {
         const prediction = predictedByZone.get(zone.aiZoneId)
         if (!prediction) throw new AppError(`Model thiếu dự báo cho ${zone.zoneCode}.`, { code: 'INVALID_RESPONSE' })
@@ -137,7 +137,7 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
   rejectPlan: async (planId, request) => parseEntity(await requestJson(`/operator/proposals/${planId}/reject`, {
     method: 'POST', body: body(request),
   }), isProposal, 'proposal'),
-  startCampaign: async (planId, mode = 'mixed') => parseEntity(await requestJson(`/operator/proposals/${planId}/activate`, {
+  startCampaign: async (planId, mode = 'human') => parseEntity(await requestJson(`/operator/proposals/${planId}/activate`, {
     method: 'POST', body: body({ responseMode: mode }),
   }), isCampaign, 'campaign'),
   cancelCampaign: async (campaignId) => parseEntity(await requestJson(`/operator/campaigns/${campaignId}/cancel`, {

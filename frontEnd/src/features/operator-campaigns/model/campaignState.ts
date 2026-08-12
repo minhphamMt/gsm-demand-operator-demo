@@ -1,11 +1,11 @@
-import type { Campaign } from '@/features/operator-data'
+import { isCampaignOperational, type Campaign } from '@/features/operator-data'
 
 export type CampaignNotice = { message: string; tone: 'neutral' | 'success' | 'warning' }
 
 export const activeCampaignStatuses = new Set<Campaign['status']>(['Active', 'Running'])
 
 export function isCampaignCancellable(campaign: Campaign, now = new Date()) {
-  return activeCampaignStatuses.has(campaign.status)
+  return isCampaignOperational(campaign)
     && new Date(campaign.expiresAt) > now
     && (campaign.budgetLimit <= 0 || campaign.incentiveBudget < campaign.budgetLimit)
 }
@@ -20,7 +20,7 @@ export function campaignNotice(campaign: Campaign, now = new Date()): CampaignNo
   if (campaign.status === 'BudgetExhausted' || (campaign.budgetLimit > 0 && campaign.incentiveBudget >= campaign.budgetLimit)) {
     return { message: 'Ngân sách campaign đã sử dụng hết; không phát hành thêm offer.', tone: 'warning' }
   }
-  if (activeCampaignStatuses.has(campaign.status) && new Date(campaign.expiresAt) <= now) {
+  if (isCampaignOperational(campaign) && new Date(campaign.expiresAt) <= now) {
     return { message: 'Campaign đã hết thời gian vận hành và đang chờ lifecycle job đóng trạng thái.', tone: 'warning' }
   }
   if (campaign.candidateCount === 0) {

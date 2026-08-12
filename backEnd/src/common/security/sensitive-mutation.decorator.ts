@@ -5,12 +5,12 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiErrorDto } from '../http/api-error.dto';
 import { ActorThrottlerGuard } from './actor-throttler.guard';
 
-export function SensitiveMutation() {
+export function SensitiveMutation(limit = 10) {
   return applyDecorators(
     UseGuards(ActorThrottlerGuard),
-    Throttle({ sensitive: { limit: 10, ttl: 60_000, blockDuration: 60_000 } }),
+    Throttle({ sensitive: { limit, ttl: 60_000, blockDuration: 60_000 } }),
     ApiTooManyRequestsResponse({
-      description: 'More than 10 attempts by the same authenticated actor and endpoint in 60 seconds.',
+      description: `More than ${limit} attempts by the same authenticated actor and endpoint in 60 seconds.`,
       type: ApiErrorDto,
     }),
   );

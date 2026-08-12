@@ -45,8 +45,11 @@ export class CampaignLifecycleService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(JSON.stringify({ event: 'campaign_lifecycle_reconciled', ...result, drivers_released: driversReleased }));
       }
       return result;
-    } catch {
-      this.logger.error(JSON.stringify({ event: 'campaign_lifecycle_failed', requestId, error: 'reconciliation_failed' }));
+    } catch (cause) {
+      const failure = cause instanceof Error
+        ? { error: cause.name, message: cause.message }
+        : { error: 'UnknownError', message: String(cause) };
+      this.logger.error(JSON.stringify({ event: 'campaign_lifecycle_failed', requestId, ...failure }));
       return null;
     } finally {
       this.running = false;

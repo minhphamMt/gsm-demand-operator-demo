@@ -5,4 +5,6 @@ export { useDriverActions, useOperatorActions } from '@/features/operator-data/a
 export { auditActionLabels } from '@/features/operator-data/model/auditLabels'
 export { zoneCentersToFeatureCollection, zonesToFeatureCollection } from '@/features/operator-data/model/zoneGeometry'
 export { operationalGapFor } from '@/features/operator-data/model/zoneBalance'
-export type { AiSnapshotStatus, AuditAction, AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DriverView, Offer, OfferStatus, OperationsCampaignReport, OperationsReport, OperationsReportFilters, Proposal, RejectPlanRequest, ReplayTimelineStep, ResponseMode, RevisePlanRequest, Scenario, Snapshot, Zone } from '@/features/operator-data/model/types'
+export { isCampaignOperational } from '@/features/operator-data/model/campaignState'
+export { latestAgentProposalForSnapshot } from '@/features/operator-data/model/proposalSelection'
+export type { AiSnapshotStatus, AuditAction, AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DriverView, Move, Offer, OfferStatus, OperationsCampaignReport, OperationsReport, OperationsReportFilters, Proposal, RejectPlanRequest, ReplayTimelineStep, ResponseMode, RevisePlanRequest, Scenario, Snapshot, Zone } from '@/features/operator-data/model/types'

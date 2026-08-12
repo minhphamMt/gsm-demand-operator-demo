@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { campaignNotice, isCampaignCancellable } from '@/features/operator-campaigns/model/campaignState'
-import type { Campaign } from '@/features/operator-data'
+import { isCampaignOperational, type Campaign } from '@/features/operator-data'
 
 const campaign: Campaign = {
   id: 'campaign-1', planId: 'proposal-1', status: 'Active', targetZoneId: 'zone-1', candidateCount: 2,
@@ -12,6 +12,16 @@ const campaign: Campaign = {
 }
 
 describe('campaignNotice', () => {
+  it.each(['Cancelled', 'Completed', 'Expired', 'Closed', 'TargetReached', 'BudgetExhausted'] as const)(
+    'does not treat terminal status %s as operational',
+    (status) => expect(isCampaignOperational({ status })).toBe(false),
+  )
+
+  it.each(['Active', 'Running'] as const)(
+    'treats %s as operational',
+    (status) => expect(isCampaignOperational({ status })).toBe(true),
+  )
+
   it('explains target reached and cancellation results', () => {
     expect(campaignNotice({ ...campaign, status: 'TargetReached' })?.tone).toBe('success')
     expect(campaignNotice({ ...campaign, cancelled: 1, expired: 2, status: 'Cancelled' })?.message).toContain('1 tài xế')

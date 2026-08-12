@@ -8,7 +8,7 @@ Chạy: python train_forecast.py
   data/splits.yaml                        (cửa sổ train + 3 fold walk-forward)
 
 Ghi:
-  data/models/lgbm_*.txt                  12 booster
+  data/models/lgbm_*.txt                  18 booster (h5/h15/h30)
   data/models/model_manifest.json         model_version + seed + danh sách feature
   eval/results/model1_forecast_report.json   ma trận 16 ô + backtest + ablation
 
@@ -20,10 +20,11 @@ Bốn acceptance criteria của T1 được TÍNH ở đây, không phải khẳ
 * AC #6 — walk-forward 3 fold theo splits.yaml + ablation ba feature tương tác.
 
 Test set `data/snapshots/snapshot_test.parquet` KHÔNG được dùng để train hay tune: bảng
-tra baseline và 12 booster đều chỉ nhìn cửa sổ train, và ba fold walk-forward nằm trọn
+tra baseline và 18 booster đều chỉ nhìn cửa sổ train, và ba fold walk-forward nằm trọn
 trong cửa sổ train (splits.yaml). Đây là ràng buộc I-08.
 """
 
+import hashlib
 import json
 import sys
 from dataclasses import asdict
@@ -57,6 +58,15 @@ FEATURE_BUILD_MANIFEST_PATH = FEATURE_DIR / "build_manifest.json"
 # policy.yaml (19 key ở đó là ngưỡng vận hành: hotspot, budget, incentive...).
 MAPE_TARGET_H15_DEMAND = 0.15
 BASELINE_GAIN_TARGET = 0.20
+
+
+def file_sha256(path: Path) -> str:
+    """Checksum artifact để runtime phát hiện model/file provenance bị lệch."""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_split(split: str) -> pd.DataFrame:
@@ -351,7 +361,7 @@ if __name__ == "__main__":
     base_scored = attach(test, base_predictions)
     base_matrix = score_matrix(base_scored)
 
-    # --- Model 1 thật: 12 booster ---
+    # --- Model 1 thật: 18 booster cho ba horizon 5/15/30 ---
     print("\nTrain full quantile LightGBM models", flush=True)
     models = lgbm.train_models(train, progress=True)
     paths = lgbm.save_models(models, MODEL_DIR)
@@ -393,6 +403,8 @@ if __name__ == "__main__":
     report["acceptance"] = acceptance(report)
 
     model_manifest = {
+        "schema_version": 2,
+        "bundle_id": f"{report['model_version']}-{report['run_id']}",
         "run_id": report["run_id"],
         "model_version": report["model_version"],
         "seed": report["seed"],
@@ -402,6 +414,18 @@ if __name__ == "__main__":
         "trained_on": [data_range["train_start"], data_range["train_end"]],
         "n_train_rows": report["n_train_rows"],
         "artifacts": paths,
+        "artifact_sha256": {
+            name: file_sha256(Path(path))
+            for name, path in paths.items()
+        },
+        "training_data": {
+            "source_kind": "hybrid_synthetic",
+            "snapshot_generator_seed": 42,
+            "rain_source": "NASA POWER 2025",
+            "train_range": [data_range["train_start"], data_range["train_end"]],
+            "features_train_sha256": file_sha256(FEATURE_DIR / "features_train.parquet"),
+            "labels_train_sha256": file_sha256(LABEL_DIR / "labels_train.parquet"),
+        },
         "trained_at": report["trained_at"],
     }
     run_dir, versioned_report_path = write_versioned_outputs(report, model_manifest)

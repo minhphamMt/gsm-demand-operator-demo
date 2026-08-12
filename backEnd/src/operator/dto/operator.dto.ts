@@ -189,10 +189,10 @@ export class ReviseProposalDto {
   @Type(() => RevisionSourcePlanDto)
   sourcePlan: RevisionSourcePlanDto;
 
-  @ApiProperty({ example: 5, minimum: 1 })
+  @ApiProperty({ example: 5, minimum: 0 })
   @Type(() => Number)
   @IsInt()
-  @Min(1)
+  @Min(0)
   targetDriverCount: number;
 
   @ApiProperty({ example: 45, minimum: 5, maximum: 240 })
@@ -255,10 +255,15 @@ export class RejectProposalDto {
 }
 
 export class ActivateProposalDto {
-  @ApiPropertyOptional({ enum: ['human', 'simulated', 'mixed'], example: 'human', default: 'mixed' })
+  @ApiPropertyOptional({
+    enum: ['human'],
+    example: 'human',
+    default: 'human',
+    description: 'Only real driver-app responses are supported. No response simulator runs in production.',
+  })
   @IsOptional()
-  @IsIn(['human', 'simulated', 'mixed'])
-  responseMode: 'human' | 'simulated' | 'mixed' = 'mixed';
+  @IsIn(['human'])
+  responseMode: 'human' = 'human';
 
   @ApiPropertyOptional({
     type: [String],

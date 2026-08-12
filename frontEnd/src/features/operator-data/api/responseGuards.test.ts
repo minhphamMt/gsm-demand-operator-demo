@@ -5,6 +5,7 @@ import { isCampaign, isOperationsReport, isProposal, isSnapshot, parseEntities }
 describe('API response guards', () => {
   it('accepts the live campaign contract', () => {
     expect(isCampaign({ id: 'c1', planId: 'p1', status: 'Active', offersSent: 2, accepted: 1 })).toBe(true)
+    expect(isCampaign({ id: 'c1', planId: 'p1', status: 'ACTIVEISH', offersSent: 2, accepted: 1 })).toBe(false)
   })
 
   it('rejects WKB-like geometry at the snapshot boundary', () => {
@@ -17,6 +18,7 @@ describe('API response guards', () => {
 
   it('accepts historical DB proposals without a target zone', () => {
     expect(isProposal({ confidence: null, id: 'p1', moves: [], policyChecks: [], simulationAvailable: false, status: 'Approved', targetZoneId: null, title: 'Historical proposal' })).toBe(true)
+    expect(isProposal({ confidence: null, id: 'p1', moves: [], policyChecks: [], simulationAvailable: false, status: 'DONE', targetZoneId: null, title: 'Historical proposal' })).toBe(false)
   })
 
   it('accepts a DB-ledger report only when net cost is explicitly unavailable', () => {

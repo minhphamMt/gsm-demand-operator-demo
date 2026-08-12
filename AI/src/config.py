@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     data_dir: Path = PROJECT_ROOT / "data"
     history_db_path: Path = PROJECT_ROOT / "data" / "history.db"
     baseline_freeze_path: Path = PROJECT_ROOT / "data" / "baseline" / "BASELINE_FREEZE.md"
+    replay_dataset_manifest_path: Path = PROJECT_ROOT / "config" / "replay_dataset_manifest.json"
 
     # ---- Frontend build tĩnh (T8) ----
     frontend_dist_dir: Path = PROJECT_ROOT / "frontend" / "dist"

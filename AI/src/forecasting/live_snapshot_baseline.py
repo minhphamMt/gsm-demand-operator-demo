@@ -1,8 +1,9 @@
 """Forecast fallback driven by the live operational snapshot.
 
 This is intentionally labelled as a baseline, never as the trained LightGBM model.
-It lets Model 2 and Model 3 run on real Supabase observations while trained artifacts
-are absent from the AI branch.
+It lets Model 2 and Model 3 run on caller-supplied observations while trained artifacts
+are unavailable. It deliberately excludes aggregate en-route supply because the live
+contract does not carry arrival timestamps; counting it immediately would teleport cars.
 """
 
 import math
@@ -17,13 +18,26 @@ MODEL_VERSION = "live_snapshot_baseline_v1"
 
 
 class LiveZone(Protocol):
-    zone_id: int
-    demand_observed: int
-    idle_supply: int
-    enroute_supply: int
-    rain_forecast_15: float
-    rain_forecast_30: float
-    peak_flag: int
+    @property
+    def zone_id(self) -> int: ...
+
+    @property
+    def demand_observed(self) -> int: ...
+
+    @property
+    def idle_supply(self) -> int: ...
+
+    @property
+    def enroute_supply(self) -> int: ...
+
+    @property
+    def rain_forecast_15(self) -> float: ...
+
+    @property
+    def rain_forecast_30(self) -> float: ...
+
+    @property
+    def peak_flag(self) -> int: ...
 
 
 def forecast_from_live_zones(
@@ -31,11 +45,15 @@ def forecast_from_live_zones(
     horizon_min: int,
     zones: Sequence[LiveZone],
 ) -> Forecast:
-    """Build an auditable no-growth baseline from real current observations."""
+    """Build an auditable no-growth baseline from current observations.
+
+    The trained target is future ``idle_supply``. ``enroute_supply`` cannot be added
+    safely without per-arrival ETA, which this reduced live contract does not provide.
+    """
     forecast_zones: list[ZoneForecast] = []
     for zone in zones:
         demand = float(zone.demand_observed)
-        supply = float(zone.idle_supply + zone.enroute_supply)
+        supply = float(zone.idle_supply)
         demand_spread = math.sqrt(max(demand, 0.0))
         supply_spread = math.sqrt(max(supply, 0.0))
         forecast_zones.append(ZoneForecast(
@@ -49,10 +67,11 @@ def forecast_from_live_zones(
             confidence=None,
         ))
 
-    rain = max(
-        zone.rain_forecast_15 * (horizon_min / 15) if horizon_min <= 15 else zone.rain_forecast_30
+    rain_values = [
+        zone.rain_forecast_15 if horizon_min <= 15 else zone.rain_forecast_30
         for zone in zones
-    )
+    ]
+    rain = sum(rain_values) / len(rain_values)
     peak = max(zone.peak_flag for zone in zones)
     return Forecast(
         t=t,

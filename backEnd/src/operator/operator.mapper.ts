@@ -68,6 +68,19 @@ export const mapProposal = (row: Row) => {
   const before = simulation.metrics_before ?? simulation.metricsBefore ?? {};
   const after = simulation.metrics_after ?? simulation.metricsAfter ?? simulation.metrics ?? {};
   const residual = Array.isArray(sourcePlan.residual_gap) ? sourcePlan.residual_gap : [];
+  const beforeMetrics = metrics(before);
+  const afterMetrics = metrics(after);
+  const revisedResidualGap = row.parent_proposal_id
+    ? residual.reduce((sum: number, item: Row) => sum + number(item.gap_remaining ?? item.gapRemaining), 0)
+    : null;
+  const impliedDemand = beforeMetrics.fulfillmentRate < 100
+    ? beforeMetrics.residualGap / Math.max(0.0001, 1 - beforeMetrics.fulfillmentRate / 100)
+    : 0;
+  const effectiveAfterMetrics = revisedResidualGap === null ? afterMetrics : {
+    ...afterMetrics,
+    fulfillmentRate: impliedDemand > 0 ? Math.max(0, (1 - revisedResidualGap / impliedDemand) * 100) : 100,
+    residualGap: revisedResidualGap,
+  };
   const derivedTargets = residual.map((item: Row) => normalizeZoneId(item.zone_id));
   const targetZoneIds = row.target_zone_ids?.length
     ? row.target_zone_ids.map(normalizeZoneId)
@@ -101,7 +114,14 @@ export const mapProposal = (row: Row) => {
     confidence: nullableNumber(simulation.confidence),
     simulationAvailable: Object.keys(before).length > 0 && Object.keys(after).length > 0,
     candidateSourceZones: Array.isArray(sourcePlan.candidate_source_zones)
-      ? sourcePlan.candidate_source_zones
+      ? sourcePlan.candidate_source_zones.map((source: Row) => ({
+          ...source,
+          zoneId: normalizeZoneId(source.zoneId ?? source.zone_id),
+          label: zoneLabel(source.zoneId ?? source.zone_id, source.label ?? source.zone_name),
+          availableSupply: number(source.availableSupply ?? source.available_supply),
+          distanceKm: number(source.distanceKm ?? source.distance_km),
+          etaMinutes: number(source.etaMinutes ?? source.eta_minutes),
+        }))
       : [],
     moves: rawMoves.map((move: Row, index: number) => ({
       id: move.id ?? `${row.id}-move-${index + 1}`,
@@ -115,7 +135,8 @@ export const mapProposal = (row: Row) => {
       distanceKm: number(move.estimated_distance_km ?? move.distance_km ?? move.distanceKm),
       etaMinutes: number(move.eta_minutes ?? move.etaMinutes ?? number(move.eta_steps) * 5),
       estimatedCost: number(move.estimated_cost ?? move.estimatedCost),
-      sourceSupplyAfter: number(move.source_supply_after ?? move.sourceSupplyAfter ?? move.after_gap),
+      // `after_gap` is the target shortage after this move, not source supply.
+      sourceSupplyAfter: number(move.source_supply_after ?? move.sourceSupplyAfter),
     })),
     targetDriverCount: row.target_driver_count ?? 0,
     expectedOfferCount: row.offer_count ?? 0,
@@ -147,9 +168,11 @@ export const mapProposal = (row: Row) => {
       title: String(warning.title ?? warning.code ?? 'Cảnh báo từ model'),
       detail: String(warning.detail ?? warning.message ?? ''),
     })),
-    metricsBefore: metrics(before),
-    metrics: metrics(after),
-    metricsAfterRelocation: simulation.metrics_after_relocation ? metrics(simulation.metrics_after_relocation) : undefined,
+    metricsBefore: beforeMetrics,
+    metrics: effectiveAfterMetrics,
+    metricsAfterRelocation: row.parent_proposal_id
+      ? effectiveAfterMetrics
+      : simulation.metrics_after_relocation ? metrics(simulation.metrics_after_relocation) : undefined,
     metricsAfterActivation: simulation.metrics_after_activation_expected ? metrics(simulation.metrics_after_activation_expected) : undefined,
     explanation: Array.isArray(row.explanation) ? row.explanation : [row.explanation].filter(Boolean),
     inputFreshUntil: iso(row.window_end_at),
@@ -218,7 +241,11 @@ export const mapCampaign = (row: Row, offers: Row[], participations: Row[], trip
     worstCaseCommitment: number(row.bonus_amount) * (row.target_driver_count ?? 0),
     startedAt: iso(row.start_at ?? row.created_at),
     expiresAt: iso(row.end_at),
-    responseMode: row.response_mode ?? 'mixed',
-    suggestedActivation: number(row.batch_size) > 0 ? number(row.batch_size) : number(row.target_driver_count),
+    // Production activation has no response simulator. Historical `mixed`
+    // requests still created real offers and therefore also map to `human`.
+    responseMode: 'human',
+    // Campaign progress is measured against accepted/activated drivers, not the
+    // overbooked offer batch. A target of 2 may legitimately send 5 offers.
+    suggestedActivation: number(row.target_driver_count),
   };
 };

@@ -4,7 +4,7 @@ services:
       context: ./AI
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       APP_ENV: production
       MODEL_VERSION: lgbm_quantile_v1
@@ -13,6 +13,7 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
       timeout: 5s
+      start_period: 30s
       retries: 5
 
   backend:
@@ -20,10 +21,12 @@ services:
       context: ./backEnd
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     env_file:
       - ./backEnd/.env
     environment:
+      NODE_ENV: production
+      PORT: "3000"
       AI_SERVICE_URL: http://ai:8000
       CORS_ORIGINS: http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174
     depends_on:
@@ -36,10 +39,12 @@ services:
       context: ./frontEnd
       dockerfile: Dockerfile
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     env_file:
-      - ./frontEnd/.env
-      - ./backEnd/.env
+      - path: ./frontEnd/.env
+        required: true
+      - path: ./frontEnd/.env.local
+        required: false
     environment:
       VITE_API_BASE_URL: http://localhost:3000/api/v1
       VITE_DATA_SOURCE: api
@@ -48,13 +53,8 @@ services:
     volumes:
       - ./frontEnd:/app
       - /app/node_modules
-    command:
-      - sh
-      - -c
-      - >-
-        export VITE_SUPABASE_URL="$$SUPABASE_URL"
-        VITE_SUPABASE_PUBLISHABLE_KEY="$$SUPABASE_PUBLISHABLE_KEY";
-        exec npm run dev -- --host 0.0.0.0 --port 5173
+    command: npm run dev -- --host 0.0.0.0 --port 5173
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped

@@ -1,201 +1,149 @@
-# 🤖 AI20K Agent Template
+# GSM-14 NovaFour
 
-Template chính thức cho học viên **VinUni AI20K Build Phase** — cung cấp sẵn cấu trúc dự án, code mẫu, và hướng dẫn kỹ thuật chi tiết để xây dựng AI Agent đạt điểm cao (35+/50).
+GSM-14 NovaFour là hệ thống mô phỏng hỗ trợ điều phối cung–cầu tài xế theo vùng. Hệ thống phát lại snapshot 5 phút, dự báo cung/cầu cho 30 zone, phát hiện hotspot, đề xuất điều chuyển, đưa quyết định qua bước duyệt của operator, rồi theo dõi chiến dịch và phản hồi offer từ Driver App.
 
-> 📖 **Technical Guidebook:** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
+Đây là sản phẩm mô phỏng/decision-support. Dữ liệu replay và các KPI activation không phải bằng chứng về tác động kinh doanh ngoài thực tế.
 
-## 🎯 Template này dùng để làm gì?
+Kiến trúc hiện tại gồm React/Vite, NestJS, FastAPI/LightGBM và Supabase/PostgreSQL. Xem [ARCHITECTURE.md](ARCHITECTURE.md) để biết luồng dữ liệu và trust boundary.
 
-Khi tham gia AI20K Build Phase, mỗi đội cần xây dựng một AI Agent hoàn chỉnh — từ kiến trúc, code, test, đến deploy. Thay vì bắt đầu từ con số không, template này cung cấp:
+## Chạy full stack từ clean clone
 
-- **Cấu trúc thư mục chuẩn** — đã được thiết kế theo best practices (separation of concerns)
-- **Code mẫu** cho các phần cốt lõi: LangGraph agent, FastAPI API, config, schemas
-- **Docker + CI/CD sẵn** — Dockerfile multi-stage, GitHub Actions workflow
-- **Hướng dẫn kỹ thuật 10 chương** — từ clone template đến nộp bài Demo Day
-- **Checklist 10 deliverables** — đảm bảo không bỏ sót yêu cầu BTC
-- **AI Usage Logging tự động** — Pre-configured hooks cho Claude Code, Cursor, Codex, Gemini CLI, Antigravity, và GitHub Copilot
+Yêu cầu:
 
-## ⚡ Quick Start
+- Docker Engine/Desktop có Docker Compose 2.24 trở lên.
+- Một Supabase project đã áp dụng các migration trong `backEnd/supabase/migrations/` theo thứ tự tên file.
+- Các cổng local `5173`, `3000` và `8000` đang trống.
 
-### Bước 1: Fork hoặc Clone
+Tạo file cấu hình local từ các template. Các file đích đã được Git-ignore và không được commit:
+
+```powershell
+Copy-Item backEnd/.env.example backEnd/.env
+Copy-Item frontEnd/.env.example frontEnd/.env
+```
+
+Tương đương trên bash:
 
 ```bash
-# Clone template
-git clone https://github.com/AI20K-Build-Cohort-2/starter-code-template.git team-YOUR_TEAM_NAME
-cd team-YOUR_TEAM_NAME
-
-# Xóa git history cũ và khởi tạo lại
-rm -rf .git
-git init
-git add .
-git commit -m "feat: khởi tạo dự án từ template"
+cp backEnd/.env.example backEnd/.env
+cp frontEnd/.env.example frontEnd/.env
 ```
 
-### Bước 2: Setup môi trường
+Điền ít nhất các biến sau:
 
-```bash
-# Tạo virtual environment
-python3.11 -m venv .venv
-source .venv/bin/activate
+| File | Biến | Ghi chú |
+|---|---|---|
+| `backEnd/.env` | `SUPABASE_URL` | URL project Supabase |
+| `backEnd/.env` | `SUPABASE_SERVICE_ROLE_KEY` | Secret phía server; tuyệt đối không đặt dưới `frontEnd/` |
+| `frontEnd/.env` | `VITE_SUPABASE_URL` | URL public dùng cho Supabase Auth |
+| `frontEnd/.env` | `VITE_SUPABASE_PUBLISHABLE_KEY` | Publishable/anon key; mọi biến `VITE_*` đều có thể xuất hiện trong bundle trình duyệt |
+| `frontEnd/.env` | `VITE_MAPBOX_ACCESS_TOKEN` | Public token; có thể bỏ trống nếu không cần nền bản đồ Mapbox |
 
-# Cài dependencies
-pip install -e ".[dev]"
+`frontEnd/.env.local` là override tùy chọn cho máy phát triển và không bắt buộc trong clean clone. Compose không đọc `backEnd/.env` vào frontend, vì vậy service-role key không đi vào process Vite.
 
-# Cấu hình API keys
-cp .env.example .env
-# Mở .env và thêm OPENAI_API_KEY của bạn
-# Đồng thời cập nhật AI_LOG_API_KEY bằng key riêng từ link mời của BTC
-# (giá trị trong .env.example chỉ là placeholder)
+Kiểm tra cấu hình rồi khởi động:
+
+```powershell
+docker compose config --quiet
+docker compose up --build --wait
 ```
 
-### Bước 3: Cài AI Logging Hooks
+Các địa chỉ local:
 
-```bash
-# Linux / macOS / Git Bash
-bash scripts/setup_hooks.sh
+| Thành phần | URL | Health/readiness |
+|---|---|---|
+| Frontend | http://localhost:5173 | `GET /` |
+| Backend API | http://localhost:3000/api/v1 | `/health/live`, `/health/ready`, `/health/metrics` |
+| Swagger | http://localhost:3000/docs | — |
+| AI inference | http://localhost:8000 | `/health` |
 
-# Windows PowerShell
-# powershell -ExecutionPolicy Bypass -File scripts\setup_hooks.ps1
+Compose cố ý fail fast:
+
+- Thiếu `backEnd/.env` hoặc `frontEnd/.env` làm `docker compose config` thất bại.
+- Backend chỉ healthy khi truy vấn readiness tới Supabase thành công; frontend chờ trạng thái này trước khi start.
+- AI trả `503` nếu policy, replay snapshot, manifest hoặc đủ 18 model artifact không xác minh được; backend chờ AI healthy.
+
+Xem log hoặc dừng stack:
+
+```powershell
+docker compose logs -f ai backend frontend
+docker compose down
 ```
 
-Hooks tự động log mọi AI prompt khi dùng Claude Code, Cursor, Codex, Gemini CLI, Antigravity, hoặc GitHub Copilot. Không cần thao tác thủ công.
+`docker-compose.yml` là stack tích hợp local. Nó bind các cổng vào `127.0.0.1` và chạy Vite dev server; không dùng nguyên trạng làm cấu hình production.
 
-### Bước 4: Chạy server
+## Chạy và kiểm tra từng workspace
 
-```bash
-# Chạy FastAPI backend
-uvicorn src.main:app --reload --port 8000
+### AI service
 
-# Mở Swagger UI
-# http://localhost:8000/docs
+```powershell
+Set-Location AI
+python -m venv .venv
+./.venv/Scripts/python -m pip install -r requirements.txt
+./.venv/Scripts/python -m pytest -q
+./.venv/Scripts/python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
-### Bước 5: Đọc hướng dẫn
+Copy `AI/.env.example` thành `AI/.env` nếu chạy ngoài Compose. `MODEL_VERSION` phải khớp manifest của model bundle.
 
-📖 Mở **[Technical Guidebook](https://phoenix.note.transformerlabs.ai/technical-book)** và làm theo từng chương.
+### Backend
 
-## 📁 Cấu trúc dự án
-
-```
-├── src/
-│   ├── agents/           # 🧠 LangGraph Agent
-│   │   ├── graph.py      #    State graph (nodes + edges)
-│   │   ├── state.py      #    State schema (TypedDict)
-│   │   ├── nodes/        #    Node functions
-│   │   └── tools/        #    Agent tools (@tool)
-│   ├── api/              # 🌐 FastAPI Backend
-│   │   └── routes.py     #    API endpoints
-│   ├── models/           # 📋 Pydantic schemas
-│   ├── services/         # 🔧 Business logic (LLM, etc.)
-│   ├── config.py         # ⚙️ Pydantic Settings
-│   └── main.py           # 🚀 App entry point
-├── tests/                # 🧪 pytest suite
-│   ├── test_agents/      #    Agent/graph tests
-│   └── test_api/         #    API endpoint tests
-├── scripts/              # 🔌 AI Logging Hooks
-│   ├── log_hook.py       #    Auto-log cho Claude/Cursor/Codex/Gemini/Copilot
-│   ├── log_antigravity.py#    Antigravity IDE prompt scanner
-│   ├── log_manual.py     #    Manual log cho ChatGPT / web tools
-│   ├── submit_log.py     #    Submit logs on git push
-│   └── setup_hooks.sh    #    One-time hook installer
-├── .claude/ .codex/ .cursor/ .gemini/  # Per-tool hook configs
-├── .agents/              # Antigravity rules + workflows
-├── .ai-log/              # 📊 AI usage logs (auto-generated)
-├── docs/
-│   ├── guide/            # 📖 Technical Guidebook (10 chapters)
-│   └── architecture_diagram.md
-├── eval/                 # 📊 Evaluation results
-├── presentation/         # 🎤 Demo Day slides
-├── .github/workflows/    # ⚡ CI/CD (GitHub Actions)
-├── .github/hooks/        # 🪝 Copilot hook config
-├── Dockerfile            # 🐳 Multi-stage build
-├── docker-compose.yml    # 🐙 Full stack orchestration
-└── README_boilerplate.md # 📝 README template cho đội của bạn
+```powershell
+Set-Location backEnd
+npm ci
+npm run check
+npm run start:dev
 ```
 
-## 📚 Technical Guidebook — 10 Chương
+Các smoke test có hậu tố `:live` hoặc dùng `--env-file=.env.test.local` sẽ truy cập Supabase thật và cần tài khoản test riêng. Xem [backEnd/README.md](backEnd/README.md).
 
-| Chương | Nội dung | Thời gian |
-|---------|----------|-----------|
-| 1 | Lời mở đầu — Mục tiêu, cách sử dụng | 15 phút |
-| 2 | Khởi tạo dự án — Clone, setup, git workflow | 4 giờ |
-| 3 | Thiết kế kiến trúc — 3-tier, diagrams, ADR | 6 giờ |
-| 4 | **LangGraph Agent** — State, nodes, edges, tools, RAG | 8 giờ |
-| 5 | FastAPI — Routes, validation, error handling, streaming | 6 giờ |
-| 6 | Giao diện — Next.js + Streamlit quickstart | 6 giờ |
-| 7 | DevOps — Docker, CI/CD, deploy, logging | 6 giờ |
-| 8 | Kiểm thử — Unit test, integration test, RAGAS | 4 giờ |
-| 9 | Demo Day — 10 deliverables, checklist, tips | 2 giờ |
-| 10 | Tài nguyên — Khóa học, docs, BMAD method | tham khảo |
+### Frontend
 
-📖 **Đọc online:** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
-
-## 📋 10 Deliverables cho Demo Day
-
-| # | Deliverable | File vị trí | Template có sẵn |
-|---|-------------|-------------|:---:|
-| 1 | Source Code | `src/` | ✅ |
-| 2 | README.md | `README_boilerplate.md` → copy thành `README.md` | ✅ |
-| 3 | Architecture Diagram | `docs/architecture_diagram.md` | ✅ |
-| 4 | AI Logs | LangSmith (3 env vars) + Auto AI Usage Logging | ✅ |
-| 5 | Live URL | Deploy lên Render/Vercel | ⚡ CI/CD sẵn |
-| 6 | Video Demo | `presentation/` | 📝 |
-| 7 | Pitch Deck | `presentation/` | 📝 |
-| 8 | Development Journal | `JOURNAL.md` | ✅ |
-| 9 | Worklog | `WORKLOG.md` | ✅ |
-| 10 | Evaluation Evidence | `eval/` | 📝 |
-
-## 🛠 Tech Stack
-
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| AI Agent | LangGraph + LangChain | Latest |
-| Backend | FastAPI + Uvicorn | 0.100+ |
-| LLM | OpenAI GPT-4o-mini | API |
-| Frontend | Next.js / Streamlit | 14+ / 1.30+ |
-| Database | SQLite (dev) / PostgreSQL (prod) | — |
-| DevOps | Docker + GitHub Actions | — |
-| Testing | pytest + pytest-asyncio | 8+ |
-
-## 📊 AI Usage Logging
-
-Template đã tích hợp sẵn auto-logging hooks cho 6 AI tools:
-
-| Tool | Cơ chế | Config |
-|------|--------|--------|
-| Claude Code | `.claude/settings.json` hooks | Tự động |
-| Cursor | `.cursor/hooks.json` | Tự động |
-| OpenAI Codex CLI | `.codex/hooks.json` | Tự động |
-| Gemini CLI | `.gemini/settings.json` | Tự động |
-| GitHub Copilot | `.github/hooks/hooks.json` | Tự động |
-| Antigravity IDE | Pre-push scan transcript | Tự động trên `git push` |
-
-Tất cả prompts và tool calls được log vào `.ai-log/session.jsonl` và tự động submit lên grading server mỗi khi `git push`.
-
-**ChatGPT / web tools khác** — log thủ công:
-```bash
-bash scripts/_pyrun.sh scripts/log_manual.py --tool chatgpt --prompt "What you asked"
+```powershell
+Set-Location frontEnd
+npm ci
+npm run check
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-> ⚠️ Chạy `bash scripts/setup_hooks.sh` một lần sau khi clone để cài pre-push hook.
+Đặt `VITE_DATA_SOURCE=mock` để phát triển không cần backend, hoặc `api` để dùng full stack.
 
-## 📖 Đọc Technical Guidebook
+### Root starter scaffold
 
-**Online (khuyến nghị):** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
+`src/`, `tests/`, root `requirements.txt` và root `Dockerfile` là scaffold Python AI20K được giữ lại để tham khảo và được kiểm tra độc lập. Product runtime nằm trong `AI/`, `backEnd/` và `frontEnd/`. Lệnh mặc định ở root chỉ thu thập test trong `tests/`:
 
-Đăng nhập bằng GitHub (cùng account đã được BTC mời vào org `AI20K-Build-Cohort-2`)
-→ chọn tab **Technical Book** ở sidebar trái → đọc 10 chương + topic sections,
-có table of contents bên phải, hỗ trợ light/dark/cyberpunk theme.
+```powershell
+python -m pytest -q
+ruff check src tests
+```
 
-**Offline:** mọi chương đều ở thư mục `docs/guide/` trong template này — mở bằng
-bất kỳ markdown viewer/editor nào (VS Code, Obsidian, GitHub UI, …).
+## CI và quality gates
 
-## 🔗 Liên kết
+GitHub Actions chạy độc lập bốn nhóm kiểm tra:
 
-- 📖 **Technical Guidebook:** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
-- 🏫 **AI20K Program:** VinUni AI20K Build Phase
-- 👨‍🏫 **Mentor:** Đặng Hải Lộc
+- Root scaffold: Ruff và pytest.
+- AI: Ruff, mypy và pytest.
+- Backend: typecheck, Jest và production build qua `npm run check`.
+- Frontend: Oxlint, Vitest và production build qua `npm run check`.
+- Compose: materialize các template không chứa secret và chạy `docker compose config --quiet`.
 
-## 📄 License
+## Cấu trúc chính
 
-MIT — Sử dụng tự do cho mục đích giáo dục.
+```text
+AI/                         FastAPI inference, replay, model và policy
+backEnd/                    NestJS API, Supabase integration và migrations
+frontEnd/                   React/Vite Operator Console và Driver App
+docs/                       Runbook, checklist và tài liệu kỹ thuật
+skill/                      Product/domain specification
+docker-compose.yml          Local integration stack
+.github/workflows/ci.yml    CI quality gates
+```
+
+## Vận hành và bảo mật
+
+- Inject secret ở runtime; không bake secret vào image và không commit `.env`.
+- Chỉ publishable/anon key được phép có tiền tố `VITE_`; service-role key chỉ tồn tại ở backend.
+- Rate limit mutation hiện dùng storage trong process. Chạy một backend replica cho tới khi có shared throttler storage.
+- Migration là forward-only; rollback ứng dụng bằng image trước đó và sửa schema bằng migration mới.
+- Trước production, thực hiện backup/restore drill và các bước trong [docs/PRODUCTION_RUNBOOK.md](docs/PRODUCTION_RUNBOOK.md).
+
+Tài liệu liên quan: [architecture diagram](docs/architecture_diagram.md), [integration checklist](docs/BACKEND_FRONTEND_INTEGRATION_CHECKLIST.md), [database hardening checklist](docs/DB_FIRST_HARDENING_CHECKLIST.md), và [product specification](skill/SPEC-GSM14-NovaFour-Unified.md).

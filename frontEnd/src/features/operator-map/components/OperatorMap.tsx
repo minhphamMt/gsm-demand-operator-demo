@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { zoneCentersToFeatureCollection, zonesToFeatureCollection } from '@/features/operator-data'
-import type { Zone } from '@/features/operator-data'
+import type { Move, Zone } from '@/features/operator-data'
+import { buildFlowCollections, mapLayerThresholds, mapTheme, zoneDotRadius, zoneFillColor, zoneStrokeColor, zonesForMapView } from '@/features/operator-map/model/operatorMapGeometry'
+import type { FlowState } from '@/features/operator-map/model/operatorMapGeometry'
 import { env } from '@/shared/config/env'
 
 const hanoiCenter: [longitude: number, latitude: number] = [105.8342, 21.0278]
@@ -14,28 +16,28 @@ export type OperatorMapLayer = 'gap' | 'demand' | 'supply'
 export type OperatorMapView = 'city' | 'core'
 type OperatorMapProps = {
   forecastMinutes: number
+  flowState?: FlowState
   layer?: OperatorMapLayer
+  moves?: readonly Move[]
   onZoneSelect: (zoneId: string) => void
   selectedZoneId?: string | undefined
   timeLabel?: string | undefined
   view?: OperatorMapView
   zones: readonly Zone[]
 }
-const gapColors = {
-  balanced: '#d8e0de',
-  deficitLow: '#f4ada0',
-  deficitHigh: '#e0503c',
-  surplus: '#2bb8ad',
-} as const
-export function OperatorMap({ forecastMinutes, layer = 'gap', onZoneSelect, selectedZoneId, timeLabel, view = 'city', zones }: OperatorMapProps) {
+export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = 'gap', moves = [], onZoneSelect, selectedZoneId, timeLabel, view = 'city', zones }: OperatorMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const rainMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
+  const flowStateRef = useRef(flowState)
   const layerRef = useRef(layer)
+  const movesRef = useRef(moves)
   const zonesRef = useRef(zones)
   const [mapStatus, setMapStatus] = useState<MapStatus>('idle')
   zonesRef.current = zones
   layerRef.current = layer
+  movesRef.current = moves
+  flowStateRef.current = flowState
 
   useEffect(() => {
     if (!containerRef.current || !env.hasMapboxToken) return undefined
@@ -67,14 +69,17 @@ export function OperatorMap({ forecastMinutes, layer = 'gap', onZoneSelect, sele
         data: zoneCentersToFeatureCollection(zonesRef.current),
         promoteId: 'id',
       })
+      const flows = buildFlowCollections(zonesRef.current, movesRef.current)
+      map.addSource('operator-move-flows', { type: 'geojson', data: flows.routes })
+      map.addSource('operator-move-labels', { type: 'geojson', data: flows.labels })
       map.addLayer({
         id: 'zone-area-fill',
         type: 'fill',
         slot: 'middle',
         source: 'operator-zone-areas',
         paint: {
-          'fill-color': fillColor(layerRef.current),
-          'fill-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.23, 0.11],
+          'fill-color': zoneFillColor(layerRef.current),
+          'fill-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.2, 0.11],
           'fill-emissive-strength': 1,
         },
       })
@@ -84,10 +89,35 @@ export function OperatorMap({ forecastMinutes, layer = 'gap', onZoneSelect, sele
         slot: 'middle',
         source: 'operator-zone-areas',
         paint: {
-          'line-color': fillColor(layerRef.current),
-          'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 2.8, 1.2],
-          'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.95, 0.55],
+          'line-color': zoneStrokeColor(layerRef.current),
+          'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 2.4, 1.15],
+          'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.85, 0.45],
           'line-emissive-strength': 1,
+        },
+      })
+      map.addLayer({
+        id: 'move-flow-casing',
+        type: 'line',
+        slot: 'middle',
+        source: 'operator-move-flows',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': 'rgba(255,255,255,.9)',
+          'line-width': ['+', ['get', 'width'], 3],
+          'line-opacity': 0.9,
+        },
+      })
+      map.addLayer({
+        id: 'move-flow-line',
+        type: 'line',
+        slot: 'middle',
+        source: 'operator-move-flows',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': flowStateRef.current === 'completed' ? mapTheme.flowComplete : mapTheme.flow,
+          'line-width': ['get', 'width'],
+          'line-opacity': 0.92,
+          'line-dasharray': flowStateRef.current === 'executing' ? [1.4, 1] : [1, 0],
         },
       })
       map.addLayer({
@@ -96,12 +126,48 @@ export function OperatorMap({ forecastMinutes, layer = 'gap', onZoneSelect, sele
         slot: 'middle',
         source: 'operator-zone-centers',
         paint: {
-          'circle-radius': activityRadius(layerRef.current),
-          'circle-color': fillColor(layerRef.current),
-          'circle-opacity': 0.78,
-          'circle-stroke-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#14302e', 'rgba(255,255,255,.82)'],
-          'circle-stroke-width': ['case', ['boolean', ['feature-state', 'selected'], false], 3.5, 1.25],
+          'circle-radius': zoneDotRadius(layerRef.current),
+          'circle-color': zoneFillColor(layerRef.current),
+          'circle-opacity': layerRef.current === 'gap' ? 0.75 : 1,
+          'circle-stroke-color': ['case', ['boolean', ['feature-state', 'selected'], false], mapTheme.ink, 'rgba(255,255,255,.9)'],
+          'circle-stroke-width': ['case', ['boolean', ['feature-state', 'selected'], false], 3, 1.2],
           'circle-emissive-strength': 1,
+        },
+      })
+      map.addLayer({
+        id: 'move-flow-label',
+        type: 'symbol',
+        slot: 'middle',
+        source: 'operator-move-labels',
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+          'text-size': 10,
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': flowStateRef.current === 'completed' ? mapTheme.flowComplete : mapTheme.flow,
+          'text-halo-width': 4,
+          'text-halo-blur': 0.2,
+        },
+      })
+      map.addLayer({
+        id: 'zone-severe-label',
+        type: 'symbol',
+        slot: 'middle',
+        source: 'operator-zone-centers',
+        filter: ['>=', ['get', 'operationalGap'], 8],
+        layout: {
+          'text-anchor': 'left',
+          'text-field': ['get', 'label'],
+          'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+          'text-offset': [1.8, -0.55],
+          'text-size': 11,
+        },
+        paint: {
+          'text-color': mapTheme.ink,
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5,
         },
       })
       for (const layerId of ['zone-area-fill', 'zone-activity-dot']) {
@@ -138,16 +204,24 @@ export function OperatorMap({ forecastMinutes, layer = 'gap', onZoneSelect, sele
     const centerSource = map?.getSource('operator-zone-centers')
     if (areaSource && 'setData' in areaSource) areaSource.setData(zonesToFeatureCollection(zones))
     if (centerSource && 'setData' in centerSource) centerSource.setData(zoneCentersToFeatureCollection(zones))
+    const flows = buildFlowCollections(zones, moves)
+    const flowSource = map?.getSource('operator-move-flows')
+    const flowLabelSource = map?.getSource('operator-move-labels')
+    if (flowSource && 'setData' in flowSource) flowSource.setData(flows.routes)
+    if (flowLabelSource && 'setData' in flowLabelSource) flowLabelSource.setData(flows.labels)
     if (map) syncRainMarkers(map, rainMarkersRef.current, zones)
-  }, [zones])
+  }, [moves, zones])
 
   useEffect(() => {
     const map = mapRef.current
     if (!map) return undefined
     const applyLayer = () => {
       if (!map.getLayer('zone-area-fill') || !map.getLayer('zone-area-outline') || !map.getLayer('zone-activity-dot')) return false
-      for (const id of ['zone-area-fill', 'zone-area-outline', 'zone-activity-dot']) map.setPaintProperty(id, id === 'zone-activity-dot' ? 'circle-color' : id === 'zone-area-outline' ? 'line-color' : 'fill-color', fillColor(layer))
-      map.setPaintProperty('zone-activity-dot', 'circle-radius', activityRadius(layer))
+      map.setPaintProperty('zone-area-fill', 'fill-color', zoneFillColor(layer))
+      map.setPaintProperty('zone-area-outline', 'line-color', zoneStrokeColor(layer))
+      map.setPaintProperty('zone-activity-dot', 'circle-color', zoneFillColor(layer))
+      map.setPaintProperty('zone-activity-dot', 'circle-radius', zoneDotRadius(layer))
+      map.setPaintProperty('zone-activity-dot', 'circle-opacity', layer === 'gap' ? 0.75 : 1)
       return true
     }
     if (applyLayer()) return undefined
@@ -159,9 +233,18 @@ export function OperatorMap({ forecastMinutes, layer = 'gap', onZoneSelect, sele
 
   useEffect(() => {
     const map = mapRef.current
+    if (!map?.getLayer('move-flow-line') || !map.getLayer('move-flow-label')) return
+    const color = flowState === 'completed' ? mapTheme.flowComplete : mapTheme.flow
+    map.setPaintProperty('move-flow-line', 'line-color', color)
+    map.setPaintProperty('move-flow-line', 'line-dasharray', flowState === 'executing' ? [1.4, 1] : [1, 0])
+    map.setPaintProperty('move-flow-label', 'text-halo-color', color)
+  }, [flowState])
+
+  useEffect(() => {
+    const map = mapRef.current
     if (!map?.isStyleLoaded()) return
     if (view === 'core') {
-      map.easeTo({ center: hanoiCenter, zoom: 12, duration: 650, essential: true })
+      fitMapToZones(map, zonesForMapView(zones, view), 650, 12)
       return
     }
     fitMapToZones(map, zones, 650)
@@ -210,17 +293,6 @@ export function OperatorMap({ forecastMinutes, layer = 'gap', onZoneSelect, sele
   )
 }
 
-function fillColor(layer: OperatorMapLayer): mapboxgl.ExpressionSpecification {
-  if (layer === 'demand') return ['interpolate', ['linear'], ['get', 'demand'], 0, '#f9ded8', 20, '#f4ada0', 50, '#e0503c']
-  if (layer === 'supply') return ['interpolate', ['linear'], ['get', 'supply'], 0, '#d9f4f1', 20, '#72d8d1', 60, '#0c6e69']
-  return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#cbd5e1', ['>=', ['get', 'operationalGap'], 8], gapColors.deficitHigh, ['>=', ['get', 'operationalGap'], 3], gapColors.deficitLow, ['<=', ['get', 'operationalGap'], -4], gapColors.surplus, gapColors.balanced]
-}
-
-function activityRadius(layer: OperatorMapLayer): mapboxgl.ExpressionSpecification {
-  const property = layer === 'supply' ? 'supply' : 'demand'
-  return ['interpolate', ['linear'], ['get', property], 0, 9, 5, 13, 15, 20, 30, 28, 60, 38]
-}
-
 function syncRainMarkers(map: mapboxgl.Map, markers: Map<string, mapboxgl.Marker>, zones: readonly Zone[]) {
   const raining = new Set(zones.filter((zone) => zone.rainMmH >= rainThreshold).map((zone) => zone.id))
   for (const [id, marker] of markers)
@@ -247,11 +319,11 @@ function syncRainMarkers(map: mapboxgl.Map, markers: Map<string, mapboxgl.Marker
   }
 }
 
-function fitMapToZones(map: mapboxgl.Map, zones: readonly Zone[], duration = 0) {
+function fitMapToZones(map: mapboxgl.Map, zones: readonly Zone[], duration = 0, maxZoom = 10.7) {
   const centers = zones.map((zone) => zone.center).filter(([longitude, latitude]) => Number.isFinite(longitude) && Number.isFinite(latitude))
   if (!centers.length) return
   const bounds = centers.reduce((current, center) => current.extend(center), new mapboxgl.LngLatBounds(centers[0], centers[0]))
-  map.fitBounds(bounds, { padding: 58, duration, maxZoom: 10.7 })
+  map.fitBounds(bounds, { padding: 58, duration, maxZoom })
 }
 
 function MapLegend({ layer }: { layer: OperatorMapLayer }) {
@@ -260,27 +332,27 @@ function MapLegend({ layer }: { layer: OperatorMapLayer }) {
       ? {
           title: 'CHÚ GIẢI NHU CẦU',
           items: [
-            ['#f9ded8', 'Thấp < 20 xe'],
-            ['#f4ada0', 'Vừa 20–49 xe'],
-            ['#e0503c', 'Cao ≥ 50 xe'],
+            ['#f9ded8', `Thấp < ${mapLayerThresholds.demand.medium} xe`],
+            ['#f4ada0', `Vừa ${mapLayerThresholds.demand.medium}–${mapLayerThresholds.demand.high - 1} xe`],
+            ['#e0503c', `Cao ≥ ${mapLayerThresholds.demand.high} xe`],
           ],
         }
       : layer === 'supply'
         ? {
           title: 'CHÚ GIẢI CUNG XE',
             items: [
-              ['#d9f4f1', 'Ít < 20 xe'],
-              ['#72d8d1', 'Vừa 20–59 xe'],
-              ['#0c6e69', 'Nhiều ≥ 60 xe'],
+              ['#d9f4f1', `Ít < ${mapLayerThresholds.supply.medium} xe`],
+              ['#72d8d1', `Vừa ${mapLayerThresholds.supply.medium}–${mapLayerThresholds.supply.high - 1} xe`],
+              ['#0c6e69', `Nhiều ≥ ${mapLayerThresholds.supply.high} xe`],
             ],
           }
         : {
             title: 'CHÚ GIẢI CHÊNH LỆCH',
             items: [
-              [gapColors.deficitHigh, 'Thiếu ≥ 8 xe'],
-              [gapColors.deficitLow, 'Thiếu 3–7 xe'],
-              [gapColors.surplus, 'Dư ≥ 4 xe'],
-              [gapColors.balanced, 'Cân bằng −3…+2'],
+              [mapTheme.deficitHigh, 'Thiếu ≥ 8 xe'],
+              [mapTheme.deficitLow, 'Thiếu 3–7 xe'],
+              [mapTheme.surplus, 'Dư ≥ 4 xe'],
+              [mapTheme.balanced, 'Cân bằng −3…+2'],
             ],
           }
   return (

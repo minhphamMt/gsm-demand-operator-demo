@@ -76,7 +76,7 @@ if (approved.status !== 'Approved') throw new Error(`Proposal was not approved: 
 
 const campaign = await api(`/operator/proposals/${proposal.id}/activate`, {
   method: 'POST',
-  body: JSON.stringify({ responseMode: 'mixed' }),
+  body: JSON.stringify({ responseMode: 'human' }),
 });
 const offers = await api(`/operator/offers?campaignId=${campaign.id}`);
 if (!offers.length) throw new Error('Campaign was created but no driver offer was delivered');

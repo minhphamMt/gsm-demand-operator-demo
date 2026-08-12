@@ -1,5 +1,13 @@
+import json
+import shutil
+from datetime import datetime
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
+from src.datasets.snapshot_replay import replay_features
+from src.forecasting.lgbm_quantile import verify_model_bundle
+from src.forecasting.live_snapshot_baseline import forecast_from_live_zones
 from src.main import app
 
 
@@ -40,6 +48,7 @@ def test_decision_uses_live_snapshot_and_returns_auditable_mode() -> None:
         "incentive_budget_cap": 1_000_000,
         "overbooking_factor": 1.6,
         "assumed_accept_rate": 0.6,
+        "offer_ttl_minutes": 10,
     }
     activation = body["activation_recommendation"]
     assert activation["total_requested_offers"] >= 0
@@ -66,9 +75,14 @@ def test_decision_rejects_incomplete_zone_coverage() -> None:
 
 def test_decision_uses_trained_model_for_frozen_replay_bucket() -> None:
     payload = _request()
-    payload["replay_source_at"] = "2026-09-25T07:00:00+07:00"
+    source_at = "2026-09-25T07:00:00+07:00"
 
     with TestClient(app) as client:
+        payload["zones"] = client.post(
+            "/api/v1/datasets/snapshots/at",
+            json={"source_at": source_at},
+        ).json()["zones"]
+        payload["replay_source_at"] = source_at
         response = client.post("/api/v1/decisions", json=payload)
 
     assert response.status_code == 200
@@ -76,6 +90,8 @@ def test_decision_uses_trained_model_for_frozen_replay_bucket() -> None:
     assert body["forecast_mode"] == "trained_model_replay"
     assert body["forecast"]["model_version"] == "lgbm_quantile_v1"
     assert len(body["forecast"]["zones"]) == 30
+    assert body["data_provenance"]["source_kind"] == "hybrid_synthetic"
+    assert body["data_provenance"]["replay_snapshot_verified"] is True
     assert not any(
         warning["code"] == "FORECAST_FALLBACK_USED"
         for warning in body["plan"]["warnings"]
@@ -110,12 +126,13 @@ def test_frozen_dataset_advances_after_source_timestamp() -> None:
     assert second["source_at"] > first["source_at"]
 
 
-def test_exact_replay_bucket_runs_trained_five_minute_model() -> None:
+def test_exact_stored_replay_bucket_runs_trained_five_minute_model() -> None:
     source_at = "2026-09-25T08:15:00+07:00"
     with TestClient(app) as client:
         snapshot = client.post("/api/v1/datasets/snapshots/at", json={"source_at": source_at})
         window = client.post("/api/v1/datasets/snapshots/window", json={"source_at": source_at})
         payload = _request()
+        payload["zones"] = snapshot.json()["zones"]
         payload["horizon_min"] = 5
         payload["replay_source_at"] = source_at
         decision = client.post("/api/v1/decisions", json=payload)
@@ -124,7 +141,117 @@ def test_exact_replay_bucket_runs_trained_five_minute_model() -> None:
     assert snapshot.json()["source_at"] == source_at
     assert len(snapshot.json()["zones"]) == 30
     assert window.status_code == 200
+    assert len(window.json()["steps"]) == 19
     assert all("mean_rain_mm_h" in step for step in window.json()["steps"])
     assert decision.status_code == 200
     assert decision.json()["forecast_mode"] == "trained_model_replay"
     assert decision.json()["forecast"]["horizon_min"] == 5
+
+
+def test_replay_window_keeps_nineteen_stored_steps_at_dataset_boundary() -> None:
+    with TestClient(app) as client:
+        status = client.get("/api/v1/datasets/snapshots/status").json()
+        source_at = status["first_inference_source_at"]
+        response = client.post("/api/v1/datasets/snapshots/window", json={"source_at": source_at})
+
+    assert response.status_code == 200
+    steps = response.json()["steps"]
+    assert len(steps) == 19
+    assert steps[0]["source_at"] == source_at
+    assert all("mean_rain_mm_h" in step for step in steps)
+
+
+def test_replay_rejects_zone_payload_from_a_different_source() -> None:
+    payload = _request()
+    payload["replay_source_at"] = "2026-09-25T07:00:00+07:00"
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/decisions", json=payload)
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "REPLAY_PROVENANCE_MISMATCH"
+
+
+def test_replay_model_failure_never_substitutes_live_baseline() -> None:
+    source_at = "2026-09-25T07:00:00+07:00"
+    with TestClient(app) as client:
+        zones = client.post(
+            "/api/v1/datasets/snapshots/at",
+            json={"source_at": source_at},
+        ).json()["zones"]
+        payload = _request()
+        payload["zones"] = zones
+        payload["replay_source_at"] = source_at
+        with patch("src.api.routes_inference.forecast_at", side_effect=RuntimeError("broken artifact")):
+            response = client.post("/api/v1/decisions", json=payload)
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "REPLAY_MODEL_UNAVAILABLE"
+    assert response.json()["detail"]["cause"] == "RuntimeError"
+
+
+def test_live_baseline_does_not_teleport_enroute_supply_without_eta() -> None:
+    zones = [_zone(zone_id) for zone_id in range(1, 31)]
+    zones[0]["idle_supply"] = 2
+    zones[0]["enroute_supply"] = 9
+
+    forecast = forecast_from_live_zones(
+        datetime.fromisoformat(str(_request()["t"]).replace("Z", "+00:00")),
+        15,
+        [type("Zone", (), zone)() for zone in zones],
+    )
+
+    assert forecast.zones[0].predicted_supply == 2
+
+
+def test_live_baseline_reports_missing_enroute_eta() -> None:
+    payload = _request()
+    payload["zones"][0]["enroute_supply"] = 9
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/decisions", json=payload)
+
+    assert response.status_code == 200
+    assert any(warning["code"] == "ENROUTE_ETA_UNAVAILABLE" for warning in response.json()["plan"]["warnings"])
+
+
+def test_runtime_derives_features_from_the_checksummed_snapshot() -> None:
+    frame = replay_features()
+
+    assert len(frame) == 60_300
+    assert frame["ts_bucket"].nunique() == 2_010
+
+
+def test_model_bundle_manifest_verifies_all_eighteen_artifacts() -> None:
+    from src.config import get_settings
+
+    settings = get_settings()
+    bundle = verify_model_bundle(settings.data_dir / "models", configured_model_version="lgbm_quantile_v1")
+
+    assert bundle["verified"] is True
+    assert bundle["artifacts"] == 18
+    assert bundle["horizons"] == [5, 15, 30]
+    training_data = bundle["training_data"]
+    assert isinstance(training_data, dict)
+    assert training_data["source_kind"] == "hybrid_synthetic"
+
+
+def test_model_bundle_rejects_a_tampered_artifact(tmp_path) -> None:
+    from src.config import get_settings
+
+    settings = get_settings()
+    model_directory = settings.data_dir / "models"
+    manifest = json.loads((model_directory / "model_manifest.json").read_text(encoding="utf-8"))
+    for filename in manifest["artifacts"].values():
+        shutil.copy2(model_directory / str(filename).split("/")[-1], tmp_path)
+    (tmp_path / "lgbm_demand_h5_p10.txt").write_bytes(
+        (tmp_path / "lgbm_demand_h5_p10.txt").read_bytes() + b"tampered"
+    )
+    (tmp_path / "model_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    try:
+        verify_model_bundle(tmp_path)
+    except ValueError as error:
+        assert "Checksum mismatch" in str(error)
+    else:
+        raise AssertionError("A partial/tampered model bundle must not be accepted")

@@ -7,6 +7,8 @@ import { useDriverState } from '../../data/useDriverState';
 import { useSelectedCampaign } from '../../state/SelectedCampaignContext';
 import { formatVnd } from '../../geo/format';
 import { CoinBadge } from '../icons';
+import { isCampaignActionable } from '../../data/campaignLifecycle';
+import { useCampaignLifecycleNow } from '../../data/useCampaignLifecycleNow';
 
 /**
  * Story D.1 (Epic 5, sprint-change-proposal-2026-08-09.md §2.2 C-1): thay lớp phủ
@@ -47,15 +49,17 @@ export function CampaignZoneLayer() {
   const { nav } = useDriverApp();
   const { isOnline } = useDriverState();
   const { selectCampaign } = useSelectedCampaign();
+  const now = useCampaignLifecycleNow(campaigns);
 
   const pinned = useMemo<Pinned[]>(
     () =>
       campaigns.reduce<Pinned[]>((acc, campaign) => {
+        if (!isCampaignActionable(campaign, now)) return acc;
         const anchor = pointToLngLat(campaign.navigation_target_geojson);
         if (anchor) acc.push({ campaign, anchor });
         return acc;
       }, []),
-    [campaigns],
+    [campaigns, now],
   );
 
   // Không campaign nào -> không lớp phủ, KHÔNG empty-state (UX-DR13) — giữ nguyên quy

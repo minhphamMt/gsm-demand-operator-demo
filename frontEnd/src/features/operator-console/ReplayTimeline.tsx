@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import type { ReplayTimelineStep } from '@/features/operator-data'
 
 type ReplayTimelineProps = {
+  hasError?: boolean
   isLoading: boolean
   onSourceChange: (sourceAt: string) => void
   selectedSourceAt: string
   steps: readonly ReplayTimelineStep[]
 }
 
-export function ReplayTimeline({ isLoading, onSourceChange, selectedSourceAt, steps }: ReplayTimelineProps) {
+export function ReplayTimeline({ hasError = false, isLoading, onSourceChange, selectedSourceAt, steps }: ReplayTimelineProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const selectedIndex = Math.max(0, steps.findIndex((step) => step.sourceAt === selectedSourceAt))
   const maxRain = Math.max(0.01, ...steps.map((step) => step.meanRainMmH))
@@ -18,9 +19,13 @@ export function ReplayTimeline({ isLoading, onSourceChange, selectedSourceAt, st
   useEffect(() => {
     if (!isPlaying || isLoading) return undefined
     if (selectedIndex >= steps.length - 1) { setIsPlaying(false); return undefined }
-    const timeout = window.setTimeout(() => onSourceChange(steps[selectedIndex + 1]!.sourceAt), 700)
+    const timeout = window.setTimeout(() => onSourceChange(steps[selectedIndex + 1]!.sourceAt), 1500)
     return () => window.clearTimeout(timeout)
   }, [isLoading, isPlaying, onSourceChange, selectedIndex, steps])
+
+  useEffect(() => {
+    if (hasError) setIsPlaying(false)
+  }, [hasError])
 
   const select = (index: number) => {
     const next = steps[index]
@@ -55,7 +60,7 @@ export function ReplayTimeline({ isLoading, onSourceChange, selectedSourceAt, st
       />)}</div>
       <p><span>{steps[0] ? formatTime(steps[0].sourceAt) : '—'}</span><span>{formatTime(selectedSourceAt)}</span><span>{steps.at(-1) ? formatTime(steps.at(-1)!.sourceAt) : '—'}</span></p>
     </div>
-    <em>MODEL · DỰ BÁO +5 PHÚT<br /><b>{isLoading ? 'Đang chạy LightGBM…' : `Đang xem ${formatTime(selectedSourceAt)}`}</b></em>
+    <em>REPLAY · MODEL +5′/BƯỚC<br /><b>{isLoading ? 'Đang chạy LightGBM…' : hasError ? 'Đã dừng do lỗi' : isPlaying ? 'Tự chạy · 1,5 giây/bước' : `Đang xem ${formatTime(selectedSourceAt)}`}</b></em>
   </div>
 }
 

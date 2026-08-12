@@ -12,4 +12,8 @@ data/snapshots/
 data/snapshots/*
 !data/snapshots/snapshot_test.parquet
 data/models/
+!data/models/
+data/models/*
+!data/models/model_manifest.json
+!data/models/lgbm_*.txt
 data/test_set/

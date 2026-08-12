@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 
 import { CampaignLifecycleService } from './campaign-lifecycle.service';
 
@@ -40,5 +41,18 @@ describe('CampaignLifecycleService', () => {
     await expect(service.reconcile()).resolves.toBeNull();
     resolveRpc({ data: { campaigns_transitioned: 0, offers_expired: 0 }, error: null });
     await first;
+  });
+
+  it('records the actual reconciliation failure instead of hiding it', async () => {
+    const log = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const rpc = jest.fn().mockRejectedValue(new Error('lifecycle RPC unavailable'));
+    const service = new CampaignLifecycleService(
+      dbWith(rpc),
+      new ConfigService({ CAMPAIGN_LIFECYCLE_ENABLED: 'false' }),
+    );
+
+    await expect(service.reconcile()).resolves.toBeNull();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('lifecycle RPC unavailable'));
+    log.mockRestore();
   });
 });

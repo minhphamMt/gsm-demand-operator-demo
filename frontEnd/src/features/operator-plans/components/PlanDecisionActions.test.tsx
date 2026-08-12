@@ -57,9 +57,9 @@ describe('PlanDecisionActions', () => {
   })
 
   it('does not offer duplicate activation after a campaign exists', () => {
-    render(<PlanDecisionActions plan={{ ...plan, status: 'Approved' }} hasCampaign isWorking={false} onActivate={vi.fn()} onApprove={vi.fn()} onReject={vi.fn()} />)
+    render(<PlanDecisionActions plan={{ ...plan, status: 'Approved' }} campaignStatus="Active" hasOperationalCampaign isWorking={false} onActivate={vi.fn()} onApprove={vi.fn()} onReject={vi.fn()} />)
 
-    expect(screen.getByText('Campaign đã phát hành')).toBeInTheDocument()
+    expect(screen.getByText('Campaign đang chạy')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Thiết lập huy động thêm' })).not.toBeInTheDocument()
   })
 

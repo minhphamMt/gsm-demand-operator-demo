@@ -7,6 +7,14 @@ type ZoneObservationRow = {
   rain_mm_h?: unknown;
 }
 
+export type SnapshotKpis = {
+  avgWaitProxy: number;
+  fleetAvailable: number;
+  fulfillmentRate: number;
+  requests: number;
+  residualGap: number;
+}
+
 type AiZoneRow = {
   area_km2?: unknown;
   center_geojson?: { coordinates?: unknown } | null;
@@ -28,6 +36,40 @@ type AiForecastRow = {
 }
 
 const numeric = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0
+
+/**
+ * Mirrors AI/src/simulation/metrics.py for the operational snapshot read model.
+ * Supply surplus in one zone must never erase unmet demand in another zone.
+ */
+export function calculateSnapshotKpis(observations: readonly ZoneObservationRow[]): SnapshotKpis {
+  let fleetAvailable = 0
+  let requests = 0
+  let residualGap = 0
+  let weightedWait = 0
+
+  for (const observation of observations) {
+    if (observation.data_status !== 'live') continue
+    const demand = Math.max(0, numeric(observation.demand_observed))
+    const supply = Math.max(0, numeric(observation.idle_supply))
+    const zoneGap = Math.max(0, demand - supply)
+    const demandSupplyRatio = demand / Math.max(supply, 1)
+    const wait = 3 * demandSupplyRatio ** 1.5
+    fleetAvailable += supply
+    requests += demand
+    residualGap += zoneGap
+    weightedWait += wait * demand
+  }
+
+  return {
+    avgWaitProxy: requests > 0 ? weightedWait / requests : 0,
+    fleetAvailable,
+    fulfillmentRate: requests > 0
+      ? Math.max(0, Math.min(100, (1 - residualGap / requests) * 100))
+      : 100,
+    requests,
+    residualGap,
+  }
+}
 
 export function mapAiZone(
   zone: AiZoneRow,

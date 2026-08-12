@@ -58,4 +58,21 @@ describe('driver state reconciliation', () => {
 
     await expect(releaseTerminalDriverState(db as never, 'driver-1')).resolves.toBe(false);
   });
+
+  it('preserves an assignment after recruitment reaches its target', async () => {
+    const state = query({
+      data: { driver_id: 'driver-1', active_campaign_id: 'campaign-1', is_online: true },
+      error: null,
+    });
+    const campaign = query({ data: { status: 'TARGET_REACHED' }, error: null });
+    const db = {
+      client: { from: jest.fn().mockReturnValueOnce(state).mockReturnValueOnce(campaign) },
+      unwrap: jest.fn((data: unknown, error: unknown) => {
+        if (error) throw error;
+        return data;
+      }),
+    };
+
+    await expect(releaseTerminalDriverState(db as never, 'driver-1')).resolves.toBe(false);
+  });
 });

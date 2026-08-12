@@ -353,7 +353,11 @@ def forecast_at(
     if len(rows) == 0:
         raise ValueError(f"Không có dòng A2 nào tại t={t.isoformat()}")
     predictions = predict(lookup, rows)
-    regime = city_regime(rows[f"rain_forecast_{horizon_min}"].tolist(), int(rows["peak_flag"].iloc[0]))
+    # A1 only publishes 15/30-minute rain nowcasts. For the added 5-minute model,
+    # use the nearest published nowcast without scaling an intensity (mm/h) as if it
+    # were accumulated rainfall.
+    rain_horizon = 15 if horizon_min <= 15 else 30
+    regime = city_regime(rows[f"rain_forecast_{rain_horizon}"].tolist(), int(rows["peak_flag"].iloc[0]))
     return build_forecast(
         predictions,
         t=t,

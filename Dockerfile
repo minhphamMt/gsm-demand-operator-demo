@@ -11,12 +11,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
-
 # Security: run as non-root user
 RUN useradd -m appuser
+
+# Keep executables under the runtime user's accessible home. `/root` is not
+# traversable after switching to appuser on Debian slim images.
+COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
+ENV PATH=/home/appuser/.local/bin:$PATH
 
 # Copy application code
 COPY . .

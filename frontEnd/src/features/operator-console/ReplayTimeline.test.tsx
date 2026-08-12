@@ -23,4 +23,14 @@ describe('ReplayTimeline', () => {
     expect(screen.getByRole('button', { name: /08:15.*0.80 mm\/h/ })).toBeDisabled()
     expect(screen.getByText('Đang chạy LightGBM…')).toBeInTheDocument()
   })
+
+  it('stops autoplay when a model step fails', async () => {
+    cleanup()
+    const view = render(<ReplayTimeline isLoading={false} onSourceChange={vi.fn()} selectedSourceAt={steps[0]!.sourceAt} steps={steps} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Phát replay' }))
+    expect(screen.getByRole('button', { name: 'Tạm dừng replay' })).toBeInTheDocument()
+    view.rerender(<ReplayTimeline hasError isLoading={false} onSourceChange={vi.fn()} selectedSourceAt={steps[0]!.sourceAt} steps={steps} />)
+    expect(await screen.findByRole('button', { name: 'Phát replay' })).toBeInTheDocument()
+    expect(screen.getByText('Đã dừng do lỗi')).toBeInTheDocument()
+  })
 })

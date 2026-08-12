@@ -9,11 +9,13 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import {
   campaignsQuery,
+  isCampaignOperational,
+  latestAgentProposalForSnapshot,
   operationalGapFor,
   plansQuery,
   replayWindowQuery,
@@ -28,11 +30,17 @@ import { formatNumber } from "@/shared/lib/format";
 import { ReplayTimeline } from "./ReplayTimeline";
 import { ExecutionDrawer } from "./components/ExecutionDrawer";
 import { ForecastDrawer } from "./components/ForecastDrawer";
+import { PlanDrawer } from "./components/PlanDrawer";
 import {
+  planningHorizonFor,
   stageAtLeast,
   stageHasPlan,
+  resolveWorkflowStage,
   type OperatorWorkflowStage,
 } from "./model/operatorWorkflow";
+import { proposalCoverageForStage } from "./model/proposalCoverage";
+import { scenarioPresentation } from "./model/scenarioPresentation";
+import { DEFAULT_OPERATOR_REPLAY_SOURCE_AT } from "./model/defaultReplay";
 import "./operator-dashboard.css";
 
 const OperatorMap = lazy(() =>
@@ -43,7 +51,7 @@ const OperatorMap = lazy(() =>
 type MapLayer = "gap" | "demand" | "supply";
 type MapView = "city" | "core";
 type MapSource = "observed" | "forecast";
-type DialogKind = "approve" | "execute" | "release" | "reject" | null;
+type DialogKind = "approve" | "release" | "reject" | null;
 
 export function OperatorConsoleDashboard() {
   const navigate = useNavigate();
@@ -66,16 +74,31 @@ export function OperatorConsoleDashboard() {
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [rejectNote, setRejectNote] = useState("");
   const snapshot = useQuery(snapshotQuery("baseline"));
-  const replayAnchorRef = useRef<string | undefined>(undefined);
-  if (!replayAnchorRef.current && snapshot.data)
-    replayAnchorRef.current =
-      snapshot.data.sourceAt ?? snapshot.data.generatedAt;
+  const replayAnchorRef = useRef(DEFAULT_OPERATOR_REPLAY_SOURCE_AT);
   const replayWindow = useQuery(
-    replayWindowQuery(replayAnchorRef.current ?? ""),
+    replayWindowQuery(replayAnchorRef.current),
   );
   const plans = useQuery(plansQuery());
   const campaigns = useQuery(campaignsQuery());
   const actions = useOperatorActions();
+  const defaultReplayStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!snapshot.data || defaultReplayStartedRef.current) return;
+    defaultReplayStartedRef.current = true;
+    setReplayTargetAt(DEFAULT_OPERATOR_REPLAY_SOURCE_AT);
+    setDrawerOpen(false);
+    actions.runReplayStep.mutate(DEFAULT_OPERATOR_REPLAY_SOURCE_AT, {
+      onSuccess: (nextSnapshot) => {
+        const nextAt = nextSnapshot.sourceAt ?? nextSnapshot.generatedAt;
+        setReplaySnapshot(nextSnapshot);
+        setForecastRun({ horizon: 5, sourceAt: nextAt });
+        setWorkflowStage("forecast");
+        setMapSource("forecast");
+      },
+      onSettled: () => setReplayTargetAt(undefined),
+    });
+  }, [actions.runReplayStep, snapshot.data]);
 
   if (snapshot.isPending)
     return (
@@ -97,9 +120,15 @@ export function OperatorConsoleDashboard() {
       </div>
     );
   const activeSnapshot = replaySnapshot ?? snapshot.data;
-  const plan = latestAgentPlan(plans.data, activeSnapshot.replayStep);
-  const campaign = campaigns.data?.find((item) => item.planId === plan?.id);
-  const activeStage: OperatorWorkflowStage = campaign ? "campaign" : workflowStage;
+  const latestPlan = latestAgentProposalForSnapshot(plans.data, activeSnapshot.replayStep);
+  const linkedCampaign = campaigns.data?.find((item) => item.planId === latestPlan?.id);
+  const campaign = campaigns.data?.find(
+    (item) => item.planId === latestPlan?.id && isCampaignOperational(item),
+  );
+  // A terminal campaign belongs on the history page only. Its approved proposal
+  // must not reappear as an actionable move or be released for a second time.
+  const plan = linkedCampaign && !campaign ? undefined : latestPlan;
+  const activeStage = resolveWorkflowStage(workflowStage, Boolean(campaign), plan?.status);
   const planReady = stageHasPlan(activeStage);
   const sourceAt = activeSnapshot.sourceAt ?? activeSnapshot.generatedAt;
   const observedZones = activeSnapshot.zones;
@@ -147,7 +176,6 @@ export function OperatorConsoleDashboard() {
 
   const changeReplaySource = (nextSourceAt: string) => {
     setReplayTargetAt(nextSourceAt);
-    setWorkflowStage("observe");
     setDrawerOpen(false);
     actions.runReplayStep.mutate(nextSourceAt, {
       onSuccess: (nextSnapshot) => {
@@ -181,7 +209,7 @@ export function OperatorConsoleDashboard() {
     const parsedSnapshotId = Number(activeSnapshot.replayStep);
     const snapshotId = Number.isInteger(parsedSnapshotId) ? parsedSnapshotId : 0;
     actions.optimizeAiDecision.mutate(
-      { snapshotId, horizonMinutes: displayedHorizon },
+      { snapshotId, horizonMinutes: planningHorizonFor(displayedHorizon, forecastMinutes) },
       { onSuccess: (proposal) => {
         setWorkflowStage(proposal.moves.length ? "plan" : "no_solution");
         setDrawerOpen(true);
@@ -210,28 +238,18 @@ export function OperatorConsoleDashboard() {
         onSuccess: () => {
           setDialog(null);
           setRejectNote("");
+          setDrawerOpen(false);
+          setWorkflowStage("observe");
         },
       },
     );
   };
   const activate = () => {
-    if (!plan) return;
-    const release = () => actions.activate.mutate(
-      { planId: plan.id, mode: "mixed" },
+    if (!plan || plan.status !== "Approved") return;
+    actions.activate.mutate(
+      { planId: plan.id, mode: "human" },
       { onSuccess: () => { setDialog(null); setWorkflowStage("campaign"); } },
     );
-    if (plan.status === "Approved") release();
-    else actions.approve.mutate(
-      { planId: plan.id, note: "Phát hành phương án activation sau khi kiểm tra tồn dư" },
-      { onSuccess: release },
-    );
-  };
-
-  const executeRelocation = () => {
-    setDialog(null);
-    setWorkflowStage("executing");
-    setDrawerOpen(true);
-    window.setTimeout(() => setWorkflowStage("executed"), 2400);
   };
 
   return (
@@ -251,7 +269,15 @@ export function OperatorConsoleDashboard() {
           <Suspense fallback={<Skeleton className="h-full" />}>
             <OperatorMap
               forecastMinutes={mapSource === "forecast" ? displayedHorizon : 0}
+              flowState={
+                activeStage === "executing"
+                  ? "executing"
+                  : ["executed", "campaign"].includes(activeStage)
+                    ? "completed"
+                    : "proposal"
+              }
               layer={layer}
+              moves={planReady && plan ? plan.moves : []}
               onZoneSelect={setSelectedZoneId}
               selectedZoneId={selectedZoneId}
               timeLabel={
@@ -289,6 +315,7 @@ export function OperatorConsoleDashboard() {
             />
           )}
           <ReplayTimeline
+            hasError={actions.runReplayStep.isError}
             isLoading={actions.runReplayStep.isPending}
             onSourceChange={changeReplaySource}
             selectedSourceAt={sourceAt}
@@ -297,6 +324,7 @@ export function OperatorConsoleDashboard() {
           {actions.runReplayStep.isError && <div className="nf-replay-error" role="alert">{actions.runReplayStep.error.message}</div>}
           {drawerOpen && activeStage === "forecast" && <ForecastDrawer
             dataSource={activeSnapshot.ai?.dataSource}
+            forecastMode={activeSnapshot.ai?.forecastMode}
             forecastTime={forecastTime}
             horizon={displayedHorizon}
             modelVersion={activeSnapshot.ai?.modelVersion}
@@ -309,7 +337,16 @@ export function OperatorConsoleDashboard() {
             ? <ExecutionDrawer isComplete={activeStage === "executed"} onClose={() => setDrawerOpen(false)} plan={plan} />
             : activeStage === "activation_draft"
               ? <ActivationDraftDrawer onClose={() => setDrawerOpen(false)} plan={plan} />
-              : <PlanDrawer onClose={() => setDrawerOpen(false)} plan={plan} />)}
+              : <PlanDrawer
+                  error={actions.revise.error}
+                  isSaving={actions.revise.isPending}
+                  onClose={() => setDrawerOpen(false)}
+                  onRevise={(request) => actions.revise.mutate(
+                    { planId: plan.id, request },
+                    { onSuccess: () => setWorkflowStage("plan") },
+                  )}
+                  plan={plan}
+                />)}
         </section>
         <button
           aria-expanded={railOpen}
@@ -356,7 +393,6 @@ export function OperatorConsoleDashboard() {
             onApprove={() => setDialog("approve")}
             onGenerate={runForecast}
             onOptimize={optimize}
-            onExecute={() => setDialog("execute")}
             onPrepareActivation={() => { setWorkflowStage("activation_draft"); setDrawerOpen(true); }}
             onOpenCampaign={() => navigate(routes.operator.campaigns)}
             onOpenPlan={() => setDrawerOpen(true)}
@@ -377,7 +413,6 @@ export function OperatorConsoleDashboard() {
           onActivate={activate}
           onApprove={approve}
           onClose={closeDialog}
-          onExecute={executeRelocation}
           onReject={reject}
           pending={pending}
           plan={plan}
@@ -387,18 +422,6 @@ export function OperatorConsoleDashboard() {
       )}
     </div>
   );
-}
-
-function latestAgentPlan(plans: readonly Proposal[] | undefined, snapshotId: string) {
-  return plans
-    ?.filter(
-      (item) =>
-        item.generatorType === "AGENT" && item.inputSnapshotId === snapshotId,
-    )
-    .sort(
-      (a, b) =>
-        Date.parse(b.createdAt) - Date.parse(a.createdAt) || a.rank - b.rank,
-    )[0];
 }
 
 function ScenarioBar({
@@ -420,30 +443,19 @@ function ScenarioBar({
   regime: string;
   zoneCount: number;
 }) {
-  const time = new Intl.DateTimeFormat("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(generatedAt));
-  const weather =
-    regime === "rain_peak"
-      ? "Mưa lớn · giờ cao điểm"
-      : regime === "rain"
-        ? "Mưa"
-        : regime === "peak"
-          ? "Giờ cao điểm"
-          : "Bình thường";
+  const scenario = scenarioPresentation(regime, generatedAt);
   return (
     <div className="nf-scenario-bar">
-      <strong>KỊCH BẢN · MƯA GIỜ CAO ĐIỂM {time}</strong>
+      <strong>{scenario.heading}</strong>
       <i />
       <span>
-        <CloudRain size={14} /> Thời tiết: {weather} · dữ liệu AI
+        <CloudRain size={14} /> Thời tiết: {scenario.weather} · dữ liệu AI
       </span>
       <i />
       <span>
         Đội xe vận hành {fleet} xe · {zoneCount}/30 zone
       </span>
-      <span className="nf-model">MODEL {modelVersion ?? "LIVE"}</span>
+      <span className="nf-model">MODEL {modelVersion ?? "CHƯA XÁC ĐỊNH"}</span>
       <small>HORIZON DỰ BÁO</small>
       <div className="seg" role="group" aria-label="Horizon dự báo">
         <label className="seg-opt">
@@ -701,17 +713,7 @@ function KpiPanel({
   requests: number;
   stage: OperatorWorkflowStage;
 }) {
-  const covered = plan
-    ? Math.max(
-        0,
-        Math.round(
-          (1 -
-            plan.metrics.residualGap /
-              Math.max(1, plan.metricsBefore.residualGap)) *
-            100,
-        ),
-      )
-    : 0;
+  const coverage = proposalCoverageForStage(plan, stage);
   return (
     <div className="nf-kpi-panel">
       <div className="nf-rail-title">
@@ -740,8 +742,8 @@ function KpiPanel({
           <b>{available}</b>
         </span>
         <span>
-          <small>MỨC PHỦ PHƯƠNG ÁN</small>
-          <b>{covered}%</b>
+          <small>{coverage.label}</small>
+          <b>{coverage.percent}%</b>
         </span>
         <span>
           <small>CHI PHÍ TỐI ƯU</small>
@@ -797,8 +799,8 @@ function Pipeline({
       state: (isScanning ? "running" : "done") as PipelineState,
       command: "snapshot.load(zone_registry)",
       result: isScanning
-        ? "Đang nạp dữ liệu thật của 30/30 khu vực"
-        : "30/30 khu vực đã đồng bộ",
+        ? "Đang nạp mốc replay từ bộ Parquet của dự án"
+        : "30/30 zone hợp lệ từ nguồn dữ liệu dự án",
     },
     {
       label: "Dự báo cung–cầu",
@@ -809,7 +811,7 @@ function Pipeline({
           : forecastStale
             ? "stale"
             : "waiting") as PipelineState,
-      command: "forecast.run(model=live)",
+      command: "forecast.run(model=trained_replay)",
       result: isScanning
         ? "Đang chạy LightGBM để dự báo cho 5 phút sau"
         : isForecasting
@@ -1010,7 +1012,7 @@ function pipelineStatusLabel(state: PipelineState) {
   return "CHỜ ĐIỀU KIỆN";
 }
 
-function RailActions({
+export function RailActions({
   campaign,
   forecastReady,
   isGenerating,
@@ -1019,7 +1021,6 @@ function RailActions({
   onActivate,
   onApprove,
   onGenerate,
-  onExecute,
   onOpenCampaign,
   onOpenPlan,
   onOptimize,
@@ -1036,7 +1037,6 @@ function RailActions({
   onActivate: () => void;
   onApprove: () => void;
   onGenerate: () => void;
-  onExecute: () => void;
   onOpenCampaign: () => void;
   onOpenPlan: () => void;
   onOptimize: () => void;
@@ -1090,11 +1090,20 @@ function RailActions({
       </div>
     );
   if (stage === "approved")
+    if (plan.moves.length === 0)
+      return (
+        <div className="nf-rail-actions">
+          <button className="btn btn-primary btn-block" onClick={onActivate} type="button">Phát hành offer activation</button>
+          <button className="btn btn-secondary" onClick={onOpenPlan} type="button">Xem phương án đã duyệt</button>
+          <small>Proposal đã được duyệt riêng; bước này mới tạo campaign và gửi offer tới tài xế thật.</small>
+        </div>
+      );
+    else
     return (
       <div className="nf-rail-actions">
-        <button className="btn btn-primary btn-block" onClick={onExecute} type="button">Đưa vào thực hiện</button>
+        <button className="btn btn-primary btn-block" disabled type="button">Chưa kết nối phát lệnh điều chuyển</button>
         <button className="btn btn-secondary" onClick={onOpenPlan} type="button">Xem phương án đã duyệt</button>
-        <small>Bước này chỉ phát lệnh điều chuyển, chưa gửi offer activation.</small>
+        <small>Không có endpoint dispatch relocation nên hệ thống chưa phát lệnh và không tự đánh dấu hoàn tất.</small>
       </div>
     );
   if (stage === "executing")
@@ -1109,9 +1118,9 @@ function RailActions({
   if (stage === "activation_draft")
     return (
       <div className="nf-rail-actions">
-        <button className="btn btn-primary btn-block" onClick={onActivate} type="button">Xem lại &amp; phát hành offer</button>
+        <button className="btn btn-primary btn-block" onClick={onApprove} type="button">Phê duyệt bản nháp activation</button>
         <button className="btn btn-secondary" onClick={onOpenPlan} type="button">Xem bản nháp activation</button>
-        <small>Phát hành là quyết định riêng; chưa gửi offer ở bước này.</small>
+        <small>Phê duyệt chưa gửi offer. Sau khi duyệt, bạn phải xác nhận phát hành campaign riêng.</small>
       </div>
     );
   if (plan.policyChecks.some((check) => check.blocking && !check.passed))
@@ -1201,146 +1210,6 @@ function RailActions({
   );
 }
 
-function PlanDrawer({
-  onClose,
-  plan,
-}: {
-  onClose: () => void;
-  plan: Proposal;
-}) {
-  const hasDirectMoves = plan.moves.length > 0;
-  const relocationMetrics = plan.metricsAfterRelocation ?? plan.metrics;
-  const projectedCoverage = Math.max(
-    0,
-    Math.round(
-      (1 -
-        relocationMetrics.residualGap /
-          Math.max(1, plan.metricsBefore.residualGap)) *
-        100,
-    ),
-  );
-  return (
-    <section aria-label="Chi tiết phương án" className="nf-plan-drawer">
-      <header>
-        <div>
-          <small>
-            BẢNG CHI TIẾT · {hasDirectMoves ? `${plan.moves.length} LƯỢT CHUYỂN` : "KHÔNG CÓ LỜI GIẢI ĐIỀU CHUYỂN"}
-          </small>
-          <strong>
-            {plan.status === "Approved" ? "Đã phê duyệt" : "Phương án đề xuất"}
-          </strong>
-          <p>
-            {plan.status === "Approved"
-              ? "Chưa có lệnh nào được phát. Thực hiện là một thao tác riêng."
-              : "Xem lại phương án điều phối trước khi phê duyệt hoặc từ chối."}
-          </p>
-        </div>
-        <button aria-label="Đóng bảng chi tiết" onClick={onClose} type="button">
-          <X size={17} />
-        </button>
-      </header>
-      <div className="nf-plan-summary">
-        <strong>{projectedCoverage}%</strong>
-        <span>
-          thiếu hụt dự kiến được phủ bởi điều chuyển
-          <br />
-          {plan.moves.length} lượt chuyển · còn thiếu {formatNumber(relocationMetrics.residualGap)} xe
-        </span>
-      </div>
-      <div className="nf-plan-metrics">
-        <span>
-          <small>CHUYỂN TRỰC TIẾP</small>
-          <b>{plan.moves.length}</b>
-        </span>
-        <span>
-          <small>CHI PHÍ</small>
-          <b>{formatVnd(plan.estimatedRewardCost)}</b>
-        </span>
-        <span>
-          <small>ETA TỐI ĐA</small>
-          <b>{Math.max(0, ...plan.moves.map((move) => move.etaMinutes))}′</b>
-        </span>
-      </div>
-      <div className="nf-plan-scroll nf-scroll">
-        <h3>TÁC ĐỘNG DỰ KIẾN</h3>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Chỉ số</th>
-              <th>Không hành động</th>
-              <th>Sau điều phối</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Thiếu hụt</td>
-              <td>{formatNumber(plan.metricsBefore.residualGap)}</td>
-              <td>{formatNumber(relocationMetrics.residualGap)}</td>
-            </tr>
-            <tr>
-              <td>Tỷ lệ đáp ứng</td>
-              <td>{formatNumber(plan.metricsBefore.fulfillmentRate)}%</td>
-              <td>{formatNumber(relocationMetrics.fulfillmentRate)}%</td>
-            </tr>
-            <tr>
-              <td>Phút chờ trung bình</td>
-              <td>{formatNumber(plan.metricsBefore.avgWaitProxy)}′</td>
-              <td>{formatNumber(plan.metrics.avgWaitProxy)}′</td>
-            </tr>
-          </tbody>
-        </table>
-        <h3>RÀNG BUỘC VẬN HÀNH</h3>
-        <div className="nf-policy-tags">
-          {plan.policyChecks.map((check) => (
-            <span className={check.passed ? "pass" : "fail"} key={check.id}>
-              {check.passed ? "✓" : "!"} {check.label}
-            </span>
-          ))}
-        </div>
-        {plan.warnings.length > 0 && (
-          <>
-            <h3>CẢNH BÁO CHÍNH SÁCH</h3>
-            {plan.warnings.map((warning) => (
-              <p className="nf-warning" key={warning.id}>
-                ! {warning.title}: {warning.detail}
-              </p>
-            ))}
-          </>
-        )}
-        <h3>
-          {hasDirectMoves
-            ? `LƯỢT ĐIỀU CHUYỂN ${plan.status === "Approved" ? "ĐÃ DUYỆT" : "ĐỀ XUẤT"}`
-            : "NGUYÊN NHÂN KHÔNG CÓ LỜI GIẢI"}
-        </h3>
-        {!hasDirectMoves && (
-          <p className="nf-activation-plan">
-            Không có zone dư an toàn để rút xe. Bạn có thể nới ETA và tính lại, hoặc bỏ điều chuyển để tạo một bản nháp activation riêng. Chưa có offer nào được gửi.
-          </p>
-        )}
-        {plan.moves.map((move, index) => (
-          <article className="nf-move" key={move.id}>
-            <span>MV-{String(index + 1).padStart(2, "0")}</span>
-            <div>
-              <b>
-                {move.sourceZoneLabel} → {move.targetZoneLabel}
-              </b>
-              <small>
-                {move.distanceKm.toFixed(1)} km · ETA {move.etaMinutes}′ ·{" "}
-                {formatVnd(move.estimatedCost)}
-              </small>
-              <details>
-                <summary>Vì sao?</summary>
-                <p>Model chọn nguồn này vì nằm trong bán kính chính sách, ETA {move.etaMinutes} phút và chuyển {move.quantity} xe giúp giảm trực tiếp thiếu hụt tại {move.targetZoneLabel}.</p>
-              </details>
-            </div>
-            <strong>{move.quantity} xe</strong>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function ActivationDraftDrawer({ onClose, plan }: { onClose: () => void; plan: Proposal }) {
   const residual = plan.metricsAfterRelocation ?? plan.metrics;
   const expectedAccepted = plan.metricsAfterActivation
@@ -1398,7 +1267,6 @@ function ActionDialog({
   onActivate,
   onApprove,
   onClose,
-  onExecute,
   onReject,
   pending,
   plan,
@@ -1410,7 +1278,6 @@ function ActionDialog({
   onActivate: () => void;
   onApprove: () => void;
   onClose: () => void;
-  onExecute: () => void;
   onReject: () => void;
   pending: boolean;
   plan: Proposal;
@@ -1418,7 +1285,6 @@ function ActionDialog({
   setRejectNote: (value: string) => void;
 }) {
   const isApprove = dialog === "approve";
-  const isExecute = dialog === "execute";
   const isActivate = dialog === "release";
   return (
     <div
@@ -1432,8 +1298,6 @@ function ActionDialog({
         <div className="dialog-title">
           {isApprove
             ? "Phê duyệt phương án điều phối"
-            : isExecute
-              ? "Đưa phương án vào thực hiện"
             : isActivate
               ? "Phát hành offer activation"
               : "Từ chối phương án"}
@@ -1441,8 +1305,6 @@ function ActionDialog({
         <div className="dialog-body">
           {isApprove
             ? "Phê duyệt xác nhận phương án là hợp lệ. Chưa có lệnh nào được gửi tới tài xế ở bước này."
-            : isExecute
-              ? `Hệ thống sẽ phát ${plan.moves.length} lệnh điều chuyển đã duyệt và bắt đầu theo dõi trạng thái. Không gửi offer activation ở bước này.`
             : isActivate
               ? `Hệ thống sẽ tạo campaign, gửi tối đa ${plan.expectedOfferCount} offer và dừng khi đạt mục tiêu ${plan.targetDriverCount} tài xế. Đây là bước phát hành riêng sau khi đã xem bản nháp.`
               : "Ghi rõ lý do để lưu vào nhật ký kiểm toán và làm đầu vào cho lần tính tiếp theo."}
@@ -1490,15 +1352,13 @@ function ActionDialog({
             disabled={
               pending || (dialog === "reject" && rejectNote.trim().length < 3)
             }
-            onClick={isApprove ? onApprove : isExecute ? onExecute : isActivate ? onActivate : onReject}
+            onClick={isApprove ? onApprove : isActivate ? onActivate : onReject}
             type="button"
           >
             {pending
               ? "Đang xử lý…"
               : isApprove
                 ? "Phê duyệt"
-                : isExecute
-                  ? "Phát lệnh điều chuyển"
                 : isActivate
                   ? "Phát hành offer"
                   : "Từ chối"}

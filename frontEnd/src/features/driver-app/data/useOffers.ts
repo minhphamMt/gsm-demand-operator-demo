@@ -6,6 +6,7 @@ import type { DriverOffer, DriverOfferNotification, DriverOfferWithNotification 
 import { qk } from './queryKeys';
 import { useCampaign } from './useCampaign';
 import { useDemoOperatorOffer } from './useDemoOperatorOffer';
+import { hasOfferLifecycleDeadline, isOfferActive, isOfferPending } from './offerLifecycle';
 
 /**
  * `driver_offers` cho tài xế đang đăng nhập, ghép campaign từ `useCampaign()`.
@@ -70,13 +71,6 @@ function toNotification(
     createdAt: offer.created_at ?? offer.sent_at,
     status: offer.status,
   };
-}
-
-/** Offer còn chờ tài xế trả lời. `VIEWED` vẫn tính là đang chờ — mới chỉ mở ra xem. */
-function isPending(offer: DriverOffer, now: number): boolean {
-  if (offer.status !== 'SENT' && offer.status !== 'VIEWED') return false;
-  if (!offer.expires_at) return true;
-  return new Date(offer.expires_at).getTime() > now;
 }
 
 /**
@@ -170,19 +164,19 @@ export function useOffers() {
   );
 
   useEffect(() => {
-    if (!offers.some((offer) => (offer.status === 'SENT' || offer.status === 'VIEWED') && offer.expires_at)) return;
+    if (!offers.some((offer) => hasOfferLifecycleDeadline(offer, now))) return;
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [offers]);
+  }, [now, offers]);
 
   const pendingOffer = useMemo(() => {
     // Đã sort sent_at giảm dần, nên cái đầu tiên là offer mới nhất còn hiệu lực.
-    return offers.find((o) => o.campaigns != null && isPending(o, now)) ?? null;
+    return offers.find((o) => isOfferPending(o, now)) ?? null;
   }, [offers, now]);
 
   const activeOffer = useMemo(
-    () => offers.find((o) => o.status === 'ACCEPTED') ?? null,
-    [offers],
+    () => offers.find((o) => isOfferActive(o, now)) ?? null,
+    [offers, now],
   );
 
   const pendingNotification = pendingOffer?.notification ?? null;

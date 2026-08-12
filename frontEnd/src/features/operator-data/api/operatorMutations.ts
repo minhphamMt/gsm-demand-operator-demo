@@ -2,12 +2,25 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { operatorAdapter } from '@/features/operator-data/api/operatorAdapter'
 import { operatorQueryKeys } from '@/features/operator-data/api/operatorQueries'
-import type { RejectPlanRequest, ResponseMode, RevisePlanRequest } from '@/features/operator-data/model/types'
+import type { Campaign, Proposal, RejectPlanRequest, ResponseMode, RevisePlanRequest } from '@/features/operator-data/model/types'
 import { AppError } from '@/shared/api/client'
 
 export function useOperatorActions() {
   const queryClient = useQueryClient()
   const refreshPlans = () => queryClient.invalidateQueries({ queryKey: operatorQueryKeys.plans })
+  const cacheProposal = (proposal: Proposal) => {
+    queryClient.setQueryData(operatorQueryKeys.plans, (current: readonly Proposal[] | undefined) => [
+      proposal,
+      ...(current ?? []).filter((candidate) => candidate.id !== proposal.id),
+    ])
+    queryClient.setQueryData(operatorQueryKeys.plan(proposal.id), proposal)
+  }
+  const cacheCampaign = (campaign: Campaign) => {
+    queryClient.setQueryData(operatorQueryKeys.campaigns, (current: readonly Campaign[] | undefined) => [
+      campaign,
+      ...(current ?? []).filter((candidate) => candidate.id !== campaign.id),
+    ])
+  }
   const refreshProposalConflict = async (error: Error) => {
     if (error instanceof AppError && error.status === 409) {
       await Promise.all([
@@ -42,31 +55,43 @@ export function useOperatorActions() {
     optimizeAiDecision: useMutation({
       mutationFn: ({ snapshotId, horizonMinutes }: { snapshotId: number; horizonMinutes: 5 | 15 | 30 }) => operatorAdapter.optimizeAiDecision(snapshotId, horizonMinutes),
       onSuccess: async (proposal) => {
-        queryClient.setQueryData(operatorQueryKeys.plans, [proposal])
+        cacheProposal(proposal)
         await refreshPlans()
       },
     }),
     revise: useMutation({
       mutationFn: ({ planId, request }: { planId: string; request: RevisePlanRequest }) => operatorAdapter.revisePlan(planId, request),
       onError: refreshProposalConflict,
-      onSuccess: refreshPlans,
+      onSuccess: async (revised) => {
+        queryClient.setQueryData(operatorQueryKeys.plans, (current: readonly Proposal[] | undefined) => [
+          revised,
+          ...(current ?? [])
+            .filter((plan) => plan.id !== revised.id)
+            .map((plan) => plan.id === revised.parentProposalId ? { ...plan, status: 'Stale' as const } : plan),
+        ])
+        queryClient.setQueryData(operatorQueryKeys.plan(revised.id), revised)
+        if (revised.parentProposalId) {
+          queryClient.setQueryData(operatorQueryKeys.plan(revised.parentProposalId), (current: Proposal | undefined) => current ? { ...current, status: 'Stale' } : current)
+        }
+        await refreshPlans()
+      },
     }),
     approve: useMutation({
       mutationFn: ({ planId, note }: { planId: string; note?: string }) => operatorAdapter.approvePlan(planId, note),
       onError: refreshProposalConflict,
-      onSuccess: refreshPlans,
+      onSuccess: async (proposal) => { cacheProposal(proposal); await refreshPlans() },
     }),
     reject: useMutation({
       mutationFn: ({ planId, request }: { planId: string; request: RejectPlanRequest }) => operatorAdapter.rejectPlan(planId, request),
       onError: refreshProposalConflict,
-      onSuccess: refreshPlans,
+      onSuccess: async (proposal) => { cacheProposal(proposal); await refreshPlans() },
     }),
     activate: useMutation({
-      mutationFn: (input: string | { planId: string; mode: ResponseMode }) => operatorAdapter.startCampaign(typeof input === 'string' ? input : input.planId, typeof input === 'string' ? 'mixed' : input.mode),
+      mutationFn: (input: string | { planId: string; mode: ResponseMode }) => operatorAdapter.startCampaign(typeof input === 'string' ? input : input.planId, typeof input === 'string' ? 'human' : input.mode),
       onError: refreshProposalConflict,
-      onSuccess: async () => { await refreshPlans(); await refreshCampaignFlow() },
+      onSuccess: async (campaign) => { cacheCampaign(campaign); await refreshPlans(); await refreshCampaignFlow() },
     }),
-    cancelCampaign: useMutation({ mutationFn: operatorAdapter.cancelCampaign, onError: refreshCampaignConflict, onSuccess: refreshCampaignFlow }),
+    cancelCampaign: useMutation({ mutationFn: operatorAdapter.cancelCampaign, onError: refreshCampaignConflict, onSuccess: async (campaign) => { cacheCampaign(campaign); await refreshCampaignFlow() } }),
     expireOffer: useMutation({ mutationFn: operatorAdapter.expireOffer, onError: refreshCampaignConflict, onSuccess: refreshCampaignFlow }),
   }
 }

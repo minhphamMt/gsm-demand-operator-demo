@@ -3,7 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 class SnapshotKpiDto {
   @ApiProperty({ example: 312 }) fleetAvailable: number;
   @ApiProperty({ example: 428 }) requests: number;
-  @ApiProperty({ example: 0.729 }) fulfillmentRate: number;
+  @ApiProperty({ description: 'Fulfilled demand in percent (0-100).', example: 72.9 }) fulfillmentRate: number;
   @ApiProperty({ example: 116 }) residualGap: number;
   @ApiProperty({ example: 8 }) avgWaitProxy: number;
 }
@@ -53,7 +53,7 @@ export class SnapshotResponseDto {
 export class BaselineResponseDto {
   @ApiProperty({ enum: ['no-action', 'historical-average'], example: 'no-action' }) id: string;
   @ApiProperty({ example: 'Không điều phối' }) label: string;
-  @ApiProperty({ example: 0.729 }) fulfillmentRate: number;
+  @ApiProperty({ description: 'Fulfilled demand in percent (0-100).', example: 72.9 }) fulfillmentRate: number;
   @ApiProperty({ example: 116 }) residualGap: number;
   @ApiProperty({ example: 8 }) avgWaitProxy: number;
   @ApiProperty({ example: '2026-08-09T08:30:00.000Z', format: 'date-time' }) frozenAt: string;
@@ -97,7 +97,7 @@ class ProposalWarningDto {
 }
 
 class SimulationMetricsDto {
-  @ApiProperty({ example: 0.84 }) fulfillmentRate: number;
+  @ApiProperty({ description: 'Fulfilled demand in percent (0-100).', example: 84 }) fulfillmentRate: number;
   @ApiProperty({ example: 68 }) residualGap: number;
   @ApiProperty({ example: 21 }) deadheadKm: number;
   @ApiProperty({ description: 'Budget in integer VND.', example: 450000 }) budget: number;
@@ -170,7 +170,7 @@ export class CampaignResponseDto {
   @ApiProperty({ description: 'Worst-case commitment in integer VND.', example: 250000 }) worstCaseCommitment: number;
   @ApiProperty({ example: '2026-08-09T08:30:00.000Z', format: 'date-time' }) startedAt: string;
   @ApiProperty({ example: '2026-08-09T09:15:00.000Z', format: 'date-time' }) expiresAt: string;
-  @ApiProperty({ enum: ['human', 'simulated', 'mixed'], example: 'human' }) responseMode: string;
+  @ApiProperty({ enum: ['human'], example: 'human' }) responseMode: string;
   @ApiProperty({ example: 5 }) suggestedActivation: number;
 }
 

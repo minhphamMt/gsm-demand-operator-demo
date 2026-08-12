@@ -1,8 +1,8 @@
 """Build an auditable activation recommendation from optimizer residual gaps."""
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 from src.contracts.plan import ResidualGap
 

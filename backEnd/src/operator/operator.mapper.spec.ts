@@ -43,6 +43,7 @@ describe('operator mappers', () => {
       status: 'UNDER_REVIEW',
       generator_type: 'AGENT',
       source_plan: {
+        candidate_source_zones: [{ zone_id: 6, available_supply: 4, model_surplus: 8 }],
         moves: [{
           from_zone: 6,
           to_zone: 2,
@@ -71,6 +72,12 @@ describe('operator mappers', () => {
       targetZoneLabel: 'Hoàn Kiếm',
       quantity: 4,
       etaMinutes: 15,
+      sourceSupplyAfter: 0,
+    });
+    expect(mapped.candidateSourceZones[0]).toMatchObject({
+      availableSupply: 4,
+      label: 'Cầu Giấy',
+      zoneId: 'AI-Z06',
     });
     expect(mapped.metrics).toMatchObject({ residualGap: 6, avgWaitProxy: 5 });
     expect(mapped.budgetLimit).toBe(500000);
@@ -81,6 +88,25 @@ describe('operator mappers', () => {
     });
   });
 
+  it('recalculates revised proposal coverage from persisted move and residual evidence', () => {
+    const mapped = mapProposal({
+      id: 'ai-p2',
+      parent_proposal_id: 'ai-p1',
+      status: 'UNDER_REVIEW',
+      generator_type: 'AGENT',
+      source_plan: {
+        moves: [{ from_zone: 6, to_zone: 2, drivers: 2 }],
+        residual_gap: [{ zone_id: 2, gap_remaining: 8 }],
+      },
+      simulation_details: {
+        metrics_before: { unmet_demand: 10, fulfillment_rate: 90 },
+        metrics_after: { unmet_demand: 6, fulfillment_rate: 94 },
+      },
+    });
+
+    expect(mapped.metricsAfterRelocation).toMatchObject({ residualGap: 8, fulfillmentRate: 92 });
+  });
+
   it('maps offers and drivers', () => {
     expect(mapOffer({ distance_m: 1500, eta_seconds: 121, campaigns: {} }).etaMinutes).toBe(3);
     expect(mapDriver({ driver_id: 'd1', is_online: true, operational_status: 'ON_TRIP' }).status).toBe('on_trip');
@@ -89,7 +115,7 @@ describe('operator mappers', () => {
 
   it('aggregates campaign funnel', () => {
     const result = mapCampaign(
-      { id: 'c1', status: 'ACTIVE', target_driver_count: 2, batch_size: 0, bonus_amount: 100 },
+      { id: 'c1', status: 'ACTIVE', target_driver_count: 2, batch_size: 5, bonus_amount: 100 },
       [{ campaign_id: 'c1', status: 'ACCEPTED', sent_at: '2026-01-01' }],
       [{ campaign_id: 'c1', status: 'EN_ROUTE' }],
     );
@@ -98,6 +124,7 @@ describe('operator mappers', () => {
     expect(result.suggestedActivation).toBe(2);
     expect(result.enRoute).toBe(1);
     expect(result.worstCaseCommitment).toBe(200);
+    expect(result.responseMode).toBe('human');
   });
 
   it('counts participations released by campaign cancellation', () => {

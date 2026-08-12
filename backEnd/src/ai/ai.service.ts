@@ -28,7 +28,10 @@ type AiDecision = {
     accept_rate_source: string;
   };
   forecast: { forecast_ts: string; horizon_min: number; model_version: string; regime: string; zones: AiForecastZone[] };
-  hotspots: { hotspots: Array<{ zone_id: number; gap: number }> };
+  hotspots: {
+    hotspots: Array<{ zone_id: number; gap: number }>;
+    surplus_zones?: Array<{ zone_id: number; surplus: number; idle_supply_current: number }>;
+  };
   plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; warnings: Array<Record<string, unknown>> };
 };
 
@@ -105,7 +108,7 @@ export class AiService {
     let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');
     snapshotQuery = snapshotId
       ? snapshotQuery.eq('id', snapshotId)
-      : snapshotQuery.order('captured_at', { ascending: false }).order('id', { ascending: false }).limit(1);
+      : snapshotQuery.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1);
     const { data: snapshot, error: snapshotError } = await snapshotQuery.maybeSingle();
     if (snapshotError) this.db.unwrap(null, snapshotError);
     if (!snapshot) throw new UnprocessableEntityException('No live snapshot is available for AI inference');
@@ -146,6 +149,12 @@ export class AiService {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(inputPayload),
       });
+      if (replaySourceAt && decision.forecast_mode !== 'trained_model_replay') {
+        throw new UnprocessableEntityException({
+          code: 'REPLAY_MODEL_REQUIRED',
+          message: 'Replay input requires the trained model; fallback output was rejected.',
+        });
+      }
       if (persistForecast && persistProposal) {
         await this.persistDecision(snapshot, decision, String(modelInput.id));
       } else {
@@ -321,17 +330,25 @@ export class AiService {
 
   private async persistProposal(snapshot: DbRow, decision: AiDecision, modelInputId?: string) {
     const activation = decision.activation_recommendation;
-    const targetZoneIds = activation.target_zones.map((target) => target.zone_id);
+    const actionableTargetZoneIds = [...new Set([
+      ...decision.plan.moves.map((move) => Number(move.to_zone)).filter((zoneId) => Number.isInteger(zoneId)),
+      ...activation.target_zones.map((target) => target.zone_id),
+    ])];
+    // A proposal/campaign target is an actionable destination, not every zone
+    // that the detector happened to flag. Persisting all hotspots makes the
+    // campaign label/geofence misleading and can overflow the DB display name.
+    const targetZoneIds = actionableTargetZoneIds.length
+      ? actionableTargetZoneIds
+      : [...new Set(decision.hotspots.hotspots.map((hotspot) => hotspot.zone_id))];
     const unmetBefore = decision.hotspots.hotspots.reduce((sum, hotspot) => sum + Math.max(0, hotspot.gap), 0);
     const unmetAfterRelocation = decision.plan.residual_gap.reduce((sum, gap) => sum + gap.gap_remaining, 0);
     const predictedDemand = decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_demand, 0);
-    const predictedSupply = decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_supply, 0);
     const fulfillmentRate = (unmet: number) => predictedDemand > 0
       ? Math.max(0, (1 - unmet / predictedDemand) * 100)
       : 100;
     const requestedOfferCount = activation.total_requested_offers;
     const incentiveAmount = Number(decision.activation_policy.incentive_amount);
-    const eligibleOfferCapacity = predictedSupply > 0 ? Math.floor(predictedSupply) : requestedOfferCount;
+    const eligibleOfferCapacity = await this.eligibleDriverCount();
     const offerCount = Math.min(requestedOfferCount, eligibleOfferCapacity);
     const availableOfferRatio = requestedOfferCount > 0 ? offerCount / requestedOfferCount : 0;
     const effectiveActivationGain = Math.min(
@@ -341,12 +358,11 @@ export class AiService {
     const targetDriverCount = Math.min(offerCount, Math.ceil(effectiveActivationGain));
     const unmetAfterActivation = Math.max(0, unmetAfterRelocation - effectiveActivationGain);
     const hasDirectRelocation = decision.plan.moves.length > 0;
-    const relocationImproves = hasDirectRelocation;
-    const activationImproves = !hasDirectRelocation
-      && targetDriverCount > 0
+    const relocationImproves = hasDirectRelocation && unmetAfterRelocation < unmetBefore;
+    const activationImproves = targetDriverCount > 0
       && incentiveAmount > 0
       && activation.total_expected_units_gained > 0
-      && unmetAfterActivation < unmetBefore;
+      && unmetAfterActivation < unmetAfterRelocation;
     const isOperationalPlan = relocationImproves || activationImproves;
     const estimatedIncentiveCost = offerCount * incentiveAmount;
     const proposalWarnings = decision.plan.warnings.map((warning) =>
@@ -358,6 +374,38 @@ export class AiService {
           }
         : warning,
     );
+    const allocatedBySource = new Map<number, number>();
+    for (const move of decision.plan.moves) {
+      const sourceZoneId = Number(move.from_zone);
+      const quantity = Number(move.units_to_move ?? move.drivers ?? 0);
+      if (Number.isInteger(sourceZoneId) && Number.isFinite(quantity)) {
+        allocatedBySource.set(sourceZoneId, (allocatedBySource.get(sourceZoneId) ?? 0) + quantity);
+      }
+    }
+    // The AI response exposes raw surplus, not the optimizer's post-policy
+    // movable capacity. Persist that evidence, but cap manual edits at the
+    // quantity the optimizer actually allocated instead of inventing capacity.
+    const candidateSourceZones = (decision.hotspots.surplus_zones ?? []).map((source) => ({
+      zoneId: `AI-Z${String(source.zone_id).padStart(2, '0')}`,
+      availableSupply: allocatedBySource.get(source.zone_id) ?? 0,
+      modelSurplus: source.surplus,
+      idleSupplyCurrent: source.idle_supply_current,
+      capacitySource: 'optimizer_allocation',
+    }));
+    const sourceSupply = new Map((decision.hotspots.surplus_zones ?? [])
+      .map((source) => [source.zone_id, source.idle_supply_current] as const));
+    const withdrawnBySource = new Map<number, number>();
+    const persistedMoves = decision.plan.moves.map((move) => {
+      const sourceZoneId = Number(move.from_zone);
+      const quantity = Number(move.units_to_move ?? move.drivers ?? 0);
+      const withdrawn = (withdrawnBySource.get(sourceZoneId) ?? 0) + quantity;
+      withdrawnBySource.set(sourceZoneId, withdrawn);
+      const idleSupply = sourceSupply.get(sourceZoneId);
+      return {
+        ...move,
+        ...(idleSupply === undefined ? {} : { source_supply_after: Math.max(0, idleSupply - withdrawn) }),
+      };
+    });
     const { data: proposal, error: proposalError } = await this.db.client.from('proposals').insert({
       generator_type: 'AGENT',
       generator_version: decision.forecast.model_version,
@@ -366,7 +414,12 @@ export class AiService {
       version: 1,
       input_snapshot_id: snapshot.id,
       target_zone_ids: targetZoneIds,
-      source_plan: { ...decision.plan, activation_recommendation: activation },
+      source_plan: {
+        ...decision.plan,
+        moves: persistedMoves,
+        activation_recommendation: activation,
+        candidate_source_zones: candidateSourceZones,
+      },
       target_driver_count: targetDriverCount,
       offer_count: offerCount,
       bonus_amount: incentiveAmount,
@@ -384,12 +437,13 @@ export class AiService {
         data_source: decision.data_source,
         activation_policy: decision.activation_policy,
         activation_recommendation: activation,
-        plan_mode: hasDirectRelocation ? 'RELOCATION' : 'ACTIVATION_ONLY',
+        plan_mode: relocationImproves ? 'RELOCATION' : 'ACTIVATION_ONLY',
         requested_offer_count: requestedOfferCount,
         expected_accepted_driver_count: targetDriverCount,
         eligible_offer_capacity: eligibleOfferCapacity,
+        eligible_driver_count: eligibleOfferCapacity,
       },
-      explanation: `Dự báo ${decision.forecast.model_version} từ 30 zone live của snapshot ${snapshot.id}; ${decision.plan.moves.length} lệnh điều chuyển.`,
+      explanation: `Dự báo ${decision.forecast.model_version} từ ${decision.data_source} của snapshot ${snapshot.id}; ${decision.plan.moves.length} lệnh điều chuyển.`,
       window_start_at: snapshot.captured_at,
       window_end_at: decision.forecast.forecast_ts,
     }).select('id').single();
@@ -410,6 +464,19 @@ export class AiService {
       if (outputError) this.db.unwrap(null, outputError);
     }
     return proposal;
+  }
+
+  private async eligibleDriverCount() {
+    const { data, error } = await this.db.client
+      .from('driver_states')
+      .select('driver_id,profiles!driver_states_driver_id_fkey!inner(role,is_active)')
+      .eq('is_online', true)
+      .eq('operational_status', 'IDLE')
+      .is('active_campaign_id', null)
+      .eq('profiles.role', 'DRIVER')
+      .eq('profiles.is_active', true);
+    const rows = this.db.unwrap(data, error);
+    return new Set(rows.map((row: DbRow) => String(row.driver_id))).size;
   }
 
   private async request<T = unknown>(path: string, init: RequestInit): Promise<T> {

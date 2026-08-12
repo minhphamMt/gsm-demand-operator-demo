@@ -47,7 +47,7 @@ const token = signIn.data.session.access_token;
 const existingOutputs = await admin.from('model_outputs').select('horizon_min');
 if (existingOutputs.error) throw existingOutputs.error;
 const existingHorizons = new Set((existingOutputs.data ?? []).map((row) => Number(row.horizon_min)));
-for (const horizonMinutes of [15, 30]) {
+for (const horizonMinutes of [5, 15, 30]) {
   if (existingHorizons.has(horizonMinutes)) continue;
   await api('/operator/ai/run-next', token, {
     method: 'POST', body: JSON.stringify({ horizonMinutes, regime: 'rain_peak' }), requestId: `fixture-ai-h${horizonMinutes}`,
@@ -104,7 +104,7 @@ await api(`/operator/proposals/${activeProposal.id}/approve`, token, {
   requestId: 'fixture-proposal-approved',
 });
 const campaign = await api(`/operator/proposals/${activeProposal.id}/activate`, token, {
-  method: 'POST', body: JSON.stringify({ responseMode: 'mixed', driverIds: campaignDriverIds }),
+  method: 'POST', body: JSON.stringify({ responseMode: 'human', driverIds: campaignDriverIds }),
   requestId: 'fixture-campaign-activated',
 });
 

@@ -1,4 +1,4 @@
-import { mapAiZone } from './snapshot.mapper';
+import { calculateSnapshotKpis, mapAiZone } from './snapshot.mapper';
 
 const zone = {
   area_km2: 5.29,
@@ -26,6 +26,36 @@ describe('mapAiZone', () => {
   it('keeps a materialized zone record unavailable until real observations arrive', () => {
     expect(mapAiZone({ ...zone, zone_id: 30, zone_code: 'AI-Z30', zone_name: 'Sơn Tây' }, { data_status: 'missing' })).toMatchObject({
       id: 'AI-Z30', dataStatus: 'missing', supply: 0, demand: 0,
+    });
+  });
+});
+
+describe('calculateSnapshotKpis', () => {
+  it('uses the canonical per-zone unmet and demand-weighted wait formulas', () => {
+    const result = calculateSnapshotKpis([
+      { data_status: 'live', demand_observed: 10, idle_supply: 0 },
+      { data_status: 'live', demand_observed: 10, idle_supply: 20 },
+    ]);
+
+    // Aggregate demand equals aggregate supply, but the first zone still lacks 10 cars.
+    expect(result).toMatchObject({
+      fleetAvailable: 20,
+      fulfillmentRate: 50,
+      requests: 20,
+      residualGap: 10,
+    });
+    expect(result.avgWaitProxy).toBeCloseTo(47.964, 3);
+  });
+
+  it('does not turn missing observations into demand or supply', () => {
+    expect(calculateSnapshotKpis([
+      { data_status: 'missing', demand_observed: 99, idle_supply: 99 },
+    ])).toEqual({
+      avgWaitProxy: 0,
+      fleetAvailable: 0,
+      fulfillmentRate: 100,
+      requests: 0,
+      residualGap: 0,
     });
   });
 });

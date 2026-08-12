@@ -4,7 +4,6 @@ const terminalCampaignStatuses = new Set([
   'BUDGET_EXHAUSTED',
   'CANCELLED',
   'COMPLETED',
-  'TARGET_REACHED',
 ]);
 
 type DriverStateRow = {

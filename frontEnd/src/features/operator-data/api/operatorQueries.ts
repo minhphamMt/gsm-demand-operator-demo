@@ -1,14 +1,14 @@
 import { queryOptions } from '@tanstack/react-query'
 
 import { operatorAdapter } from '@/features/operator-data/api/operatorAdapter'
+import { isCampaignOperational } from '@/features/operator-data/model/campaignState'
 import { snapshotPollInterval } from '@/features/operator-data/model/snapshotFreshness'
 import type { AuditFilters, Campaign, DemoScenarioId, Offer, OperationsReportFilters, Scenario } from '@/features/operator-data/model/types'
 
 const pollingInterval = 2_000
 const visibility = () => typeof document === 'undefined' ? 'visible' : document.visibilityState
 type CampaignPollingState = Pick<Campaign, 'status'>
-const isOperationalCampaign = (campaign: CampaignPollingState) => campaign.status === 'Active' || campaign.status === 'Running'
-export const campaignPollInterval = (campaigns: readonly CampaignPollingState[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!campaigns || campaigns.some(isOperationalCampaign)) ? pollingInterval : false
+export const campaignPollInterval = (campaigns: readonly CampaignPollingState[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!campaigns || campaigns.some(isCampaignOperational)) ? pollingInterval : false
 export const offerPollInterval = (offers: readonly Pick<Offer, 'status'>[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!offers || offers.some((offer) => offer.status === 'Open')) ? pollingInterval : false
 export const visiblePollInterval = (pageVisibility = visibility()) => pageVisibility === 'visible' ? pollingInterval : false
 

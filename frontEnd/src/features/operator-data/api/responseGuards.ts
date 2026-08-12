@@ -6,15 +6,23 @@ type Guard<T> = (value: unknown) => value is T
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 const hasString = (value: Record<string, unknown>, key: string) => typeof value[key] === 'string'
 const hasNumber = (value: Record<string, unknown>, key: string) => typeof value[key] === 'number'
+const campaignStatuses = ['Draft', 'Active', 'TargetReached', 'Completed', 'Cancelled', 'BudgetExhausted', 'Running', 'Expired', 'Closed'] as const
+const proposalStatuses = ['Generated', 'UnderReview', 'Revised', 'Approved', 'Rejected', 'Stale', 'FailedGeneration'] as const
+const isCampaignStatus = (value: unknown): value is Campaign['status'] =>
+  typeof value === 'string' && campaignStatuses.some((status) => status === value)
+const isProposalStatus = (value: unknown): value is Proposal['status'] =>
+  typeof value === 'string' && proposalStatuses.some((status) => status === value)
 
 export const isProposal: Guard<Proposal> = (value): value is Proposal => isRecord(value)
   && hasString(value, 'id') && hasString(value, 'status') && hasString(value, 'title')
+  && isProposalStatus(value.status)
   && (value.targetZoneId === null || hasString(value, 'targetZoneId'))
   && (value.confidence === null || hasNumber(value, 'confidence')) && typeof value.simulationAvailable === 'boolean'
   && Array.isArray(value.moves) && Array.isArray(value.policyChecks)
 
 export const isCampaign: Guard<Campaign> = (value): value is Campaign => isRecord(value)
   && hasString(value, 'id') && hasString(value, 'planId') && hasString(value, 'status')
+  && isCampaignStatus(value.status)
   && hasNumber(value, 'offersSent') && hasNumber(value, 'accepted')
 
 export const isOffer: Guard<Offer> = (value): value is Offer => isRecord(value)
