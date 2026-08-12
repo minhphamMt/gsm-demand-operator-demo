@@ -1,0 +1,170 @@
+/* NovaFour Ops — design tokens + base component classes, scoped to the Operator Console.
+   Ported from the Modernist design-system base (styles.css) plus the mockup's own teal
+   "ngọc lam vận hành" theme overrides. Deliberately kept out of driver/styles/global.css —
+   see the plan's architecture notes for why this subtree gets a token system the Driver
+   app doesn't. */
+
+:root {
+  --font-heading: 'Be Vietnam Pro', system-ui, sans-serif;
+  --font-body: 'Be Vietnam Pro', system-ui, sans-serif;
+  --font-display: 'Archivo', var(--font-heading);
+
+  --color-bg: #f7f8f6;
+  --color-surface: #ffffff;
+  --color-text: #14302e;
+  --color-divider: #dde5e3;
+  --color-neutral-100: #f5f8f7;
+  --color-neutral-200: #e9efed;
+  --color-neutral-300: #d8e0de;
+  --color-neutral-400: #bac6c3;
+  --color-neutral-500: #94a2a0;
+  --color-neutral-600: #6f7f7c;
+  --color-neutral-700: #556360;
+  --color-neutral-800: #3a4846;
+  --color-neutral-900: #223230;
+
+  --color-accent: #e0503c;
+  --color-accent-100: #fdeeeb;
+  --color-accent-200: #fbd8d1;
+  --color-accent-300: #f4ada0;
+  --color-accent-400: #ea7a66;
+  --color-accent-500: #e0503c;
+  --color-accent-600: #c74130;
+  --color-accent-700: #a83426;
+  --color-accent-800: #82271c;
+  --color-accent-900: #5e1c14;
+
+  /* ngọc lam vận hành — teal accent for supply/ok/positive states */
+  --nf-ok: #2bb8ad;
+  --nf-ok-ink: #0c6e69;
+  --nf-ok-700: #0c6e69;
+  --nf-ok-100: #e4f6f4;
+  --nf-flow: #14837f;
+  --nf-aqua: #7fd9d1;
+  --nf-warn: #f0ab2e;
+  --nf-warn-ink: #8a5a05;
+  --nf-warn-100: #fdf1dc;
+  --nf-alert-300: #f4ada0;
+  --nf-alert-700: #a83426;
+  --nf-alert-800: #82271c;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 48, 46, 0.1);
+  --shadow-md: 0 3px 10px rgba(20, 48, 46, 0.1);
+  --shadow-lg: 0 12px 32px rgba(20, 48, 46, 0.16);
+  --nf-shadow: 0 4px 14px rgba(20, 48, 46, 0.1);
+  --nf-shadow-lg: 0 12px 32px rgba(20, 48, 46, 0.16);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0 0 var(--space-2);
+}
+p { margin: 0 0 var(--space-3); }
+a { color: var(--nf-ok-700); text-underline-offset: 3px; }
+a:hover { color: var(--nf-ok); }
+img { display: block; max-width: 100%; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--nf-ok); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--nf-ok) 30%, transparent); }
+button { font: inherit; color: inherit; }
+
+/* — rules — */
+.hr { height: 2px; border: 0; margin: var(--space-4) 0; background: var(--color-divider); }
+
+/* — buttons — */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; text-decoration: none;
+  font-family: var(--font-display); font-weight: 800;
+  font-size: 14px; line-height: 1.2; color: var(--color-text);
+  background: transparent; border: 1px solid transparent;
+  padding: var(--space-2) calc(var(--space-3) * 1.2);
+  border-radius: var(--radius-md);
+}
+.btn svg { display: block; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--nf-ok-ink); border-color: var(--nf-ok-ink); color: #fff; }
+.btn-primary:hover { background: #0a5a56; border-color: #0a5a56; }
+.btn-primary:active { background: #084a47; }
+.btn-secondary { border-color: var(--color-divider); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+.btn-ghost { color: var(--nf-ok-700); padding-inline: var(--space-1); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--nf-ok) 10%, transparent); }
+.btn-ghost:active { background: color-mix(in srgb, var(--nf-ok) 18%, transparent); }
+.btn-icon { width: 36px; height: 36px; padding: 0; }
+.btn-block { width: 100%; margin-top: var(--space-2); justify-content: flex-start; text-align: left; }
+
+/* — forms — */
+.field > label { display: block; font-size: 12px; margin-bottom: 5px; color: color-mix(in srgb, var(--color-text) 70%, transparent); }
+.input {
+  width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
+  font-size: 14px; color: var(--color-text); caret-color: var(--nf-ok);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.input:focus-visible { border-color: var(--nf-ok); outline-offset: 0; }
+.radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.radio input, .seg-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.radio .dot { width: 16px; height: 16px; flex: none; border-radius: 50%; border: 1.5px solid var(--color-divider); }
+.radio:hover .dot { border-color: var(--nf-ok); }
+.radio input:checked + .dot { border-color: var(--nf-ok); background: var(--nf-ok); box-shadow: inset 0 0 0 4px var(--color-bg); }
+.seg { display: inline-flex; overflow: hidden; border: 1px solid var(--color-divider); border-radius: var(--radius-md); flex: none; }
+.seg-opt { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+.seg-opt:has(input:checked) { background: var(--nf-ok-ink); color: #fff; }
+.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.seg-opt:has(input:focus-visible) { outline: 2px solid var(--nf-ok); outline-offset: -2px; }
+
+/* — cards / tags / table — */
+.card { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); }
+.tag { display: inline-flex; align-items: center; font-size: 11px; letter-spacing: 0.02em; padding: 3px 10px; border-radius: calc(var(--radius-md) * 0.75); }
+.tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
+.tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th { text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); padding: var(--space-2); border-bottom: 2px solid var(--color-divider); background: var(--color-neutral-100); }
+.table td { padding: var(--space-2); border-bottom: 1px solid var(--color-divider); }
+.table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+
+/* — dialog — */
+.dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: var(--space-4); background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent); }
+.dialog { width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-lg); }
+.dialog-title { font-family: var(--font-display); font-weight: 800; font-size: 20px; }
+.dialog-body { font-size: 14px; opacity: 0.85; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+
+/* — misc — */
+.nf-tip { font-family: var(--font-body); font-size: 12px; border-radius: 0; border: 2px solid var(--color-text); box-shadow: none; }
+.leaflet-container, .mapboxgl-map { background: #e6e4e2; font-family: var(--font-body); }
+.mapboxgl-ctrl-attrib { font-size: 9px; border-radius: 0; }
+@keyframes nf-dash { to { stroke-dashoffset: -24; } }
+.nf-flow-live { animation: nf-dash 0.9s linear infinite; }
+@keyframes nf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.nf-live { animation: nf-pulse 1.4s ease-in-out infinite; }
+.nf-scroll { scrollbar-width: thin; scrollbar-color: var(--color-neutral-400) transparent; }
+.nf-scroll::-webkit-scrollbar { width: 10px; }
+.nf-scroll::-webkit-scrollbar-thumb { background: var(--color-neutral-400); }

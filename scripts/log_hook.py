@@ -250,11 +250,18 @@ def main():
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
+<<<<<<< HEAD
     # Some tools validate hook stdout against a tool-specific schema.
     # Gemini expects JSON, while Codex accepts a successful no-output hook
     # when we are only doing side-effect logging.
     if tool == "gemini":
         print(json.dumps({"status": "logged"}))
+=======
+    # Output a valid Codex hook response. Keep it empty so the hook does not
+    # inject unrecognized fields into the model context. `{}` is also valid
+    # JSON for tools such as Gemini that require hook output.
+    print(json.dumps({}))
+>>>>>>> refactor/reorganize-project-structure
 
 
 if __name__ == "__main__":

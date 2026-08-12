@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "dataset": "snapshot_test.parquet",
+  "source_kind": "hybrid_synthetic",
+  "generator": "generate_snapshots.py --split test",
+  "field_provenance": {
+    "rain_mm_h": "NASA POWER 2025 with deterministic spatial factors",
+    "demand_observed": "synthetic generator, seed 2026",
+    "idle_supply": "synthetic generator, seed 2026",
+    "rain_forecast_15_30": "deterministic nowcast noise, seed 13"
+  },
+  "seed": 2026,
+  "seed_nowcast": 13,
+  "rows": 60480,
+  "zones": 30,
+  "steps": 2016,
+  "ts_start": "2026-09-25T00:00:00+07:00",
+  "ts_end": "2026-10-01T23:55:00+07:00",
+  "sha256": "e84208dc6294e90ada05ca1b1143e1638dbedae8ccad29ebea03dbfd11cbcf45"
+}

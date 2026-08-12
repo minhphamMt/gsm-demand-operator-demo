@@ -1,0 +1,16 @@
+.env
+.venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+data/*
+!data/snapshots/
+data/snapshots/*
+!data/snapshots/snapshot_test.parquet
+!data/models/
+!data/models/**
+!data/baseline/
+data/baseline/*
+!data/baseline/BASELINE_FREEZE.md
+tests

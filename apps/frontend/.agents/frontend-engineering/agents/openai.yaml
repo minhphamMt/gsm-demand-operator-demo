@@ -1,0 +1,4 @@
+interface:
+  display_name: "GSM-14 Frontend Engineering"
+  short_description: "Enforce clean, typed frontend architecture"
+  default_prompt: "Use $frontend-engineering to implement this GSM-14 frontend change cleanly and validate it."
