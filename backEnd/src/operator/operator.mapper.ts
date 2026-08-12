@@ -129,6 +129,8 @@ export const mapProposal = (row: Row) => {
     zoneTripBonus: number(simulation.zone_trip_bonus),
     fareMultiplier: number(row.fare_multiplier),
     budgetLimit: number(sourcePlan.plan_totals?.budget_cap ?? row.estimated_cost),
+    activationBudgetLimit: number(simulation.activation_policy?.incentive_budget_cap),
+    activationTtlMinutes: number(simulation.activation_policy?.offer_ttl_minutes),
     estimatedRewardCost: number(sourcePlan.plan_totals?.total_cost ?? row.estimated_cost),
     estimatedAdditionalRevenue: number(simulation.estimated_additional_revenue),
     estimatedNetCost: number(simulation.estimated_net_cost ?? row.estimated_cost),
@@ -147,6 +149,8 @@ export const mapProposal = (row: Row) => {
     })),
     metricsBefore: metrics(before),
     metrics: metrics(after),
+    metricsAfterRelocation: simulation.metrics_after_relocation ? metrics(simulation.metrics_after_relocation) : undefined,
+    metricsAfterActivation: simulation.metrics_after_activation_expected ? metrics(simulation.metrics_after_activation_expected) : undefined,
     explanation: Array.isArray(row.explanation) ? row.explanation : [row.explanation].filter(Boolean),
     inputFreshUntil: iso(row.window_end_at),
   };

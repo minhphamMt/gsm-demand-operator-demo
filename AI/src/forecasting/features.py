@@ -39,7 +39,7 @@ LOOKBACK_STEPS = 6
 ROLL_STEPS = 6
 
 # Hai tầm dự báo của §4.2, tính theo số bước.
-HORIZON_MINUTES: tuple[int, ...] = (15, 30)
+HORIZON_MINUTES: tuple[int, ...] = (5, 15, 30)
 
 KEY_COLUMNS: tuple[str, ...] = ("zone_id", "ts_bucket")
 
@@ -77,13 +77,12 @@ CATEGORICAL_FEATURES: tuple[str, ...] = ("zone_id",)
 OUTPUT_COLUMNS: tuple[str, ...] = (*KEY_COLUMNS, *(c for c in FEATURE_COLUMNS if c not in KEY_COLUMNS))
 
 # --- A3: bảng label, join 1-1 với A2 theo (zone_id, ts_bucket) ---
-TARGET_COLUMNS: tuple[str, ...] = (
-    "target_demand_15",
-    "target_demand_30",
-    "target_supply_15",
-    "target_supply_30",
+TARGET_COLUMNS: tuple[str, ...] = tuple(
+    f"target_{target}_{horizon}"
+    for target in ("demand", "supply")
+    for horizon in HORIZON_MINUTES
 )
-LABEL_REGIME_COLUMNS: tuple[str, ...] = ("regime_15", "regime_30")
+LABEL_REGIME_COLUMNS: tuple[str, ...] = tuple(f"regime_{horizon}" for horizon in HORIZON_MINUTES)
 
 # Cột A1 mà A2/A3 cần đọc; thiếu một cột là dừng ngay chứ không sinh ra NaN im lặng.
 REQUIRED_SNAPSHOT_COLUMNS: tuple[str, ...] = (

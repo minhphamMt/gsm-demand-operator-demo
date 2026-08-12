@@ -50,7 +50,7 @@ def forecast_from_live_zones(
         ))
 
     rain = max(
-        zone.rain_forecast_15 if horizon_min == 15 else zone.rain_forecast_30
+        zone.rain_forecast_15 * (horizon_min / 15) if horizon_min <= 15 else zone.rain_forecast_30
         for zone in zones
     )
     peak = max(zone.peak_flag for zone in zones)

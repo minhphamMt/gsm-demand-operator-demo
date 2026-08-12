@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnprocessableEntityException,
@@ -12,6 +13,7 @@ import { createClient, PostgrestError, SupabaseClient } from '@supabase/supabase
 @Injectable()
 export class SupabaseService {
   readonly client: SupabaseClient;
+  private readonly logger = new Logger(SupabaseService.name);
 
   constructor(config: ConfigService) {
     const url = config.get<string>('SUPABASE_URL');
@@ -26,6 +28,7 @@ export class SupabaseService {
 
   unwrap<T>(data: T | null, error: PostgrestError | null): T {
     if (error) {
+      this.logger.error(JSON.stringify({ code: error.code, message: error.message, details: error.details, hint: error.hint }));
       if (error.code === 'P0002') throw new NotFoundException(error.message);
       if (error.code === '23505') throw new ConflictException(error.message);
       if (error.code === '23514' && /Proposal (cannot be revised|was already reviewed)/i.test(error.message)) {

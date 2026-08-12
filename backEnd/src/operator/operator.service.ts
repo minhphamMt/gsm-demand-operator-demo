@@ -73,6 +73,13 @@ export class OperatorService {
     return Promise.all(snapshots.map((snapshot: any) => this.mapSnapshot(snapshot, query)));
   }
 
+  async snapshotById(id: number, query: SnapshotQueryDto = {}) {
+    const { data: snapshot, error } = await this.db.client.from('supply_demand_snapshots').select('*').eq('id', id).maybeSingle();
+    if (error) this.db.unwrap(null, error);
+    if (!snapshot) throw new NotFoundException(`Snapshot ${id} was not found`);
+    return this.mapSnapshot(snapshot, query);
+  }
+
   private async mapSnapshot(snapshot: any, query: SnapshotQueryDto) {
     let observationsQuery = this.db.client.from('ai_zone_observations').select('*').eq('snapshot_id', snapshot.id);
     const aiZoneQuery = this.db.client.from('ai_zone_registry_api_v').select('*').eq('is_active', true).order('zone_id');
@@ -95,9 +102,10 @@ export class OperatorService {
     this.db.unwrap(aiZones, aiZonesError);
 
     const observationsByZone = new Map((observations ?? []).map((observation: any) => [Number(observation.zone_id), observation]));
-    const forecastsByZone = new Map<number, { horizon15?: any; horizon30?: any }>();
+    const forecastsByZone = new Map<number, { horizon5?: any; horizon15?: any; horizon30?: any }>();
     for (const forecast of forecasts ?? []) {
       const current = forecastsByZone.get(Number(forecast.zone_id)) ?? {};
+      if (Number(forecast.horizon_min) === 5) current.horizon5 = forecast;
       if (Number(forecast.horizon_min) === 15) current.horizon15 = forecast;
       if (Number(forecast.horizon_min) === 30) current.horizon30 = forecast;
       forecastsByZone.set(Number(forecast.zone_id), current);
@@ -106,6 +114,8 @@ export class OperatorService {
     const forecastedZoneIds = new Set((forecasts ?? []).map((forecast: any) => Number(forecast.zone_id)));
     const latestForecast = [...(forecasts ?? [])].sort((left: any, right: any) =>
       new Date(right.forecast_at).getTime() - new Date(left.forecast_at).getTime())[0];
+    const replaySource = String((observations ?? [])[0]?.source_name ?? '');
+    const sourceAt = replaySource.startsWith('AI_PARQUET_REPLAY:') ? replaySource.slice('AI_PARQUET_REPLAY:'.length) : snapshot.captured_at;
 
     const scenarioCode = String(snapshot.scenario_code ?? 'normal').toLowerCase();
     const regime = scenarioCode.startsWith('rain_peak') ? 'rain_peak'
@@ -114,6 +124,7 @@ export class OperatorService {
 
     return {
       generatedAt: snapshot.captured_at,
+      sourceAt,
       replayStep: String(snapshot.id),
       scenario: query.scenario ?? 'baseline',
       demoScenarioId: regime === 'rain_peak' ? 'rain-peak' : 'normal',

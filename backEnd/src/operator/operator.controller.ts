@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -75,6 +75,13 @@ export class OperatorController {
   @ApiOkResponse({ type: SnapshotResponseDto, isArray: true })
   snapshotWindow(@Query() query: SnapshotWindowQueryDto) {
     return this.service.snapshotWindow(query);
+  }
+
+  @Get('operator/snapshots/:id')
+  @Roles('OPERATOR')
+  @ApiOkResponse({ type: SnapshotResponseDto })
+  snapshotById(@Param('id', ParseIntPipe) id: number, @Query() query: SnapshotQueryDto) {
+    return this.service.snapshotById(id, query);
   }
 
   @Get('operator/baselines')

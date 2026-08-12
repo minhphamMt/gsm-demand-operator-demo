@@ -1,8 +1,9 @@
-import { featureCollection, polygon } from '@turf/helpers'
-import type { FeatureCollection, Polygon } from 'geojson'
+import { featureCollection, point, polygon } from '@turf/helpers'
+import type { FeatureCollection, Point, Polygon } from 'geojson'
 
 import { AI_ZONE_CATALOG } from '@/features/operator-data/model/aiZoneCatalog'
 import type { Zone } from '@/features/operator-data/model/types'
+import { operationalGapFor } from '@/features/operator-data/model/zoneBalance'
 
 export function createZones(): readonly Zone[] {
   return AI_ZONE_CATALOG.map(([zoneId, label, latitude, longitude, radiusM]) => {
@@ -16,6 +17,8 @@ export function createZones(): readonly Zone[] {
       aiZoneId: zoneId,
       zoneCode: `AI-Z${String(zoneId).padStart(2, '0')}`,
       label,
+      tier: zoneId <= 7 ? 'core' : zoneId <= 13 ? 'ring' : 'outer',
+      areaKm2: Math.PI * radiusM ** 2 / 1_000_000,
       center: [longitude, latitude],
       boundary: circleBoundary(longitude, latitude, radiusM),
       dataStatus: 'live',
@@ -24,6 +27,9 @@ export function createZones(): readonly Zone[] {
       gap,
       severity: severityForGap(gap),
       confidence: null,
+      rainMmH: 0,
+      rainForecast15: 0,
+      rainForecast30: 0,
       forecast15,
       forecast30,
       forecastSupply15: supply,
@@ -48,8 +54,20 @@ function severityForGap(gap: number): Zone['severity'] {
   return 'Low'
 }
 
-export function zonesToFeatureCollection(zones: readonly Zone[]): FeatureCollection<Polygon, Pick<Zone, 'id' | 'label' | 'gap' | 'severity' | 'supply' | 'demand' | 'dataStatus'>> {
+type ZoneMapProperties = Pick<Zone, 'id' | 'label' | 'gap' | 'severity' | 'supply' | 'demand' | 'dataStatus' | 'areaKm2' | 'rainMmH'> & { operationalGap: number }
+
+const mapProperties = (zone: Zone): ZoneMapProperties => ({
+  id: zone.id, label: zone.label, gap: zone.gap, severity: zone.severity, supply: zone.supply,
+  demand: zone.demand, dataStatus: zone.dataStatus ?? 'live', areaKm2: zone.areaKm2, rainMmH: zone.rainMmH,
+  operationalGap: zone.operationalGap ?? operationalGapFor(zone),
+})
+
+export function zonesToFeatureCollection(zones: readonly Zone[]): FeatureCollection<Polygon, ZoneMapProperties> {
   return featureCollection(zones.map((zone) => polygon([[...zone.boundary, zone.boundary[0] ?? zone.center]], {
-    id: zone.id, label: zone.label, gap: zone.gap, severity: zone.severity, supply: zone.supply, demand: zone.demand, dataStatus: zone.dataStatus ?? 'live',
+    ...mapProperties(zone),
   })))
+}
+
+export function zoneCentersToFeatureCollection(zones: readonly Zone[]): FeatureCollection<Point, ZoneMapProperties> {
+  return featureCollection(zones.map((zone) => point(zone.center, mapProperties(zone))))
 }

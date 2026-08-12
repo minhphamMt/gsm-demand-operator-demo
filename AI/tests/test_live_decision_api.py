@@ -38,7 +38,14 @@ def test_decision_uses_live_snapshot_and_returns_auditable_mode() -> None:
     assert body["activation_policy"] == {
         "incentive_amount": 20_000,
         "incentive_budget_cap": 1_000_000,
+        "overbooking_factor": 1.6,
+        "assumed_accept_rate": 0.6,
     }
+    activation = body["activation_recommendation"]
+    assert activation["total_requested_offers"] >= 0
+    assert activation["total_expected_units_gained"] >= 0
+    assert activation["total_expected_gap_remaining"] >= 0
+    assert activation["accept_rate_source"] == "policy_assumption"
     assert len(body["forecast"]["zones"]) == 30
     assert body["plan"]["moves"]
     assert any(
@@ -101,3 +108,23 @@ def test_frozen_dataset_advances_after_source_timestamp() -> None:
         ).json()
 
     assert second["source_at"] > first["source_at"]
+
+
+def test_exact_replay_bucket_runs_trained_five_minute_model() -> None:
+    source_at = "2026-09-25T08:15:00+07:00"
+    with TestClient(app) as client:
+        snapshot = client.post("/api/v1/datasets/snapshots/at", json={"source_at": source_at})
+        window = client.post("/api/v1/datasets/snapshots/window", json={"source_at": source_at})
+        payload = _request()
+        payload["horizon_min"] = 5
+        payload["replay_source_at"] = source_at
+        decision = client.post("/api/v1/decisions", json=payload)
+
+    assert snapshot.status_code == 200
+    assert snapshot.json()["source_at"] == source_at
+    assert len(snapshot.json()["zones"]) == 30
+    assert window.status_code == 200
+    assert all("mean_rain_mm_h" in step for step in window.json()["steps"])
+    assert decision.status_code == 200
+    assert decision.json()["forecast_mode"] == "trained_model_replay"
+    assert decision.json()["forecast"]["horizon_min"] == 5

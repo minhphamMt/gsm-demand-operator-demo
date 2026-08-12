@@ -268,7 +268,8 @@ def forecast_at(
     if len(rows) == 0:
         raise ValueError(f"Không có dòng A2 nào tại t={t.isoformat()}")
     predictions = predict(models, rows)
-    regime: Regime = city_regime(rows[f"rain_forecast_{horizon_min}"].tolist(), int(rows["peak_flag"].iloc[0]))
+    rain_horizon = 15 if horizon_min <= 15 else 30
+    regime: Regime = city_regime(rows[f"rain_forecast_{rain_horizon}"].tolist(), int(rows["peak_flag"].iloc[0]))
     return build_forecast(
         predictions,
         t=t,

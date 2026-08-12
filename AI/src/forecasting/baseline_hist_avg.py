@@ -37,7 +37,7 @@ from src.forecasting.features import KEY_COLUMNS, STEP_MINUTES
 MODEL_VERSION = "hist_avg_v1"
 
 TARGETS: tuple[str, ...] = ("demand", "supply")
-HORIZONS: tuple[int, ...] = (15, 30)
+HORIZONS: tuple[int, ...] = (5, 15, 30)
 QUANTILES: tuple[int, ...] = (10, 50, 90)
 
 # Ba mức tra, dùng theo thứ tự; mức sau chỉ chạy cho dòng mà mức trước không có số

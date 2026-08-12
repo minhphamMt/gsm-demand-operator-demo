@@ -1,4 +1,4 @@
-import type { AuditEntry, AuditPage, Baseline, Campaign, DemoDriver, DriverView, Offer, OperationsReport, Proposal, Snapshot } from '@/features/operator-data/model/types'
+import type { AuditEntry, AuditPage, Baseline, Campaign, DemoDriver, DriverView, Offer, OperationsReport, Proposal, ReplayTimelineStep, Snapshot } from '@/features/operator-data/model/types'
 import { AppError } from '@/shared/api/client'
 
 type Guard<T> = (value: unknown) => value is T
@@ -34,8 +34,13 @@ export const isSnapshot: Guard<Snapshot> = (value): value is Snapshot => isRecor
   && hasString(value, 'generatedAt') && hasString(value, 'scenario') && Array.isArray(value.zones)
   && value.zones.every((zone) => isRecord(zone) && hasString(zone, 'id') && hasNumber(zone, 'aiZoneId')
     && hasString(zone, 'zoneCode') && (zone.dataStatus === 'live' || zone.dataStatus === 'missing')
+    && hasNumber(zone, 'areaKm2') && hasNumber(zone, 'rainMmH')
+    && hasNumber(zone, 'rainForecast15') && hasNumber(zone, 'rainForecast30')
     && Array.isArray(zone.center) && Array.isArray(zone.boundary))
   && Array.isArray(value.hotspots) && isRecord(value.kpis)
+
+export const isReplayTimelineStep: Guard<ReplayTimelineStep> = (value): value is ReplayTimelineStep => isRecord(value)
+  && hasString(value, 'sourceAt') && hasNumber(value, 'meanRainMmH')
 
 export const isBaseline: Guard<Baseline> = (value): value is Baseline => isRecord(value)
   && (value.id === 'no-action' || value.id === 'historical-average') && hasString(value, 'label')

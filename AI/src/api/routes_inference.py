@@ -8,13 +8,14 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import Field, model_validator
 
+from src.activation.recommendation import recommend_activation
 from src.common.haversine import get_zone_coords
 from src.common.policy import Policy, get_policy
 from src.config import get_settings
 from src.contracts import ContractModel, StepAlignedDatetime, ZoneId, ensure_full_zone_coverage
 from src.contracts.forecast import Forecast, HorizonMin
 from src.contracts.hotspot import Hotspot, HotspotOutput, SurplusZone
-from src.datasets.snapshot_replay import dataset_status, next_snapshot
+from src.datasets.snapshot_replay import dataset_status, next_snapshot, snapshot_at, snapshot_window
 from src.forecasting.lgbm_quantile import forecast_at, load_models
 from src.forecasting.live_snapshot_baseline import forecast_from_live_zones
 from src.hotspot.detector import gap_of, meets_condition, severity_of
@@ -26,6 +27,10 @@ router = APIRouter(prefix="/api/v1", tags=["inference"])
 class DatasetSnapshotRequest(ContractModel):
     after_source_at: StepAlignedDatetime | None = None
     regime: Literal["normal", "peak", "rain", "rain_peak"] | None = None
+
+
+class ExactDatasetSnapshotRequest(ContractModel):
+    source_at: StepAlignedDatetime
 
 
 @router.get("/datasets/snapshots/status")
@@ -43,6 +48,26 @@ def get_next_dataset_snapshot(request: DatasetSnapshotRequest) -> dict[str, obje
         return next_snapshot(source_at, request.regime)
     except LookupError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@router.post("/datasets/snapshots/at")
+def get_dataset_snapshot_at(request: ExactDatasetSnapshotRequest) -> dict[str, object]:
+    try:
+        return snapshot_at(pd.Timestamp(request.source_at))
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@router.post("/datasets/snapshots/window")
+def get_dataset_snapshot_window(request: ExactDatasetSnapshotRequest) -> dict[str, object]:
+    try:
+        return {"steps": snapshot_window(pd.Timestamp(request.source_at))}
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
     except (FileNotFoundError, ValueError) as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
 
@@ -94,7 +119,7 @@ def trained_model_readiness() -> dict[str, object]:
     except Exception as error:  # noqa: BLE001 - readiness reports loader failures.
         return {"ready": False, "error": str(error), "artifacts": len(list(model_directory.glob("*.txt")))}
     return {
-        "ready": len(models) == 12,
+        "ready": len(models) == 18,
         "artifacts": len(models),
         "model_version": "lgbm_quantile_v1",
         "simulation_feature_rows": len(features),
@@ -197,6 +222,13 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         policy=policy,
         zone_coords=get_zone_coords(settings.zone_registry_path),
     )
+    activation = recommend_activation(
+        result.residual_gap,
+        incentive_amount=policy.rules.incentive_base,
+        incentive_budget_cap=policy.rules.incentive_budget_cap,
+        overbooking_factor=policy.rules.overbooking_factor,
+        assumed_accept_rate=policy.rules.assumed_accept_rate,
+    )
     warnings = [*forecast_warnings, *result.warnings, {
         "code": "HYSTERESIS_STATE_UNAVAILABLE",
         "message": "Request đơn không có lịch sử hysteresis; hotspot dùng điều kiện thô.",
@@ -208,6 +240,20 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         "activation_policy": {
             "incentive_amount": policy.rules.incentive_base,
             "incentive_budget_cap": policy.rules.incentive_budget_cap,
+            "overbooking_factor": policy.rules.overbooking_factor,
+            "assumed_accept_rate": policy.rules.assumed_accept_rate,
+            "offer_ttl_minutes": policy.rules.offer_ttl_minutes,
+        },
+        "activation_recommendation": {
+            "strategy": "residual_gap_desc_budget_constrained",
+            "target_zones": [target.__dict__ for target in activation.target_zones],
+            "total_requested_offers": activation.total_requested_offers,
+            "total_expected_units_gained": activation.total_expected_units_gained,
+            "total_expected_gap_remaining": activation.total_expected_gap_remaining,
+            "projected_gap_reduction_pct": activation.projected_gap_reduction_pct,
+            "worst_case_commitment": activation.worst_case_commitment,
+            "constrained_by_budget": activation.constrained_by_budget,
+            "accept_rate_source": "policy_assumption",
         },
         "forecast": forecast.model_dump(mode="json"),
         "hotspots": hotspot_output.model_dump(mode="json"),

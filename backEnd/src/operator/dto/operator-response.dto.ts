@@ -12,6 +12,8 @@ class ZoneDto {
   @ApiProperty({ example: 'AI-Z06' }) id: string;
   @ApiProperty({ example: 6 }) aiZoneId: number;
   @ApiProperty({ example: 'AI-Z06' }) zoneCode: string;
+  @ApiProperty({ example: 'core' }) tier: string;
+  @ApiProperty({ example: 12.4 }) areaKm2: number;
   @ApiProperty({ example: 'Cầu Giấy' }) label: string;
   @ApiProperty({ enum: ['live', 'missing'], example: 'live' }) dataStatus: string;
   @ApiProperty({ example: [105.79, 21.03], type: [Number] }) center: number[] | null;
@@ -23,6 +25,9 @@ class ZoneDto {
   @ApiProperty({ example: null, nullable: true, type: Number }) confidence: number | null;
   @ApiProperty({ example: 25 }) forecast15: number;
   @ApiProperty({ example: 25 }) forecast30: number;
+  @ApiProperty({ example: 0.4 }) rainMmH: number;
+  @ApiProperty({ example: 0.8 }) rainForecast15: number;
+  @ApiProperty({ example: 1.2 }) rainForecast30: number;
 }
 
 class HotspotDto {
@@ -35,6 +40,7 @@ class HotspotDto {
 
 export class SnapshotResponseDto {
   @ApiProperty({ example: '2026-08-09T08:30:00.000Z', format: 'date-time' }) generatedAt: string;
+  @ApiProperty({ example: '2026-09-25T08:15:00+07:00', format: 'date-time' }) sourceAt: string;
   @ApiProperty({ example: '42' }) replayStep: string;
   @ApiProperty({ enum: ['baseline', 'plan', 'activation'], example: 'baseline' }) scenario: string;
   @ApiProperty({ example: 'normal' }) demoScenarioId: string;

@@ -99,3 +99,46 @@ def next_snapshot(after_source_at: pd.Timestamp | None, regime: Regime | None) -
         "regime": step_regime,
         "zones": zones,
     }
+
+
+def snapshot_at(source_at: pd.Timestamp) -> dict[str, Any]:
+    """Return the exact real 5-minute bucket; never interpolate or synthesize rows."""
+    frame = _dataset()
+    if source_at not in _inference_timestamps():
+        raise LookupError(f"Dataset has no inference-ready snapshot at {source_at.isoformat()}")
+    rows = frame[frame["ts_bucket"] == source_at]
+    if len(rows) != 30:
+        raise LookupError(f"Dataset snapshot at {source_at.isoformat()} does not contain 30 zones")
+    step_regime = tag_regime(float(rows["rain_mm_h"].max()), int(rows["peak_flag"].max()))
+    zones = [
+        {
+            "zone_id": int(row.zone_id),
+            "demand_observed": int(row.demand_observed),
+            "idle_supply": int(row.idle_supply),
+            "enroute_supply": int(row.enroute_supply),
+            "rain_mm_h": float(row.rain_mm_h),
+            "rain_forecast_15": float(row.rain_forecast_15),
+            "rain_forecast_30": float(row.rain_forecast_30),
+            "peak_flag": int(row.peak_flag),
+            "holiday_flag": int(row.holiday_flag),
+        }
+        for row in rows.itertuples(index=False)
+    ]
+    return {**dataset_status(), "source_at": source_at.isoformat(), "regime": step_regime, "zones": zones}
+
+
+def snapshot_window(center_at: pd.Timestamp, radius: int = 9) -> list[dict[str, Any]]:
+    """Return actual timeline metrics for contiguous inference-ready 5-minute buckets."""
+    timestamps = sorted(_inference_timestamps())
+    if center_at not in timestamps:
+        raise LookupError(f"Dataset has no inference-ready snapshot at {center_at.isoformat()}")
+    center_index = timestamps.index(center_at)
+    selected = timestamps[max(0, center_index - radius):center_index + radius + 1]
+    frame = _dataset()
+    return [
+        {
+            "source_at": timestamp.isoformat(),
+            "mean_rain_mm_h": float(frame.loc[frame["ts_bucket"] == timestamp, "rain_mm_h"].mean()),
+        }
+        for timestamp in selected
+    ]

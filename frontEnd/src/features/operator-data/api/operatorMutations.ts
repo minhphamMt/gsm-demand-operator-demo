@@ -29,13 +29,21 @@ export function useOperatorActions() {
   }
 
   return {
+    runReplayStep: useMutation({
+      mutationFn: (sourceAt: string) => operatorAdapter.runReplayStep(sourceAt),
+      onSuccess: (replaySnapshot) => queryClient.setQueryData(operatorQueryKeys.snapshot('baseline', 'rain-peak', 0), replaySnapshot),
+    }),
     generateAiDecision: useMutation({
-      mutationFn: (horizonMinutes: 15 | 30) => operatorAdapter.generateAiDecision(horizonMinutes),
+      mutationFn: ({ snapshotId, horizonMinutes }: { snapshotId: number; horizonMinutes: 15 | 30 }) => operatorAdapter.generateAiDecision(snapshotId, horizonMinutes),
       onSuccess: async () => {
-        await Promise.all([
-          refreshPlans(),
-          queryClient.invalidateQueries({ queryKey: operatorQueryKeys.snapshot('baseline', 'rain-peak', 0) }),
-        ])
+        await queryClient.invalidateQueries({ queryKey: operatorQueryKeys.snapshot('baseline', 'rain-peak', 0) })
+      },
+    }),
+    optimizeAiDecision: useMutation({
+      mutationFn: ({ snapshotId, horizonMinutes }: { snapshotId: number; horizonMinutes: 5 | 15 | 30 }) => operatorAdapter.optimizeAiDecision(snapshotId, horizonMinutes),
+      onSuccess: async (proposal) => {
+        queryClient.setQueryData(operatorQueryKeys.plans, [proposal])
+        await refreshPlans()
       },
     }),
     revise: useMutation({

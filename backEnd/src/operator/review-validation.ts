@@ -1,7 +1,7 @@
 export type ReviewDecision = 'APPROVED' | 'REJECTED';
 
 export type ReviewIssue = {
-  code: 'INVALID_INCENTIVE' | 'NO_OPERATIONAL_SOLUTION' | 'POLICY_CHECK_FAILED' | 'PROPOSAL_VERSION_CONFLICT' | 'STALE_PROPOSAL';
+  code: 'INVALID_INCENTIVE' | 'NO_MODEL_IMPROVEMENT' | 'POLICY_CHECK_FAILED' | 'PROPOSAL_VERSION_CONFLICT' | 'STALE_PROPOSAL';
   kind: 'conflict' | 'validation';
 };
 
@@ -15,25 +15,25 @@ type OperationalProposal = {
   window_end_at: string | null;
 };
 
-function hasNoSolution(details: unknown) {
-  if (typeof details !== 'object' || details === null || Array.isArray(details)) return false;
-  const warnings = (details as Record<string, unknown>).warnings;
-  return Array.isArray(warnings) && warnings.some((warning) =>
-    typeof warning === 'object' && warning !== null && !Array.isArray(warning)
-      && (warning as Record<string, unknown>).code === 'NO_SOLUTION');
-}
-
 export function proposalOperationalIssue(proposal: OperationalProposal): ReviewIssue | undefined {
   if (proposal.policy_status !== 'PASSED') {
     return { code: 'POLICY_CHECK_FAILED', kind: 'validation' };
-  }
-  if (hasNoSolution(proposal.simulation_details)) {
-    return { code: 'NO_OPERATIONAL_SOLUTION', kind: 'validation' };
   }
   if (Number(proposal.bonus_amount ?? 0) <= 0
     || Number(proposal.estimated_cost ?? 0) <= 0
     || Number(proposal.target_driver_count ?? 0) <= 0) {
     return { code: 'INVALID_INCENTIVE', kind: 'validation' };
+  }
+  const simulation = proposal.simulation_details && typeof proposal.simulation_details === 'object'
+    ? proposal.simulation_details as Record<string, any>
+    : {};
+  const before = Number(simulation.metrics_before?.unmet_demand ?? 0);
+  const afterMetrics = simulation.plan_mode === 'ACTIVATION_ONLY'
+    ? simulation.metrics_after_activation_expected
+    : simulation.metrics_after;
+  const after = Number(afterMetrics?.unmet_demand ?? before);
+  if (before > 0 && after >= before) {
+    return { code: 'NO_MODEL_IMPROVEMENT', kind: 'validation' };
   }
   return undefined;
 }

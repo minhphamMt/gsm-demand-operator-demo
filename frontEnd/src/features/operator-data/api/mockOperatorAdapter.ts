@@ -73,7 +73,14 @@ const mockOperationsReport = (filters: OperationsReportFilters): OperationsRepor
 }
 
 export const mockOperatorAdapter: OperatorDataAdapter = {
-  generateAiDecision: async () => undefined,
+  generateAiDecision: async () => mockOperatorAdapter.getSnapshot('baseline'),
+  optimizeAiDecision: async () => {
+    const proposal = { ...clone(state.plans[0]!), inputSnapshotId: '17:00' }
+    state = { ...state, plans: [proposal, ...state.plans.slice(1)] }
+    return clone(proposal)
+  },
+  runReplayStep: async () => mockOperatorAdapter.getSnapshot('baseline'),
+  getReplayWindow: async (sourceAt) => [{ sourceAt, meanRainMmH: baseZones.reduce((sum, zone) => sum + zone.rainMmH, 0) / baseZones.length }],
   getSnapshot: (comparison, demoScenarioId = state.scenarioId, replayIndex = 0) => requestLocal(() => {
     const scenario = scenarios.find((item) => item.id === demoScenarioId) ?? scenarios[0]!
     const gain = state.campaigns.reduce((sum, campaign) => sum + campaign.unitsGained, 0)

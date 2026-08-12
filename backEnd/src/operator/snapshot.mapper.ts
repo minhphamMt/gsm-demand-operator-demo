@@ -2,11 +2,16 @@ type ZoneObservationRow = {
   data_status?: unknown;
   demand_observed?: unknown;
   idle_supply?: unknown;
+  rain_forecast_15?: unknown;
+  rain_forecast_30?: unknown;
+  rain_mm_h?: unknown;
 }
 
 type AiZoneRow = {
+  area_km2?: unknown;
   center_geojson?: { coordinates?: unknown } | null;
   service_area_geojson?: { coordinates?: unknown } | null;
+  tier?: unknown;
   zone_code?: unknown;
   zone_id?: unknown;
   zone_name?: unknown;
@@ -27,13 +32,15 @@ const numeric = (value: unknown) => Number.isFinite(Number(value)) ? Number(valu
 export function mapAiZone(
   zone: AiZoneRow,
   observation?: ZoneObservationRow,
-  forecasts?: { horizon15?: AiForecastRow; horizon30?: AiForecastRow },
+  forecasts?: { horizon5?: AiForecastRow; horizon15?: AiForecastRow; horizon30?: AiForecastRow },
 ) {
   const hasLiveData = observation?.data_status === 'live'
   const supply = hasLiveData ? numeric(observation.idle_supply) : 0
   const demand = hasLiveData ? numeric(observation.demand_observed) : 0
+  const forecast5 = numeric(forecasts?.horizon5?.predicted_demand ?? demand)
   const forecast15 = numeric(forecasts?.horizon15?.predicted_demand ?? demand)
   const forecast30 = numeric(forecasts?.horizon30?.predicted_demand ?? forecast15)
+  const forecastSupply5 = numeric(forecasts?.horizon5?.predicted_supply ?? supply)
   const forecastSupply15 = numeric(forecasts?.horizon15?.predicted_supply ?? supply)
   const forecastSupply30 = numeric(forecasts?.horizon30?.predicted_supply ?? forecastSupply15)
   const gap = Math.max(0, demand - supply)
@@ -45,6 +52,8 @@ export function mapAiZone(
     aiZoneId: zoneId,
     zoneCode,
     label: String(zone.zone_name ?? zoneCode),
+    tier: String(zone.tier ?? 'outer'),
+    areaKm2: numeric(zone.area_km2),
     center: Array.isArray(zone.center_geojson?.coordinates) ? zone.center_geojson.coordinates : null,
     boundary: Array.isArray(zone.service_area_geojson?.coordinates)
       && Array.isArray(zone.service_area_geojson.coordinates[0]) ? zone.service_area_geojson.coordinates[0] : [],
@@ -56,8 +65,13 @@ export function mapAiZone(
     confidence: forecasts?.horizon15?.confidence === null || forecasts?.horizon15?.confidence === undefined
       ? null
       : numeric(forecasts.horizon15.confidence) * 100,
+    rainMmH: hasLiveData ? numeric(observation.rain_mm_h) : 0,
+    rainForecast15: hasLiveData ? numeric(observation.rain_forecast_15) : 0,
+    rainForecast30: hasLiveData ? numeric(observation.rain_forecast_30) : 0,
+    forecast5,
     forecast15,
     forecast30,
+    forecastSupply5,
     forecastSupply15,
     forecastSupply30,
     demandRange15: forecasts?.horizon15 ? [numeric(forecasts.horizon15.demand_p10), numeric(forecasts.horizon15.demand_p90)] : null,

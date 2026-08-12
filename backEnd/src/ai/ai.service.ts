@@ -16,7 +16,17 @@ type AiForecastZone = {
 type AiDecision = {
   data_source: string;
   forecast_mode: string;
-  activation_policy: { incentive_amount: number; incentive_budget_cap: number };
+  activation_policy: { incentive_amount: number; incentive_budget_cap: number; overbooking_factor: number; assumed_accept_rate: number; offer_ttl_minutes?: number };
+  activation_recommendation: {
+    target_zones: Array<{ zone_id: number; gap_remaining: number; requested_offers: number; expected_units_gained: number; expected_gap_remaining: number }>;
+    total_requested_offers: number;
+    total_expected_units_gained: number;
+    total_expected_gap_remaining: number;
+    projected_gap_reduction_pct: number;
+    worst_case_commitment: number;
+    constrained_by_budget: boolean;
+    accept_rate_source: string;
+  };
   forecast: { forecast_ts: string; horizon_min: number; model_version: string; regime: string; zones: AiForecastZone[] };
   hotspots: { hotspots: Array<{ zone_id: number; gap: number }> };
   plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; warnings: Array<Record<string, unknown>> };
@@ -59,11 +69,39 @@ export class AiService {
 
   async runNext(horizonMinutes: 15 | 30, regime?: DatasetRegime) {
     const snapshot = await this.ingestNext(regime);
-    const decision = await this.generate(horizonMinutes, snapshot.id);
+    const decision = await this.generate(horizonMinutes, snapshot.id, false, true);
     return { snapshot, decision };
   }
 
-  async generate(horizonMinutes: 15 | 30, snapshotId?: number) {
+  async optimize(snapshotId: number, horizonMinutes: 5 | 15 | 30) {
+    const decision = await this.generate(horizonMinutes, snapshotId, true, true);
+    return { decision };
+  }
+
+  async forecast(snapshotId: number, horizonMinutes: 5 | 15 | 30) {
+    const decision = await this.generate(horizonMinutes, snapshotId, false, true);
+    return { decision };
+  }
+
+  async runReplay(sourceAt: string) {
+    const dataset = await this.request<DatasetSnapshot>('/api/v1/datasets/snapshots/at', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source_at: sourceAt }),
+    });
+    const snapshot = await this.ingestExact(dataset);
+    const decision = await this.generate(5, snapshot.id, false);
+    if (decision.forecast_mode !== 'trained_model_replay') {
+      throw new UnprocessableEntityException({ code: 'REPLAY_MODEL_REQUIRED', message: 'Replay requires the trained LightGBM model; fallback output was rejected.' });
+    }
+    return { snapshot, decision };
+  }
+
+  async replayWindow(sourceAt: string) {
+    return this.request<{ steps: Array<{ source_at: string; mean_rain_mm_h: number }> }>('/api/v1/datasets/snapshots/window', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source_at: sourceAt }),
+    });
+  }
+
+  async generate(horizonMinutes: 5 | 15 | 30, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
     let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');
     snapshotQuery = snapshotId
       ? snapshotQuery.eq('id', snapshotId)
@@ -108,7 +146,12 @@ export class AiService {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(inputPayload),
       });
-      await this.persistDecision(snapshot, decision, String(modelInput.id));
+      if (persistForecast && persistProposal) {
+        await this.persistDecision(snapshot, decision, String(modelInput.id));
+      } else {
+        if (persistForecast) await this.persistForecast(snapshot, decision);
+        if (persistProposal) await this.persistProposal(snapshot, decision, String(modelInput.id));
+      }
       const { error: completeError } = await this.db.client.from('model_inputs').update({
         status: 'COMPLETED',
         error_message: null,
@@ -191,6 +234,38 @@ export class AiService {
     return { ...snapshot, dataset: dataset.dataset, sourceAt: dataset.source_at, regime: dataset.regime };
   }
 
+  private async ingestExact(dataset: DatasetSnapshot) {
+    const sourceName = `AI_PARQUET_REPLAY:${dataset.source_at}`;
+    const { data: existingObservation, error: existingError } = await this.db.client
+      .from('ai_zone_observations').select('snapshot_id,source_updated_at').eq('source_name', sourceName)
+      .order('snapshot_id', { ascending: false }).limit(1).maybeSingle();
+    if (existingError) this.db.unwrap(null, existingError);
+    const existingIsFresh = existingObservation?.source_updated_at
+      && Date.now() - new Date(String(existingObservation.source_updated_at)).getTime() < 30 * 60_000;
+    if (existingObservation?.snapshot_id && existingIsFresh) {
+      const { data: existing, error } = await this.db.client.from('supply_demand_snapshots').select('*').eq('id', existingObservation.snapshot_id).single();
+      return this.db.unwrap(existing, error);
+    }
+    const totalDemand = dataset.zones.reduce((sum, zone) => sum + zone.demand_observed, 0);
+    const totalSupply = dataset.zones.reduce((sum, zone) => sum + zone.idle_supply + zone.enroute_supply, 0);
+    const capturedAt = new Date();
+    capturedAt.setUTCSeconds(0, 0);
+    capturedAt.setUTCMinutes(capturedAt.getUTCMinutes() - (capturedAt.getUTCMinutes() % 5));
+    const { data: snapshot, error: snapshotError } = await this.db.client.from('supply_demand_snapshots').insert({
+      captured_at: capturedAt.toISOString(), data_source: 'AI_PARQUET_DATASET', scenario_code: dataset.regime.toUpperCase(),
+      total_demand: totalDemand, total_supply: totalSupply,
+    }).select('*').single();
+    if (snapshotError) this.db.unwrap(null, snapshotError);
+    const { error: observationsError } = await this.db.client.from('ai_zone_observations').insert(dataset.zones.map((zone) => ({
+      ...zone, snapshot_id: snapshot.id, data_status: 'live', source_name: sourceName, source_updated_at: capturedAt.toISOString(),
+    })));
+    if (observationsError) {
+      await this.db.client.from('supply_demand_snapshots').delete().eq('id', snapshot.id);
+      this.db.unwrap(null, observationsError);
+    }
+    return snapshot;
+  }
+
   private validateLiveZones(rows: DbRow[]) {
     const ids = rows.map((row) => Number(row.zone_id));
     const expectedIds = Array.from({ length: 30 }, (_, index) => index + 1);
@@ -222,7 +297,7 @@ export class AiService {
     }));
   }
 
-  private async persistDecision(snapshot: DbRow, decision: AiDecision, modelInputId?: string) {
+  private async persistForecast(snapshot: DbRow, decision: AiDecision) {
     const forecastRows = decision.forecast.zones.map((zone) => ({
       ...zone,
       snapshot_id: snapshot.id,
@@ -237,36 +312,52 @@ export class AiService {
       .from('ai_zone_forecasts')
       .upsert(forecastRows, { onConflict: 'snapshot_id,zone_id,horizon_min' });
     if (forecastError) this.db.unwrap(null, forecastError);
+  }
 
-    const targetZoneIds = [...decision.hotspots.hotspots]
-      .filter((hotspot) => hotspot.gap > 0)
-      .sort((left, right) => right.gap - left.gap || left.zone_id - right.zone_id)
-      .slice(0, 4)
-      .map((hotspot) => hotspot.zone_id);
-    if (!targetZoneIds.length) {
-      targetZoneIds.push(...decision.plan.residual_gap
-        .filter((gap) => gap.gap_remaining > 0)
-        .sort((left, right) => right.gap_remaining - left.gap_remaining || left.zone_id - right.zone_id)
-        .slice(0, 4)
-        .map((gap) => gap.zone_id));
-    }
+  private async persistDecision(snapshot: DbRow, decision: AiDecision, modelInputId?: string) {
+    await this.persistForecast(snapshot, decision);
+    await this.persistProposal(snapshot, decision, modelInputId);
+  }
+
+  private async persistProposal(snapshot: DbRow, decision: AiDecision, modelInputId?: string) {
+    const activation = decision.activation_recommendation;
+    const targetZoneIds = activation.target_zones.map((target) => target.zone_id);
     const unmetBefore = decision.hotspots.hotspots.reduce((sum, hotspot) => sum + Math.max(0, hotspot.gap), 0);
-    const unmetAfter = decision.plan.residual_gap.reduce((sum, gap) => sum + gap.gap_remaining, 0);
-    const targetZoneSet = new Set(targetZoneIds);
-    const suggestedActivationCount = decision.plan.residual_gap
-      .filter((gap) => targetZoneSet.has(gap.zone_id))
-      .reduce((sum, gap) => sum + gap.suggested_activation, 0);
-    const relocationCount = decision.plan.moves
-      .filter((move) => move.to_zone !== undefined && targetZoneSet.has(Number(move.to_zone)))
-      .reduce((sum, move) => sum + Number(move.units_to_move ?? move.drivers ?? 0), 0);
-    const requestedDriverCount = suggestedActivationCount + relocationCount;
+    const unmetAfterRelocation = decision.plan.residual_gap.reduce((sum, gap) => sum + gap.gap_remaining, 0);
+    const predictedDemand = decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_demand, 0);
+    const predictedSupply = decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_supply, 0);
+    const fulfillmentRate = (unmet: number) => predictedDemand > 0
+      ? Math.max(0, (1 - unmet / predictedDemand) * 100)
+      : 100;
+    const requestedOfferCount = activation.total_requested_offers;
     const incentiveAmount = Number(decision.activation_policy.incentive_amount);
-    const incentiveBudgetCap = Number(decision.activation_policy.incentive_budget_cap);
-    const affordableDriverCount = incentiveAmount > 0 ? Math.floor(incentiveBudgetCap / incentiveAmount) : 0;
-    const targetDriverCount = Math.min(requestedDriverCount, affordableDriverCount);
-    const hasNoSolution = decision.plan.warnings.some((warning) => warning.code === 'NO_SOLUTION');
-    const isOperationalPlan = !hasNoSolution && targetDriverCount > 0 && incentiveAmount > 0;
-    const estimatedIncentiveCost = targetDriverCount * incentiveAmount;
+    const eligibleOfferCapacity = predictedSupply > 0 ? Math.floor(predictedSupply) : requestedOfferCount;
+    const offerCount = Math.min(requestedOfferCount, eligibleOfferCapacity);
+    const availableOfferRatio = requestedOfferCount > 0 ? offerCount / requestedOfferCount : 0;
+    const effectiveActivationGain = Math.min(
+      unmetAfterRelocation,
+      activation.total_expected_units_gained * availableOfferRatio,
+    );
+    const targetDriverCount = Math.min(offerCount, Math.ceil(effectiveActivationGain));
+    const unmetAfterActivation = Math.max(0, unmetAfterRelocation - effectiveActivationGain);
+    const hasDirectRelocation = decision.plan.moves.length > 0;
+    const relocationImproves = hasDirectRelocation;
+    const activationImproves = !hasDirectRelocation
+      && targetDriverCount > 0
+      && incentiveAmount > 0
+      && activation.total_expected_units_gained > 0
+      && unmetAfterActivation < unmetBefore;
+    const isOperationalPlan = relocationImproves || activationImproves;
+    const estimatedIncentiveCost = offerCount * incentiveAmount;
+    const proposalWarnings = decision.plan.warnings.map((warning) =>
+      !hasDirectRelocation && isOperationalPlan && warning.code === 'NO_SOLUTION'
+        ? {
+            ...warning,
+            code: 'NO_RELOCATION_SOURCE',
+            message: 'Không có zone dư an toàn để điều chuyển trực tiếp; phương án chuyển sang kích hoạt tài xế.',
+          }
+        : warning,
+    );
     const { data: proposal, error: proposalError } = await this.db.client.from('proposals').insert({
       generator_type: 'AGENT',
       generator_version: decision.forecast.model_version,
@@ -275,22 +366,28 @@ export class AiService {
       version: 1,
       input_snapshot_id: snapshot.id,
       target_zone_ids: targetZoneIds,
-      source_plan: decision.plan,
+      source_plan: { ...decision.plan, activation_recommendation: activation },
       target_driver_count: targetDriverCount,
-      offer_count: targetDriverCount,
+      offer_count: offerCount,
       bonus_amount: incentiveAmount,
       fare_multiplier: 1,
       estimated_cost: estimatedIncentiveCost,
       simulation_details: {
         title: `AI điều phối ${decision.forecast.horizon_min} phút`,
         scenario_id: decision.forecast.regime.replace('_', '-'),
-        warnings: decision.plan.warnings,
-        metrics_before: { unmet_demand: unmetBefore },
-        metrics_after: { unmet_demand: unmetAfter },
+        warnings: proposalWarnings,
+        metrics_before: { unmet_demand: unmetBefore, fulfillment_rate: fulfillmentRate(unmetBefore) },
+        metrics_after_relocation: { unmet_demand: unmetAfterRelocation, fulfillment_rate: fulfillmentRate(unmetAfterRelocation) },
+        metrics_after: { unmet_demand: unmetAfterRelocation, fulfillment_rate: fulfillmentRate(unmetAfterRelocation) },
+        metrics_after_activation_expected: { unmet_demand: unmetAfterActivation, fulfillment_rate: fulfillmentRate(unmetAfterActivation) },
         forecast_mode: decision.forecast_mode,
         data_source: decision.data_source,
         activation_policy: decision.activation_policy,
-        requested_driver_count: requestedDriverCount,
+        activation_recommendation: activation,
+        plan_mode: hasDirectRelocation ? 'RELOCATION' : 'ACTIVATION_ONLY',
+        requested_offer_count: requestedOfferCount,
+        expected_accepted_driver_count: targetDriverCount,
+        eligible_offer_capacity: eligibleOfferCapacity,
       },
       explanation: `Dự báo ${decision.forecast.model_version} từ 30 zone live của snapshot ${snapshot.id}; ${decision.plan.moves.length} lệnh điều chuyển.`,
       window_start_at: snapshot.captured_at,

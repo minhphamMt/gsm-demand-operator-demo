@@ -24,16 +24,30 @@ describe('proposalReviewIssue', () => {
     }, 'APPROVED', now)).toEqual({ code: 'PROPOSAL_VERSION_CONFLICT', kind: 'conflict' });
   });
 
-  it('blocks no-solution and zero-incentive proposals independently of DB policy status', () => {
+  it('allows model-backed activation-only proposals and blocks zero-impact or zero-incentive proposals', () => {
     expect(proposalOperationalIssue({
       bonus_amount: 20_000,
       estimated_cost: 40_000,
       policy_status: 'PASSED',
-      simulation_details: { warnings: [{ code: 'NO_SOLUTION' }] },
+      simulation_details: {
+        plan_mode: 'ACTIVATION_ONLY',
+        metrics_before: { unmet_demand: 10 },
+        metrics_after: { unmet_demand: 10 },
+        metrics_after_activation_expected: { unmet_demand: 8 },
+      },
       status: 'UNDER_REVIEW',
       target_driver_count: 2,
       window_end_at: '2026-08-09T09:00:00.000Z',
-    })).toEqual({ code: 'NO_OPERATIONAL_SOLUTION', kind: 'validation' });
+    })).toBeUndefined();
+    expect(proposalOperationalIssue({
+      bonus_amount: 20_000,
+      estimated_cost: 40_000,
+      policy_status: 'PASSED',
+      simulation_details: { metrics_before: { unmet_demand: 10 }, metrics_after: { unmet_demand: 10 } },
+      status: 'UNDER_REVIEW',
+      target_driver_count: 2,
+      window_end_at: '2026-08-09T09:00:00.000Z',
+    })).toEqual({ code: 'NO_MODEL_IMPROVEMENT', kind: 'validation' });
     expect(proposalOperationalIssue({
       bonus_amount: null,
       estimated_cost: 0,

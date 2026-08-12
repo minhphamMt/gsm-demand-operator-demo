@@ -7,10 +7,11 @@ export type ResponseMode = 'human' | 'simulated' | 'mixed'
 export type DriverStatus = 'offline' | 'online_idle' | 'online_busy' | 'en_route' | 'activated' | 'on_trip'
 export type OfferStatus = 'Open' | 'Accepted' | 'Declined' | 'Expired' | 'Cancelled'
 
-export type Zone = { id: string; aiZoneId: number; zoneCode: string; label: string; center: [longitude: number, latitude: number]; boundary: [longitude: number, latitude: number][]; dataStatus: 'live' | 'missing'; supply: number; demand: number; gap: number; severity: Severity | string; confidence: number | null; forecast15: number; forecast30: number; forecastSupply15?: number; forecastSupply30?: number; demandRange15?: readonly [number, number] | null; demandRange30?: readonly [number, number] | null; supplyRange15?: readonly [number, number] | null; supplyRange30?: readonly [number, number] | null }
+export type Zone = { id: string; aiZoneId: number; zoneCode: string; label: string; tier: string; areaKm2: number; center: [longitude: number, latitude: number]; boundary: [longitude: number, latitude: number][]; dataStatus: 'live' | 'missing'; supply: number; demand: number; gap: number; operationalGap?: number; severity: Severity | string; confidence: number | null; rainMmH: number; rainForecast15: number; rainForecast30: number; forecast5?: number; forecast15: number; forecast30: number; forecastSupply5?: number; forecastSupply15?: number; forecastSupply30?: number; demandRange15?: readonly [number, number] | null; demandRange30?: readonly [number, number] | null; supplyRange15?: readonly [number, number] | null; supplyRange30?: readonly [number, number] | null }
 export type Hotspot = { zoneId: string; rank: number; reason: string; etaMinutes: number; isPersistent: boolean }
 export type AiSnapshotStatus = { zoneContract: 'AI_ZONE_1_30'; registeredZones: number; liveZones: number; forecastedZones: number; horizons: readonly number[]; modelVersion: string | null; forecastMode: string | null; dataSource: string | null; forecastAt: string | null }
-export type Snapshot = { generatedAt: string; replayStep: string; scenario: Scenario; demoScenarioId: DemoScenarioId; regime: 'normal' | 'peak' | 'rain' | 'rain_peak'; ai?: AiSnapshotStatus; zones: readonly Zone[]; hotspots: readonly Hotspot[]; kpis: { fleetAvailable: number; requests: number; fulfillmentRate: number; residualGap: number; avgWaitProxy: number } }
+export type ReplayTimelineStep = { sourceAt: string; meanRainMmH: number }
+export type Snapshot = { generatedAt: string; sourceAt?: string; replayStep: string; scenario: Scenario; demoScenarioId: DemoScenarioId; regime: 'normal' | 'peak' | 'rain' | 'rain_peak'; ai?: AiSnapshotStatus; zones: readonly Zone[]; hotspots: readonly Hotspot[]; kpis: { fleetAvailable: number; requests: number; fulfillmentRate: number; residualGap: number; avgWaitProxy: number } }
 export type DemoScenario = { id: DemoScenarioId; label: string; description: string; regime: Snapshot['regime']; startTime: string; replaySteps: number; responseMode: ResponseMode }
 export type Baseline = { id: 'no-action' | 'historical-average'; label: string; fulfillmentRate: number; residualGap: number; avgWaitProxy: number; frozenAt: string; source: string }
 
@@ -52,6 +53,8 @@ export type Proposal = {
   zoneTripBonus: number
   fareMultiplier: number
   budgetLimit: number
+  activationBudgetLimit?: number
+  activationTtlMinutes?: number
   estimatedRewardCost: number
   estimatedAdditionalRevenue: number
   estimatedNetCost: number
@@ -59,6 +62,7 @@ export type Proposal = {
   warnings: readonly ProposalWarning[]
   metricsBefore: SimulationMetrics
   metrics: SimulationMetrics
+  metricsAfterRelocation?: SimulationMetrics
   metricsAfterActivation?: SimulationMetrics
   explanation: readonly string[]
   inputFreshUntil: string
@@ -121,7 +125,10 @@ export type OperationsReport = {
 export type DriverView = { driver: DemoDriver; activeOffers: readonly Offer[]; acceptedOffers: readonly Offer[]; history: readonly Offer[] }
 
 export type OperatorDataAdapter = {
-  generateAiDecision: (horizonMinutes: 15 | 30) => Promise<void>
+  generateAiDecision: (snapshotId: number, horizonMinutes: 15 | 30) => Promise<Snapshot>
+  optimizeAiDecision: (snapshotId: number, horizonMinutes: 5 | 15 | 30) => Promise<Proposal>
+  runReplayStep: (sourceAt: string) => Promise<Snapshot>
+  getReplayWindow: (sourceAt: string) => Promise<readonly ReplayTimelineStep[]>
   getSnapshot: (scenario: Scenario, demoScenarioId?: DemoScenarioId, replayIndex?: number) => Promise<Snapshot>
   listScenarios: () => Promise<readonly DemoScenario[]>
   getBaselines: () => Promise<readonly Baseline[]>
