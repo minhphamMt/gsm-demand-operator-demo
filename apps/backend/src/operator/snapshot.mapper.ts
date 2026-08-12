@@ -38,7 +38,7 @@ type AiForecastRow = {
 const numeric = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0
 
 /**
- * Mirrors AI/src/simulation/metrics.py for the operational snapshot read model.
+ * Mirrors apps/ai/src/simulation/metrics.py for the operational snapshot read model.
  * Supply surplus in one zone must never erase unmet demand in another zone.
  */
 export function calculateSnapshotKpis(observations: readonly ZoneObservationRow[]): SnapshotKpis {

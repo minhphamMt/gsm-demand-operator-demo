@@ -5,6 +5,8 @@ set -e
 
 echo "=== AI20K Project Setup ==="
 
+cd "$(dirname "$0")/../apps/ai"
+
 # Check Python version
 python3 -c "import sys; assert sys.version_info >= (3, 11), 'Python 3.11+ required'"
 echo "Python version OK"

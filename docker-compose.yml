@@ -1,7 +1,7 @@
 services:
   ai:
     build:
-      context: ./AI
+      context: ./apps/ai
       dockerfile: Dockerfile
     ports:
       - "127.0.0.1:8000:8000"
@@ -18,12 +18,12 @@ services:
 
   backend:
     build:
-      context: ./backEnd
+      context: ./apps/backend
       dockerfile: Dockerfile
     ports:
       - "127.0.0.1:3000:3000"
     env_file:
-      - ./backEnd/.env
+      - ./apps/backend/.env
     environment:
       NODE_ENV: production
       PORT: "3000"
@@ -36,14 +36,14 @@ services:
 
   frontend:
     build:
-      context: ./frontEnd
+      context: ./apps/frontend
       dockerfile: Dockerfile
     ports:
       - "127.0.0.1:5173:5173"
     env_file:
-      - path: ./frontEnd/.env
+      - path: ./apps/frontend/.env
         required: true
-      - path: ./frontEnd/.env.local
+      - path: ./apps/frontend/.env.local
         required: false
     environment:
       VITE_API_BASE_URL: http://localhost:3000/api/v1
@@ -51,7 +51,7 @@ services:
       VITE_DEMO_MODE: "false"
       CHOKIDAR_USEPOLLING: "true"
     volumes:
-      - ./frontEnd:/app
+      - ./apps/frontend:/app
       - /app/node_modules
     command: npm run dev -- --host 0.0.0.0 --port 5173
     depends_on:

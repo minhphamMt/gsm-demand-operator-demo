@@ -2,6 +2,18 @@
 
 ## Tổng quan
 
+## Repository layout
+
+```text
+apps/
+├── frontend/              React/Vite browser application
+├── backend/               NestJS API and Supabase migrations
+└── ai/                    FastAPI inference and ML pipeline
+legacy/ai20k-template/     Archived starter scaffold, not product runtime
+docs/                      Architecture, runbooks, and checklists
+scripts/                   Repository-level automation
+```
+
 NovaFour là hệ thống decision-support có human-in-the-loop cho bài toán cân bằng cung–cầu tài xế theo 30 zone. FastAPI tạo forecast/hotspot/relocation plan từ snapshot hoặc replay đã xác minh; NestJS giữ ranh giới nghiệp vụ, auth, audit và persistence; React cung cấp Operator Console và Driver App; Supabase/PostgreSQL là system of record.
 
 ```mermaid
@@ -30,12 +42,12 @@ flowchart LR
 
 | Thành phần | Công nghệ | Trách nhiệm chính |
 |---|---|---|
-| `frontEnd/` | React 19, Vite, TanStack Query, Mapbox | Operator map/plans/campaigns/reports/history; Driver offer flow; Supabase sign-in bằng publishable key |
-| `backEnd/` | NestJS 11, Supabase JS | API contract, JWT/role guard, validation, rate limiting, audit, lifecycle reconciliation và persistence |
-| `AI/` | FastAPI, pandas, LightGBM, scipy | Replay snapshot, forecast 5/15/30 phút, hotspot, greedy relocation, activation recommendation và explanation |
+| `apps/frontend/` | React 19, Vite, TanStack Query, Mapbox | Operator map/plans/campaigns/reports/history; Driver offer flow; Supabase sign-in bằng publishable key |
+| `apps/backend/` | NestJS 11, Supabase JS | API contract, JWT/role guard, validation, rate limiting, audit, lifecycle reconciliation và persistence |
+| `apps/ai/` | FastAPI, pandas, LightGBM, scipy | Replay snapshot, forecast 5/15/30 phút, hotspot, greedy relocation, activation recommendation và explanation |
 | Supabase | PostgreSQL, Auth, RLS/RPC | System of record cho snapshot, forecast, proposal, campaign, offer, driver state và append-only audit |
 
-Thư mục root `src/` và `tests/` là scaffold Python cũ được giữ độc lập; nó không nằm trên đường chạy production của NovaFour.
+Thư mục `legacy/ai20k-template/` là scaffold Python cũ được giữ độc lập; nó không nằm trên đường chạy production của NovaFour.
 
 ## Luồng quyết định
 

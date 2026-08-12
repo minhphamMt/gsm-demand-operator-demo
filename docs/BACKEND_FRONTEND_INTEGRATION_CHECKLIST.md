@@ -90,7 +90,7 @@ data must still go through NestJS.
 - [x] Add OpenAPI response DTOs instead of undocumented inferred objects.
 - [x] Add unit coverage for DB JSON, status, offer, driver, and campaign mapper behavior.
 - [x] Add live no-mutation integration tests for approve/reject/revise/activate failure paths.
-- [x] Update `backEnd/BACKEND_CHECKLIST.md` after verified backend milestones.
+- [x] Update `apps/backend/BACKEND_CHECKLIST.md` after verified backend milestones.
 
 Exit gate: every API used by the first frontend slice has a frozen Swagger
 example, passing unit test, and passing JWT integration smoke test.
@@ -101,7 +101,7 @@ example, passing unit test, and passing JWT integration smoke test.
 
 - [x] Add `VITE_API_BASE_URL=http://localhost:3000/api/v1` to frontend env examples.
 - [x] Add only the Supabase URL and publishable key to frontend env.
-- [x] Confirm no `service_role`, database password, or backend secret exists under `frontEnd/`.
+- [x] Confirm no `service_role`, database password, or backend secret exists under `apps/frontend/`.
 - [x] Verify current `@supabase/supabase-js` version compatibility, types, license and bundle cost.
 - [x] Install the SDK only when the auth implementation imports it.
 - [x] Update the frontend lockfile.

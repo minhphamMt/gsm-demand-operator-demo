@@ -2,7 +2,7 @@
 
 ## Release contract
 
-- Build the immutable image from `backEnd/Dockerfile`; inject secrets at runtime, never at build time.
+- Build the immutable image from `apps/backend/Dockerfile`; inject secrets at runtime, never at build time.
 - Required secrets: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 - Set `CORS_ORIGINS` explicitly. Keep `CAMPAIGN_LIFECYCLE_ENABLED=true` and an interval of at least 5000 ms.
 - Keep `SIMULATION_WRITE_ENABLED=false` until a model owner approves a separate production rollout.

@@ -6,39 +6,47 @@ GSM-14 NovaFour là hệ thống mô phỏng hỗ trợ điều phối cung–c�
 
 Kiến trúc hiện tại gồm React/Vite, NestJS, FastAPI/LightGBM và Supabase/PostgreSQL. Xem [ARCHITECTURE.md](ARCHITECTURE.md) để biết luồng dữ liệu và trust boundary.
 
+## Mục lục nhanh
+
+- [Chạy full stack](#chạy-full-stack-từ-clean-clone)
+- [Chạy từng workspace](#chạy-và-kiểm-tra-từng-workspace)
+- [Cấu trúc và mô tả file](#cấu-trúc-và-mô-tả-file)
+- [CI và quality gates](#ci-và-quality-gates)
+- [Vận hành và bảo mật](#vận-hành-và-bảo-mật)
+
 ## Chạy full stack từ clean clone
 
 Yêu cầu:
 
 - Docker Engine/Desktop có Docker Compose 2.24 trở lên.
-- Một Supabase project đã áp dụng các migration trong `backEnd/supabase/migrations/` theo thứ tự tên file.
+- Một Supabase project đã áp dụng các migration trong `apps/backend/supabase/migrations/` theo thứ tự tên file.
 - Các cổng local `5173`, `3000` và `8000` đang trống.
 
 Tạo file cấu hình local từ các template. Các file đích đã được Git-ignore và không được commit:
 
 ```powershell
-Copy-Item backEnd/.env.example backEnd/.env
-Copy-Item frontEnd/.env.example frontEnd/.env
+Copy-Item apps/backend/.env.example apps/backend/.env
+Copy-Item apps/frontend/.env.example apps/frontend/.env
 ```
 
 Tương đương trên bash:
 
 ```bash
-cp backEnd/.env.example backEnd/.env
-cp frontEnd/.env.example frontEnd/.env
+cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env
 ```
 
 Điền ít nhất các biến sau:
 
 | File | Biến | Ghi chú |
 |---|---|---|
-| `backEnd/.env` | `SUPABASE_URL` | URL project Supabase |
-| `backEnd/.env` | `SUPABASE_SERVICE_ROLE_KEY` | Secret phía server; tuyệt đối không đặt dưới `frontEnd/` |
-| `frontEnd/.env` | `VITE_SUPABASE_URL` | URL public dùng cho Supabase Auth |
-| `frontEnd/.env` | `VITE_SUPABASE_PUBLISHABLE_KEY` | Publishable/anon key; mọi biến `VITE_*` đều có thể xuất hiện trong bundle trình duyệt |
-| `frontEnd/.env` | `VITE_MAPBOX_ACCESS_TOKEN` | Public token; có thể bỏ trống nếu không cần nền bản đồ Mapbox |
+| `apps/backend/.env` | `SUPABASE_URL` | URL project Supabase |
+| `apps/backend/.env` | `SUPABASE_SERVICE_ROLE_KEY` | Secret phía server; tuyệt đối không đặt dưới `apps/frontend/` |
+| `apps/frontend/.env` | `VITE_SUPABASE_URL` | URL public dùng cho Supabase Auth |
+| `apps/frontend/.env` | `VITE_SUPABASE_PUBLISHABLE_KEY` | Publishable/anon key; mọi biến `VITE_*` đều có thể xuất hiện trong bundle trình duyệt |
+| `apps/frontend/.env` | `VITE_MAPBOX_ACCESS_TOKEN` | Public token; có thể bỏ trống nếu không cần nền bản đồ Mapbox |
 
-`frontEnd/.env.local` là override tùy chọn cho máy phát triển và không bắt buộc trong clean clone. Compose không đọc `backEnd/.env` vào frontend, vì vậy service-role key không đi vào process Vite.
+`apps/frontend/.env.local` là override tùy chọn cho máy phát triển và không bắt buộc trong clean clone. Compose không đọc `apps/backend/.env` vào frontend, vì vậy service-role key không đi vào process Vite.
 
 Kiểm tra cấu hình rồi khởi động:
 
@@ -58,7 +66,7 @@ Các địa chỉ local:
 
 Compose cố ý fail fast:
 
-- Thiếu `backEnd/.env` hoặc `frontEnd/.env` làm `docker compose config` thất bại.
+- Thiếu `apps/backend/.env` hoặc `apps/frontend/.env` làm `docker compose config` thất bại.
 - Backend chỉ healthy khi truy vấn readiness tới Supabase thành công; frontend chờ trạng thái này trước khi start.
 - AI trả `503` nếu policy, replay snapshot, manifest hoặc đủ 18 model artifact không xác minh được; backend chờ AI healthy.
 
@@ -76,30 +84,30 @@ docker compose down
 ### AI service
 
 ```powershell
-Set-Location AI
+Set-Location apps/ai
 python -m venv .venv
 ./.venv/Scripts/python -m pip install -r requirements.txt
 ./.venv/Scripts/python -m pytest -q
 ./.venv/Scripts/python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
-Copy `AI/.env.example` thành `AI/.env` nếu chạy ngoài Compose. `MODEL_VERSION` phải khớp manifest của model bundle.
+Copy `apps/ai/.env.example` thành `apps/ai/.env` nếu chạy ngoài Compose. `MODEL_VERSION` phải khớp manifest của model bundle.
 
 ### Backend
 
 ```powershell
-Set-Location backEnd
+Set-Location apps/backend
 npm ci
 npm run check
 npm run start:dev
 ```
 
-Các smoke test có hậu tố `:live` hoặc dùng `--env-file=.env.test.local` sẽ truy cập Supabase thật và cần tài khoản test riêng. Xem [backEnd/README.md](backEnd/README.md).
+Các smoke test có hậu tố `:live` hoặc dùng `--env-file=.env.test.local` sẽ truy cập Supabase thật và cần tài khoản test riêng. Xem [apps/backend/README.md](apps/backend/README.md).
 
 ### Frontend
 
 ```powershell
-Set-Location frontEnd
+Set-Location apps/frontend
 npm ci
 npm run check
 npm run dev -- --host 127.0.0.1 --port 5173
@@ -107,11 +115,12 @@ npm run dev -- --host 127.0.0.1 --port 5173
 
 Đặt `VITE_DATA_SOURCE=mock` để phát triển không cần backend, hoặc `api` để dùng full stack.
 
-### Root starter scaffold
+### Legacy starter scaffold
 
-`src/`, `tests/`, root `requirements.txt` và root `Dockerfile` là scaffold Python AI20K được giữ lại để tham khảo và được kiểm tra độc lập. Product runtime nằm trong `AI/`, `backEnd/` và `frontEnd/`. Lệnh mặc định ở root chỉ thu thập test trong `tests/`:
+`legacy/ai20k-template/` là scaffold Python AI20K cũ, được tách khỏi product runtime. Product runtime nằm trong `apps/ai/`, `apps/backend/` và `apps/frontend/`.
 
 ```powershell
+Set-Location legacy/ai20k-template
 python -m pytest -q
 ruff check src tests
 ```
@@ -126,17 +135,34 @@ GitHub Actions chạy độc lập bốn nhóm kiểm tra:
 - Frontend: Oxlint, Vitest và production build qua `npm run check`.
 - Compose: materialize các template không chứa secret và chạy `docker compose config --quiet`.
 
-## Cấu trúc chính
+## Cấu trúc và mô tả file
 
 ```text
-AI/                         FastAPI inference, replay, model và policy
-backEnd/                    NestJS API, Supabase integration và migrations
-frontEnd/                   React/Vite Operator Console và Driver App
+apps/ai/                    FastAPI inference, replay, model và policy
+apps/backend/               NestJS API, Supabase integration và migrations
+apps/frontend/              React/Vite Operator Console và Driver App
 docs/                       Runbook, checklist và tài liệu kỹ thuật
 skill/                      Product/domain specification
+eval/                       Kết quả đánh giá model và báo cáo replay
+legacy/                     Starter scaffold cũ, không thuộc product runtime
+scripts/                    Script setup, logging và hỗ trợ phát triển
 docker-compose.yml          Local integration stack
+Makefile                    Lệnh kiểm tra tổng hợp cho các workspace
+ARCHITECTURE.md             Kiến trúc, data flow và trust boundary
 .github/workflows/ci.yml    CI quality gates
 ```
+
+Các file cấu hình quan trọng:
+
+- `apps/ai/requirements.txt`: dependency Python của AI service; `apps/ai/ruff.toml` và `apps/ai/pyproject.toml` chứa cấu hình lint, test và mypy.
+- `apps/backend/package.json`: script NestJS, typecheck, Jest, build và các smoke test; `package-lock.json` khóa phiên bản dependency.
+- `apps/frontend/package.json`: script Vite, Oxlint, Vitest và build production; `package-lock.json` khóa phiên bản dependency.
+- `apps/backend/supabase/migrations/`: migration PostgreSQL/Supabase, áp dụng theo thứ tự tên file.
+- `apps/*/.env.example`: template biến môi trường. Tạo `.env` local từ template; không commit secret.
+- `docker-compose.yml`: stack tích hợp local gồm AI, backend và frontend; phục vụ phát triển và kiểm thử tích hợp, không phải cấu hình production.
+- `.gitignore`: loại file hệ thống, cache, log, dependency và artifact local khỏi Git.
+
+`runs/`, `.ai-log/`, cache Python/Node và các file `.env` local là dữ liệu sinh trong quá trình phát triển. Chúng được bỏ qua bởi `.gitignore`; các artifact đánh giá có giá trị chia sẻ nên đặt trong `eval/` và commit có chủ đích.
 
 ## Vận hành và bảo mật
 

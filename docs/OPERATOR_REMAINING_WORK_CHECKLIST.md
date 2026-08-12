@@ -323,7 +323,7 @@ hoặc checklist tích hợp.
 - [x] Scheduler mặc định chạy mỗi 30 giây, tự chuyển campaign `ACTIVE → BUDGET_EXHAUSTED/COMPLETED`, expire offer còn mở và ghi audit `SYSTEM` với request ID, before/after và lý do.
 - [x] Campaign live smoke xác nhận đủ cancel/release, budget exhaustion, end-time completion, target reached, expire offer và append-only audit; fixture được dọn sau kiểm thử.
 - [x] Thêm `/health/live`, readiness query Supabase thật, process metrics và JSON request log; bổ sung Dockerfile, healthcheck, cấu hình env, monitoring/alert/rollback runbook.
-- [x] Backup critical live gồm 2 snapshot, 80 cells, 1 hotspot và audit; restore dry-run kiểm đúng format, count, SHA-256 và liên kết snapshot. File kiểm chứng nằm trong `backEnd/backups/` đã git-ignore.
+- [x] Backup critical live gồm 2 snapshot, 80 cells, 1 hotspot và audit; restore dry-run kiểm đúng format, count, SHA-256 và liên kết snapshot. File kiểm chứng nằm trong `apps/backend/backups/` đã git-ignore.
 - [x] `GET /operator/snapshots` đọc DB theo time window/scenario/H3; khoảng ngày đảo ngược trả `422`. Polling hiện tại tiếp tục là transport chính, chưa cần WebSocket.
 - [x] `simulate:planning` đọc snapshot live nhưng chỉ xuất artifact `SIMULATED/DRY_RUN_ONLY`; `--commit` bị từ chối để không ghi proposal giả vào production trước khi có model.
 - [x] Backend `npm run check:live`: 14 suites/27 tests, 8 DB checks, 32 API checks, 8 campaign checks và 6 security/concurrency checks đều pass.

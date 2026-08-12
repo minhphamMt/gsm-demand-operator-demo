@@ -15,7 +15,7 @@ Backend DB-first readiness: **LIVE INTEGRATION READY**
 
 ## 2. Backend foundation
 
-- [x] Scaffold the NestJS project in `backEnd/`.
+- [x] Scaffold the NestJS project in `apps/backend/`.
 - [x] Add TypeScript, build, test, and development scripts.
 - [x] Add environment templates and ignore local secrets.
 - [x] Configure global validation, CORS, Helmet, API prefix, and Swagger.
@@ -59,7 +59,7 @@ Backend DB-first readiness: **LIVE INTEGRATION READY**
 - [x] Add atomic `revise_proposal`, `review_proposal`, `activate_proposal`, `cancel_campaign`, `respond_to_offer`, and `expire_offer` RPCs.
 - [x] Restrict every business RPC to the Supabase `service_role`.
 - [x] Add RLS-aware GeoJSON views for H3 cells and driver locations.
-- [x] Add the live project service-role key to local `backEnd/.env`.
+- [x] Add the live project service-role key to local `apps/backend/.env`.
 - [x] Verify all RPC signatures, removed legacy activation signature, and execute permissions in Supabase.
 - [x] Run rollback-only transaction tests for revise/approve and activate/respond/cancel.
 - [x] Run read-only live database smoke checks from the backend configuration.

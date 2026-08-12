@@ -1,23 +1,19 @@
-.PHONY: run test lint format typecheck check clean
+.PHONY: check ai-check backend-check frontend-check compose-config
 
-run:
-	uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+ai-check:
+	python -m pip install -r apps/ai/requirements.txt
+	python -m ruff check apps/ai/src apps/ai/tests
+	python -m pytest -q apps/ai/tests
 
-test:
-	pytest tests/ -v
+backend-check:
+	npm --prefix apps/backend ci
+	npm --prefix apps/backend run check
 
-lint:
-	ruff check src/ tests/
+frontend-check:
+	npm --prefix apps/frontend ci
+	npm --prefix apps/frontend run check
 
-format:
-	ruff format src/ tests/
+compose-config:
+	docker compose config --quiet
 
-typecheck:
-	mypy src/
-
-check: lint format test
-
-clean:
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type d -name .pytest_cache -exec rm -rf {} +
-	find . -type d -name .ruff_cache -exec rm -rf {} +
+check: ai-check backend-check frontend-check
