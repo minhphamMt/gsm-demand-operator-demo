@@ -7,9 +7,7 @@ describe('operator polling policy', () => {
     expect(campaignPollInterval([{ status: 'Active' }], 'visible')).toBe(2_000)
     expect(campaignPollInterval([{ status: 'Completed' }], 'visible')).toBe(false)
     expect(campaignPollInterval([{ status: 'Active' }], 'hidden')).toBe(false)
-    expect(campaignPollInterval([{ status: 'Active', candidateCount: 0 }], 'visible')).toBe(false)
-    expect(campaignPollInterval([{ status: 'Active', budgetLimit: 100, incentiveBudget: 100 }], 'visible')).toBe(false)
-    expect(campaignPollInterval([{ status: 'Active', expiresAt: '2026-08-09T09:00:00.000Z' }], 'visible', new Date('2026-08-09T09:01:00.000Z'))).toBe(false)
+    expect(campaignPollInterval([{ status: 'Active' }], 'visible')).toBe(2_000)
   })
 
   it('stops offer polling when no open offer remains', () => {

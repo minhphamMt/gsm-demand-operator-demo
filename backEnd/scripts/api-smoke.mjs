@@ -37,7 +37,7 @@ async function waitForServer(url) {
 }
 
 async function request(baseUrl, path, token, requestId, init = {}) {
-  return fetch(`${baseUrl}${path}`, {
+  const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
@@ -46,6 +46,13 @@ async function request(baseUrl, path, token, requestId, init = {}) {
       ...init.headers,
     },
   });
+  const rawBody = await response.text();
+  return {
+    status: response.status,
+    headers: response.headers,
+    json: async () => JSON.parse(rawBody),
+    text: async () => rawBody,
+  };
 }
 
 const [operator, driver] = await Promise.all([
@@ -69,22 +76,23 @@ async function createReviewFixtures() {
   const { data: template, error: templateError } = await adminDb.from('proposals').select('*').limit(1).single();
   if (templateError || !template) throw templateError ?? new Error('No proposal template exists');
   const base = {
-    bonus_amount: template.bonus_amount,
-    estimated_cost: template.estimated_cost,
+    bonus_amount: 25_000,
+    estimated_cost: 50_000,
     explanation: template.explanation,
-    fare_multiplier: template.fare_multiplier,
+    fare_multiplier: 1,
     generator_type: 'MANUAL',
     generator_version: 'api-smoke/1',
     hotspot_id: template.hotspot_id,
     input_snapshot_id: template.input_snapshot_id,
-    offer_count: template.offer_count,
+    offer_count: 2,
     parent_proposal_id: null,
-    simulation_details: template.simulation_details,
+    simulation_details: { ...(template.simulation_details ?? {}), warnings: [] },
     source_plan: template.source_plan,
     status: 'UNDER_REVIEW',
-    target_driver_count: template.target_driver_count,
+    target_driver_count: 2,
     target_geofence: template.target_geofence,
     target_h3_indexes: template.target_h3_indexes,
+    target_zone_ids: template.target_zone_ids?.length ? template.target_zone_ids : [2],
     version: 1,
     window_start_at: new Date(Date.now() - 60_000).toISOString(),
   };
@@ -134,7 +142,7 @@ try {
   const duplicateActivation = campaignRows.find((campaign) => campaign.planId === conflictCandidate.id);
   if (!duplicateActivation) throw new Error('No existing campaign exists for the duplicate-activation smoke test');
   const validRevisionBody = {
-    sourcePlan: { moves: [{ from_h3: 'source', to_h3: 'target', drivers: 1 }] },
+    sourcePlan: { moves: [{ from_zone: 6, to_zone: 2, drivers: 1 }] },
     targetDriverCount: 1,
     campaignDurationMinutes: 15,
     bonusAmount: 0,
@@ -168,7 +176,7 @@ try {
         {
           method: 'POST',
           body: JSON.stringify({
-            sourcePlan: { moves: [{ from_h3: '', to_h3: '', drivers: -1 }] },
+            sourcePlan: { moves: [{ from_zone: 6, to_zone: 2, drivers: -1 }] },
             targetDriverCount: 0,
             campaignDurationMinutes: 1,
             bonusAmount: -1,
@@ -325,7 +333,13 @@ try {
 
   const results = [];
   for (const [name, response, expected] of cases) {
-    const body = await response.json().catch(() => null);
+    const rawBody = await response.text();
+    let body = null;
+    try {
+      body = rawBody ? JSON.parse(rawBody) : null;
+    } catch {
+      body = null;
+    }
     const ok = response.status === expected;
     results.push({ name, ok, status: response.status, expected });
     if (!ok) throw new Error(`${name}: expected ${expected}, got ${response.status}: ${JSON.stringify(body)}`);
@@ -393,7 +407,7 @@ try {
     if (name === 'operator GeoJSON snapshot') {
       const zone = body?.zones?.[0];
       if (!zone || !Array.isArray(zone.center) || !Array.isArray(zone.boundary)) {
-        throw new Error('Snapshot endpoint did not return coordinate arrays');
+        throw new Error(`Snapshot endpoint did not return coordinate arrays: ${JSON.stringify({ rawBody, zoneCount: body?.zones?.length, zone })}`);
       }
     }
     if (name === 'operator campaigns') {

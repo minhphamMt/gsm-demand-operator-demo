@@ -35,10 +35,14 @@ def test_decision_uses_live_snapshot_and_returns_auditable_mode() -> None:
     body = response.json()
     assert body["data_source"].startswith("supabase:")
     assert body["forecast_mode"] == "live_snapshot_baseline"
+    assert body["activation_policy"] == {
+        "incentive_amount": 20_000,
+        "incentive_budget_cap": 1_000_000,
+    }
     assert len(body["forecast"]["zones"]) == 30
     assert body["plan"]["moves"]
     assert any(
-        warning["code"] == "MODEL_ARTIFACT_MISSING"
+        warning["code"] == "MODEL_HISTORY_INCOMPLETE"
         for warning in body["plan"]["warnings"]
     )
 
@@ -51,3 +55,49 @@ def test_decision_rejects_incomplete_zone_coverage() -> None:
         response = client.post("/api/v1/decisions", json=payload)
 
     assert response.status_code == 422
+
+
+def test_decision_uses_trained_model_for_frozen_replay_bucket() -> None:
+    payload = _request()
+    payload["replay_source_at"] = "2026-09-25T07:00:00+07:00"
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/decisions", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["forecast_mode"] == "trained_model_replay"
+    assert body["forecast"]["model_version"] == "lgbm_quantile_v1"
+    assert len(body["forecast"]["zones"]) == 30
+    assert not any(
+        warning["code"] == "FORECAST_FALLBACK_USED"
+        for warning in body["plan"]["warnings"]
+    )
+
+
+def test_frozen_dataset_exposes_complete_replay_steps() -> None:
+    with TestClient(app) as client:
+        status = client.get("/api/v1/datasets/snapshots/status")
+        snapshot = client.post(
+            "/api/v1/datasets/snapshots/next",
+            json={"regime": "rain_peak"},
+        )
+
+    assert status.status_code == 200
+    assert status.json()["dataset"] == "snapshot_test.parquet"
+    assert status.json()["steps"] == 2016
+    assert status.json()["inference_ready_steps"] == 2010
+    assert snapshot.status_code == 200
+    assert snapshot.json()["regime"] == "rain_peak"
+    assert [zone["zone_id"] for zone in snapshot.json()["zones"]] == list(range(1, 31))
+
+
+def test_frozen_dataset_advances_after_source_timestamp() -> None:
+    with TestClient(app) as client:
+        first = client.post("/api/v1/datasets/snapshots/next", json={}).json()
+        second = client.post(
+            "/api/v1/datasets/snapshots/next",
+            json={"after_source_at": first["source_at"]},
+        ).json()
+
+    assert second["source_at"] > first["source_at"]

@@ -4,7 +4,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/auth.decorators';
 import { SensitiveMutation } from '../common/security/sensitive-mutation.decorator';
 import { AiService } from './ai.service';
-import { GenerateAiDecisionDto } from './dto/generate-ai-decision.dto';
+import { GenerateAiDecisionDto, RunNextAiDecisionDto } from './dto/generate-ai-decision.dto';
 
 @ApiTags('operator-ai')
 @Controller('operator/ai')
@@ -25,5 +25,13 @@ export class AiController {
   @ApiOkResponse({ description: 'Persisted forecast/hotspot/plan output.' })
   generate(@Body() body: GenerateAiDecisionDto) {
     return this.service.generate(body.horizonMinutes);
+  }
+
+  @Post('run-next')
+  @SensitiveMutation()
+  @ApiOperation({ summary: 'Ingest the next frozen dataset snapshot and run trained AI inference' })
+  @ApiOkResponse({ description: 'Persisted source snapshot, forecast and proposal.' })
+  runNext(@Body() body: RunNextAiDecisionDto) {
+    return this.service.runNext(body.horizonMinutes, body.regime);
   }
 }

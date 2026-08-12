@@ -9,11 +9,16 @@ vi.mock('@/shared/config/env', () => ({
 const signOut = vi.fn(async () => undefined)
 const getSession = vi.fn(async () => ({ data: { session: { access_token: 'test-token' } }, error: null }))
 const unsubscribe = vi.fn()
+type AuthStateCallback = (event: string, session: { access_token: string } | null) => void
+let authStateCallback: AuthStateCallback | undefined
 vi.mock('@/shared/api/supabase', () => ({
   getSupabaseClient: () => ({
     auth: {
       getSession,
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe } } }),
+      onAuthStateChange: (callback: AuthStateCallback) => {
+        authStateCallback = callback
+        return { data: { subscription: { unsubscribe } } }
+      },
       signInWithPassword: vi.fn(),
       signOut,
     },
@@ -39,5 +44,18 @@ describe('AuthProvider session expiry', () => {
 
     await waitFor(() => expect(screen.getByText('anonymous')).toBeInTheDocument())
     expect(signOut).toHaveBeenCalled()
+  })
+
+  it('defers identity resolution triggered by an auth-state callback', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ id: 'operator-1', email: 'operator@test.local', role: 'OPERATOR' }), { status: 200 })))
+    const queryClient = new QueryClient()
+    render(<QueryClientProvider client={queryClient}><AuthProvider><AuthStatus /></AuthProvider></QueryClientProvider>)
+    expect(await screen.findByText('authenticated')).toBeInTheDocument()
+    const callsBeforeEvent = getSession.mock.calls.length
+
+    authStateCallback?.('SIGNED_IN', { access_token: 'test-token' })
+
+    expect(getSession).toHaveBeenCalledTimes(callsBeforeEvent)
+    await waitFor(() => expect(getSession).toHaveBeenCalledTimes(callsBeforeEvent + 1))
   })
 })

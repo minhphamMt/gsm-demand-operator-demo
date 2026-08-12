@@ -6,15 +6,9 @@ import type { AuditFilters, Campaign, DemoScenarioId, Offer, OperationsReportFil
 
 const pollingInterval = 2_000
 const visibility = () => typeof document === 'undefined' ? 'visible' : document.visibilityState
-type CampaignPollingState = Pick<Campaign, 'status'> & Partial<Pick<Campaign, 'budgetLimit' | 'candidateCount' | 'expiresAt' | 'incentiveBudget'>>
-const isOperationalCampaign = (campaign: CampaignPollingState, now: Date) => {
-  const isActive = campaign.status === 'Active' || campaign.status === 'Running'
-  const hasCandidates = campaign.candidateCount === undefined || campaign.candidateCount > 0
-  const hasBudget = campaign.budgetLimit === undefined || campaign.budgetLimit <= 0 || (campaign.incentiveBudget ?? 0) < campaign.budgetLimit
-  const hasTime = campaign.expiresAt === undefined || new Date(campaign.expiresAt) > now
-  return isActive && hasCandidates && hasBudget && hasTime
-}
-export const campaignPollInterval = (campaigns: readonly CampaignPollingState[] | undefined, pageVisibility = visibility(), now = new Date()) => pageVisibility === 'visible' && (!campaigns || campaigns.some((campaign) => isOperationalCampaign(campaign, now))) ? pollingInterval : false
+type CampaignPollingState = Pick<Campaign, 'status'>
+const isOperationalCampaign = (campaign: CampaignPollingState) => campaign.status === 'Active' || campaign.status === 'Running'
+export const campaignPollInterval = (campaigns: readonly CampaignPollingState[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!campaigns || campaigns.some(isOperationalCampaign)) ? pollingInterval : false
 export const offerPollInterval = (offers: readonly Pick<Offer, 'status'>[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!offers || offers.some((offer) => offer.status === 'Open')) ? pollingInterval : false
 export const visiblePollInterval = (pageVisibility = visibility()) => pageVisibility === 'visible' ? pollingInterval : false
 

@@ -1,11 +1,11 @@
-import { proposalReviewIssue } from './review-validation';
+import { proposalOperationalIssue, proposalReviewIssue } from './review-validation';
 
 describe('proposalReviewIssue', () => {
   const now = new Date('2026-08-09T08:30:00.000Z');
 
   it('blocks stale and policy-failed approvals', () => {
     expect(proposalReviewIssue({
-      policy_status: 'PASSED', status: 'UNDER_REVIEW', window_end_at: '2026-08-09T08:29:59.000Z',
+      bonus_amount: 20_000, estimated_cost: 40_000, policy_status: 'PASSED', status: 'UNDER_REVIEW', target_driver_count: 2, window_end_at: '2026-08-09T08:29:59.000Z',
     }, 'APPROVED', now)).toEqual({ code: 'STALE_PROPOSAL', kind: 'conflict' });
     expect(proposalReviewIssue({
       policy_status: 'FAILED', status: 'UNDER_REVIEW', window_end_at: '2026-08-09T09:00:00.000Z',
@@ -22,5 +22,25 @@ describe('proposalReviewIssue', () => {
     expect(proposalReviewIssue({
       policy_status: 'PASSED', status: 'APPROVED', window_end_at: '2026-08-09T09:00:00.000Z',
     }, 'APPROVED', now)).toEqual({ code: 'PROPOSAL_VERSION_CONFLICT', kind: 'conflict' });
+  });
+
+  it('blocks no-solution and zero-incentive proposals independently of DB policy status', () => {
+    expect(proposalOperationalIssue({
+      bonus_amount: 20_000,
+      estimated_cost: 40_000,
+      policy_status: 'PASSED',
+      simulation_details: { warnings: [{ code: 'NO_SOLUTION' }] },
+      status: 'UNDER_REVIEW',
+      target_driver_count: 2,
+      window_end_at: '2026-08-09T09:00:00.000Z',
+    })).toEqual({ code: 'NO_OPERATIONAL_SOLUTION', kind: 'validation' });
+    expect(proposalOperationalIssue({
+      bonus_amount: null,
+      estimated_cost: 0,
+      policy_status: 'PASSED',
+      status: 'APPROVED',
+      target_driver_count: 2,
+      window_end_at: '2026-08-09T09:00:00.000Z',
+    })).toEqual({ code: 'INVALID_INCENTIVE', kind: 'validation' });
   });
 });

@@ -3,12 +3,27 @@ import { ConfigService } from '@nestjs/config';
 import { CampaignLifecycleService } from './campaign-lifecycle.service';
 
 describe('CampaignLifecycleService', () => {
+  const dbWith = (rpc: jest.Mock) => {
+    const stateQuery = {
+      not: jest.fn().mockResolvedValue({ data: [], error: null }),
+      select: jest.fn(),
+    };
+    stateQuery.select.mockReturnValue(stateQuery);
+    return {
+      client: { from: jest.fn().mockReturnValue(stateQuery), rpc },
+      unwrap: (data: unknown, error?: unknown) => {
+        if (error) throw error;
+        return data;
+      },
+    } as any;
+  };
+
   it('runs the idempotent database reconciliation', async () => {
     const rpc = jest.fn().mockResolvedValue({
       data: { campaigns_transitioned: 1, offers_expired: 2, request_id: 'lifecycle-1', ran_at: '2026-08-09T00:00:00Z' },
       error: null,
     });
-    const db = { client: { rpc }, unwrap: (data: unknown) => data } as any;
+    const db = dbWith(rpc);
     const service = new CampaignLifecycleService(db, new ConfigService({ CAMPAIGN_LIFECYCLE_ENABLED: 'false' }));
 
     await expect(service.reconcile()).resolves.toMatchObject({ campaigns_transitioned: 1, offers_expired: 2 });
@@ -18,7 +33,7 @@ describe('CampaignLifecycleService', () => {
   it('does not overlap two reconciliation runs', async () => {
     let resolveRpc!: (value: unknown) => void;
     const rpc = jest.fn(() => new Promise((resolve) => { resolveRpc = resolve; }));
-    const db = { client: { rpc }, unwrap: (data: unknown) => data } as any;
+    const db = dbWith(rpc);
     const service = new CampaignLifecycleService(db, new ConfigService({ CAMPAIGN_LIFECYCLE_ENABLED: 'false' }));
 
     const first = service.reconcile();

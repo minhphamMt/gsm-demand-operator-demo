@@ -62,4 +62,11 @@ describe('PlanDecisionActions', () => {
     expect(screen.getByText('Campaign đã phát hành')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Thiết lập huy động thêm' })).not.toBeInTheDocument()
   })
+
+  it('blocks activation when an approved proposal has no AI target zone', () => {
+    render(<PlanDecisionActions plan={{ ...plan, status: 'Approved', targetZoneId: null, targetZoneIds: [] }} isWorking={false} onActivate={vi.fn()} onApprove={vi.fn()} onReject={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Thiết lập huy động thêm' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent('proposal chưa có vùng mục tiêu AI')
+  })
 })

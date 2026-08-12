@@ -23,7 +23,7 @@ const auditRequestIds = {
   reviewSecondary: 'audit-smoke-review-secondary',
   revision: 'audit-smoke-revision',
 };
-let revisionMove = { from_h3: 'source', to_h3: 'target', drivers: 1 };
+let revisionMove = { from_zone: 6, to_zone: 2, drivers: 1 };
 
 async function signIn(email, password) {
   const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
@@ -85,27 +85,30 @@ async function createFixtures() {
   const { data: template, error: templateError } = await adminDb.from('proposals').select('*').limit(1).single();
   if (templateError || !template) throw templateError ?? new Error('No proposal template exists');
   const sourceCandidate = template.source_plan?.candidate_source_zones?.[0];
+  const sourceZone = Number(sourceCandidate?.zone_id ?? String(sourceCandidate?.zoneId ?? '').match(/\d+/)?.[0] ?? 6);
+  const targetZone = Number(template.target_zone_ids?.[0] ?? 2);
   revisionMove = {
-    from_h3: sourceCandidate?.zoneId ?? sourceCandidate?.zone_id ?? sourceCandidate?.h3_index ?? 'source',
-    to_h3: template.target_h3_indexes?.[0] ?? 'target',
+    from_zone: sourceZone,
+    to_zone: targetZone,
     drivers: 1,
   };
   const common = {
-    bonus_amount: template.bonus_amount,
-    estimated_cost: template.estimated_cost,
+    bonus_amount: 25_000,
+    estimated_cost: 50_000,
     explanation: template.explanation,
-    fare_multiplier: template.fare_multiplier,
+    fare_multiplier: 1,
     generator_type: 'MANUAL',
     generator_version: 'security-concurrency-smoke/1',
     hotspot_id: template.hotspot_id,
     input_snapshot_id: template.input_snapshot_id,
     offer_count: 0,
     policy_status: 'PASSED',
-    simulation_details: template.simulation_details,
+    simulation_details: { ...(template.simulation_details ?? {}), warnings: [] },
     source_plan: template.source_plan,
     target_driver_count: 1,
     target_geofence: template.target_geofence,
     target_h3_indexes: template.target_h3_indexes,
+    target_zone_ids: template.target_zone_ids?.length ? template.target_zone_ids : [2],
     version: 1,
     window_start_at: new Date(Date.now() - 60_000).toISOString(),
     window_end_at: new Date(Date.now() + 15 * 60_000).toISOString(),
@@ -130,6 +133,9 @@ async function expectForbidden(baseUrl, token, route) {
 }
 
 const operatorOnlyRoutes = [
+  { method: 'GET', path: '/api/v1/operator/ai/status' },
+  { method: 'POST', path: '/api/v1/operator/ai/generate', body: { horizonMinutes: 15 } },
+  { method: 'POST', path: '/api/v1/operator/ai/run-next', body: { horizonMinutes: 15 } },
   { method: 'GET', path: '/api/v1/operator/snapshots/latest' },
   { method: 'GET', path: '/api/v1/operator/baselines' },
   { method: 'GET', path: '/api/v1/operator/proposals' },

@@ -30,6 +30,13 @@ Thumbs.db
 
 # Data (never commit large data)
 data/
+!AI/data/
+AI/data/*
+!AI/data/snapshots/
+AI/data/snapshots/*
+!AI/data/snapshots/snapshot_test.parquet
+!frontEnd/src/features/driver-app/data
+!frontEnd/src/features/driver-app/data/**
 *.db
 *.sqlite3
 

@@ -17,12 +17,14 @@ export function PlanDecisionActions({ error, hasCampaign = false, isWorking, pla
   const [confirmed, setConfirmed] = useState<readonly string[]>([])
   const isReviewable = plan.status === 'UnderReview' || plan.status === 'Revised'
   const canApprove = isReviewable && plan.policyChecks.every((check) => check.passed) && new Date(plan.inputFreshUntil) >= new Date()
+  const hasActivationTarget = Boolean(plan.targetZoneIds?.length || plan.targetZoneId)
   const toggleConfirmation = (item: string) => setConfirmed((current) => current.includes(item) ? current.filter((value) => value !== item) : [...current, item])
   const close = () => { setDialog(undefined); setConfirmed([]) }
 
   return <>
-    <div className="flex flex-wrap gap-2">{isReviewable && <><Button variant="danger" onClick={() => setDialog('reject')}>Từ chối</Button><Button disabled={!canApprove} onClick={() => setDialog('approve')}>Phê duyệt phương án</Button></>}{plan.status === 'Approved' && !hasCampaign && <Button onClick={() => setDialog('activation')}>Thiết lập huy động thêm</Button>}{hasCampaign && <Badge tone="success">Campaign đã phát hành</Badge>}</div>
+    <div className="flex flex-wrap gap-2">{isReviewable && <><Button variant="danger" onClick={() => setDialog('reject')}>Từ chối</Button><Button disabled={!canApprove} onClick={() => setDialog('approve')}>Phê duyệt phương án</Button></>}{plan.status === 'Approved' && !hasCampaign && <Button disabled={!hasActivationTarget} onClick={() => setDialog('activation')}>Thiết lập huy động thêm</Button>}{hasCampaign && <Badge tone="success">Campaign đã phát hành</Badge>}</div>
     {isReviewable && !canApprove && <p className="mt-2 max-w-md text-xs text-rose-700">Không thể duyệt khi snapshot hết hạn hoặc còn policy không đạt.</p>}
+    {plan.status === 'Approved' && !hasCampaign && !hasActivationTarget && <p role="alert" className="mt-2 max-w-md text-xs text-rose-700">Không thể phát hành offer vì proposal chưa có vùng mục tiêu AI.</p>}
     {error && <p role="alert" className="mt-3 text-sm text-rose-700">{error}</p>}
 
     <Dialog isOpen={dialog === 'approve'} onClose={close} title="Xác nhận quyết định phê duyệt">

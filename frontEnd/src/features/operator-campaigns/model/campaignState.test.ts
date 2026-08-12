@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { campaignNotice } from '@/features/operator-campaigns/model/campaignState'
+import { campaignNotice, isCampaignCancellable } from '@/features/operator-campaigns/model/campaignState'
 import type { Campaign } from '@/features/operator-data'
 
 const campaign: Campaign = {
@@ -22,5 +22,12 @@ describe('campaignNotice', () => {
     expect(campaignNotice({ ...campaign, candidateCount: 0 }, beforeExpiry)?.message).toContain('Không có tài xế')
     expect(campaignNotice({ ...campaign, incentiveBudget: 100000 }, beforeExpiry)?.message).toContain('Ngân sách')
     expect(campaignNotice(campaign, new Date('2026-08-09T09:01:00.000Z'))?.message).toContain('hết thời gian')
+  })
+
+  it('does not expose cancellation after the operational window or budget ends', () => {
+    expect(isCampaignCancellable(campaign, new Date('2026-08-09T08:30:00.000Z'))).toBe(true)
+    expect(isCampaignCancellable(campaign, new Date('2026-08-09T09:01:00.000Z'))).toBe(false)
+    expect(isCampaignCancellable({ ...campaign, incentiveBudget: 100000 }, new Date('2026-08-09T08:30:00.000Z'))).toBe(false)
+    expect(isCampaignCancellable({ ...campaign, status: 'Completed' }, new Date('2026-08-09T08:30:00.000Z'))).toBe(false)
   })
 })

@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 
+import { releaseAllTerminalDriverStates } from '../common/driver-state-reconciliation';
 import { SupabaseService } from '../supabase/supabase.service';
 
 export interface LifecycleResult {
@@ -39,8 +40,9 @@ export class CampaignLifecycleService implements OnModuleInit, OnModuleDestroy {
     try {
       const { data, error } = await this.db.client.rpc('reconcile_campaign_lifecycle', { p_request_id: requestId });
       const result = this.db.unwrap(data as LifecycleResult | null, error);
+      const driversReleased = await releaseAllTerminalDriverStates(this.db);
       if (result.campaigns_transitioned || result.offers_expired) {
-        this.logger.log(JSON.stringify({ event: 'campaign_lifecycle_reconciled', ...result }));
+        this.logger.log(JSON.stringify({ event: 'campaign_lifecycle_reconciled', ...result, drivers_released: driversReleased }));
       }
       return result;
     } catch {

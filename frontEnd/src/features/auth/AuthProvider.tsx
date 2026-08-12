@@ -42,7 +42,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     void supabase.auth.getSession().then(({ data }) => resolveIdentity(Boolean(data.session)))
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      queueMicrotask(() => void resolveIdentity(Boolean(session)))
+      // Supabase invokes this callback while its auth lock is still held. Defer
+      // getSession-backed identity resolution until the lock has been released.
+      window.setTimeout(() => void resolveIdentity(Boolean(session)), 0)
     })
     window.addEventListener(sessionExpiredEvent, expireSession)
     return () => { data.subscription.unsubscribe(); window.removeEventListener(sessionExpiredEvent, expireSession) }

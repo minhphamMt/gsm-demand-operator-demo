@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 
 import { CampaignFunnel } from '@/features/operator-campaigns/components/CampaignFunnel'
-import { activeCampaignStatuses, campaignNotice } from '@/features/operator-campaigns/model/campaignState'
+import { campaignNotice, isCampaignCancellable } from '@/features/operator-campaigns/model/campaignState'
 import { getZoneLabel } from '@/features/operator-campaigns/model/zoneLabels'
 import { campaignsQuery, useOperatorActions } from '@/features/operator-data'
 import { Button } from '@/shared/components/ui/Button'
@@ -43,7 +43,7 @@ export function CampaignList() {
           <Card className="p-0" key={campaign.id}>
             <div className="flex flex-col justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-start">
               <div><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-slate-950">Chiến dịch {campaign.id}</h2><StatusBadge status={campaign.status} /></div><p className="mt-1 text-sm text-slate-500">Proposal {campaign.planId} · {getZoneLabel(campaign.targetZoneId)} · {formatTime(campaign.startedAt)}–{formatTime(campaign.expiresAt)}</p></div>
-              {activeCampaignStatuses.has(campaign.status) && <Button variant="secondary" onClick={() => setCancelling(campaign.id)}><Ban className="size-4" />Dừng chiến dịch</Button>}
+              {isCampaignCancellable(campaign) && <Button variant="secondary" onClick={() => setCancelling(campaign.id)}><Ban className="size-4" />Dừng chiến dịch</Button>}
             </div>
             <div className="p-5">
               <div className="grid gap-5 xl:grid-cols-[290px_minmax(0,1fr)]">

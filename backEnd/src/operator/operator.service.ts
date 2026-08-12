@@ -17,7 +17,7 @@ import {
 import { mapCampaign, mapDriver, mapOffer, mapProposal } from './operator.mapper';
 import { buildOperationsReport } from './operations-report.mapper';
 import { revisionFieldErrors } from './revision-validation';
-import { proposalReviewIssue, type ReviewDecision } from './review-validation';
+import { proposalOperationalIssue, proposalReviewIssue, type ReviewDecision } from './review-validation';
 
 const auditActionAliases: Record<string, string[]> = {
   Created: ['Created', 'CREATE'],
@@ -51,7 +51,8 @@ export class OperatorService {
     let snapshotQuery = this.db.client
       .from('supply_demand_snapshots')
       .select('*')
-      .order('captured_at', { ascending: false });
+      .order('captured_at', { ascending: false })
+      .order('id', { ascending: false });
     if (query.scenarioCode) snapshotQuery = snapshotQuery.eq('scenario_code', query.scenarioCode);
     if (query.from) snapshotQuery = snapshotQuery.gte('captured_at', query.from);
     if (query.to) snapshotQuery = snapshotQuery.lte('captured_at', query.to);
@@ -63,7 +64,7 @@ export class OperatorService {
 
   async snapshotWindow(query: SnapshotWindowQueryDto) {
     this.validateSnapshotWindow(query);
-    let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*').order('captured_at', { ascending: false });
+    let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*').order('captured_at', { ascending: false }).order('id', { ascending: false });
     if (query.scenarioCode) snapshotQuery = snapshotQuery.eq('scenario_code', query.scenarioCode);
     if (query.from) snapshotQuery = snapshotQuery.gte('captured_at', query.from);
     if (query.to) snapshotQuery = snapshotQuery.lte('captured_at', query.to);
@@ -106,12 +107,17 @@ export class OperatorService {
     const latestForecast = [...(forecasts ?? [])].sort((left: any, right: any) =>
       new Date(right.forecast_at).getTime() - new Date(left.forecast_at).getTime())[0];
 
+    const scenarioCode = String(snapshot.scenario_code ?? 'normal').toLowerCase();
+    const regime = scenarioCode.startsWith('rain_peak') ? 'rain_peak'
+      : scenarioCode.startsWith('rain') ? 'rain'
+        : scenarioCode.startsWith('peak') ? 'peak' : 'normal';
+
     return {
       generatedAt: snapshot.captured_at,
       replayStep: String(snapshot.id),
       scenario: query.scenario ?? 'baseline',
-      demoScenarioId: snapshot.scenario_code ?? 'normal',
-      regime: snapshot.scenario_code ?? 'normal',
+      demoScenarioId: regime === 'rain_peak' ? 'rain-peak' : 'normal',
+      regime,
       ai: {
         zoneContract: 'AI_ZONE_1_30',
         registeredZones: (aiZones ?? []).length,
@@ -154,6 +160,7 @@ export class OperatorService {
       .from('supply_demand_snapshots')
       .select('id,captured_at,total_supply,total_demand')
       .order('captured_at', { ascending: false })
+      .order('id', { ascending: false })
       .limit(30);
     const snapshots = this.db.unwrap(data, error);
     if (!snapshots.length) throw new NotFoundException('No supply-demand snapshot exists');
@@ -254,7 +261,7 @@ export class OperatorService {
   ) {
     const { data: current, error: currentError } = await this.db.client
       .from('proposals')
-      .select('status,policy_status,window_end_at')
+      .select('status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details')
       .eq('id', id)
       .maybeSingle();
     if (currentError) this.db.unwrap(null, currentError);
@@ -283,6 +290,30 @@ export class OperatorService {
   }
 
   async activateProposal(id: string, dto: ActivateProposalDto, actorId: string, requestId: string) {
+    const [{ data: proposal, error: proposalError }, { data: existingCampaign, error: existingCampaignError }] = await Promise.all([
+      this.db.client.from('proposals')
+        .select('status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details')
+        .eq('id', id)
+        .maybeSingle(),
+      this.db.client.from('campaigns').select('id').eq('proposal_id', id).maybeSingle(),
+    ]);
+    if (proposalError) this.db.unwrap(null, proposalError);
+    if (!proposal) throw new NotFoundException(`Proposal ${id} was not found`);
+    if (existingCampaignError) this.db.unwrap(null, existingCampaignError);
+    if (existingCampaign) {
+      throw new ConflictException({
+        code: 'CONFLICT',
+        message: 'Proposal already has a campaign.',
+      });
+    }
+    const operationalIssue = proposalOperationalIssue(proposal);
+    if (operationalIssue) {
+      throw new UnprocessableEntityException({
+        code: operationalIssue.code,
+        message: 'Proposal cannot be activated because it has no valid operational incentive plan.',
+      });
+    }
+
     const { data, error } = await this.db.client.rpc('activate_proposal', {
       p_proposal_id: id,
       p_actor_id: actorId,

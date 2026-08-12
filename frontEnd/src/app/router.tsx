@@ -40,7 +40,10 @@ const router = createBrowserRouter([
       { path: routes.operator.segments.history, element: lazyPage(HistoryPage) },
     ],
   },
-  { path: routes.driver.root, element: <RoleGate role="DRIVER">{lazyPage(DriverPage)}</RoleGate> },
+  // Driver owns its original in-phone authentication gate and login screen.
+  // Keeping the shared RoleGate here would redirect anonymous drivers to the
+  // operator-styled /login page and break visual parity with the driver branch.
+  { path: routes.driver.root, element: lazyPage(DriverPage) },
   { path: '*', element: <NotFoundPage /> },
 ])
 

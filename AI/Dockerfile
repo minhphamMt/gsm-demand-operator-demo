@@ -11,12 +11,18 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
+# LightGBM links against the GNU OpenMP runtime at import time.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Security: run as non-root user
 RUN useradd -m appuser
+
+# Copy installed packages into the runtime user's home. The /root directory is
+# intentionally inaccessible after switching to appuser.
+COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
+ENV PATH=/home/appuser/.local/bin:$PATH
 
 # Copy application code
 COPY . .

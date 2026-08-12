@@ -9,7 +9,9 @@ import { env } from '@/shared/config/env'
 
 const hanoiCenter: [longitude: number, latitude: number] = [105.8342, 21.0278]
 type MapStatus = 'idle' | 'ready' | 'error'
-type OperatorMapProps = { forecastMinutes: number; onZoneSelect: (zoneId: string) => void; selectedZoneId?: string | undefined; zones: readonly Zone[] }
+export type OperatorMapLayer = 'gap' | 'demand' | 'supply'
+export type OperatorMapView = 'city' | 'core'
+type OperatorMapProps = { forecastMinutes: number; layer?: OperatorMapLayer; onZoneSelect: (zoneId: string) => void; selectedZoneId?: string | undefined; view?: OperatorMapView; zones: readonly Zone[] }
 const severityColors = { Low: '#bff5f1', Medium: '#43d7d0', High: '#f5b942', Critical: '#ef5a67' } as const
 const basemapConfig = {
   lightPreset: 'day', theme: 'faded', show3dObjects: false, showPedestrianRoads: true, showPlaceLabels: true,
@@ -18,7 +20,7 @@ const basemapConfig = {
   colorRoads: '#ffffff', colorMotorways: '#fff0bd', colorTrunks: '#fff7dc', colorPlaceLabels: '#52616b', colorRoadLabels: '#697780',
 } as const
 
-export function OperatorMap({ forecastMinutes, onZoneSelect, selectedZoneId, zones }: OperatorMapProps) {
+export function OperatorMap({ forecastMinutes, layer = 'gap', onZoneSelect, selectedZoneId, view = 'city', zones }: OperatorMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const zonesRef = useRef(zones)
@@ -36,7 +38,7 @@ export function OperatorMap({ forecastMinutes, onZoneSelect, selectedZoneId, zon
     resizeObserver.observe(container)
     map.on('load', () => {
       map.addSource('operator-zones', { type: 'geojson', data: zonesToFeatureCollection(zonesRef.current), promoteId: 'id' })
-      map.addLayer({ id: 'zone-fill', type: 'fill', slot: 'middle', source: 'operator-zones', paint: { 'fill-color': ['case', ['==', ['get', 'dataStatus'], 'missing'], '#cbd5e1', ['match', ['get', 'severity'], 'Low', severityColors.Low, 'Medium', severityColors.Medium, 'High', severityColors.High, severityColors.Critical]], 'fill-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.88, ['==', ['get', 'dataStatus'], 'missing'], 0.38, 0.72], 'fill-emissive-strength': 1 } })
+      map.addLayer({ id: 'zone-fill', type: 'fill', slot: 'middle', source: 'operator-zones', paint: { 'fill-color': fillColor('gap'), 'fill-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.88, ['==', ['get', 'dataStatus'], 'missing'], 0.38, 0.72], 'fill-emissive-strength': 1 } })
       map.addLayer({ id: 'zone-outline', type: 'line', slot: 'middle', source: 'operator-zones', paint: { 'line-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#0a192f', 'rgba(255,255,255,0.8)'], 'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 3, 0.55], 'line-emissive-strength': 1 } })
       map.on('mouseenter', 'zone-fill', () => { map.getCanvas().style.cursor = 'pointer' })
       map.on('mouseleave', 'zone-fill', () => { map.getCanvas().style.cursor = '' })
@@ -57,6 +59,18 @@ export function OperatorMap({ forecastMinutes, onZoneSelect, selectedZoneId, zon
   useEffect(() => {
     const map = mapRef.current
     if (!map?.isStyleLoaded()) return
+    map.setPaintProperty('zone-fill', 'fill-color', fillColor(layer))
+  }, [layer])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map?.isStyleLoaded()) return
+    fitMapToZones(map, view === 'core' ? zones.filter((zone) => zone.aiZoneId <= 13) : zones)
+  }, [view, zones])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map?.isStyleLoaded()) return
     for (const zone of zones) map.setFeatureState({ source: 'operator-zones', id: zone.id }, { selected: zone.id === selectedZoneId })
     const zone = zones.find((candidate) => candidate.id === selectedZoneId)
     if (zone) map.flyTo({ center: zone.center, zoom: 11, essential: true })
@@ -64,7 +78,13 @@ export function OperatorMap({ forecastMinutes, onZoneSelect, selectedZoneId, zon
 
   if (!env.hasMapboxToken) return <div className="grid h-full min-h-[480px] place-items-center rounded-2xl bg-sky-50 p-6 text-center lg:min-h-0"><div><p className="font-semibold text-ink">Chưa cấu hình Mapbox</p><p className="mt-1 text-sm text-muted">Thêm public token vào VITE_MAPBOX_ACCESS_TOKEN.</p></div></div>
   const timeLabel = forecastMinutes === 0 ? 'Hiện tại' : `Dự báo +${forecastMinutes} phút`
-  return <div className="relative h-full min-h-[480px] overflow-hidden rounded-panel bg-sky-50 lg:min-h-0"><div ref={containerRef} className="h-full min-h-[480px] w-full lg:min-h-0" aria-label="Bản đồ vận hành 30 AI zone Hà Nội" /><div className="pointer-events-none absolute left-3 top-3 rounded-xl border border-white/70 bg-white/95 px-3 py-2 shadow-lg backdrop-blur"><p className="flex items-center gap-1.5 text-xs font-bold text-ink"><LocateFixed className="size-3.5 text-brand-600" />Hà Nội · {timeLabel}</p><p className="mt-0.5 text-[11px] text-muted">30 AI zone cung — cầu theo thời gian</p></div><MapLegend />{mapStatus === 'idle' && <div className="pointer-events-none absolute inset-0 grid place-items-center bg-sky-50/80 text-sm text-muted">Đang tải bản đồ…</div>}{mapStatus === 'error' && <div className="absolute inset-x-4 top-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">Không thể tải dữ liệu bản đồ. Kiểm tra token hoặc kết nối mạng.</div>}</div>
+  return <div className="relative h-full min-h-[480px] overflow-hidden rounded-panel bg-sky-50 lg:min-h-0"><div ref={containerRef} className="h-full min-h-[480px] w-full lg:min-h-0" aria-label="Bản đồ vận hành 30 AI zone Hà Nội" /><div className="nf-live-map-heading"><p><LocateFixed size={14} />Hà Nội · {timeLabel}</p><small>30 AI zone cung — cầu theo thời gian</small></div><MapLegend />{mapStatus === 'idle' && <div className="pointer-events-none absolute inset-0 grid place-items-center bg-sky-50/80 text-sm text-muted">Đang tải bản đồ…</div>}{mapStatus === 'error' && <div className="absolute inset-x-4 top-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">Không thể tải dữ liệu bản đồ. Kiểm tra token hoặc kết nối mạng.</div>}</div>
+}
+
+function fillColor(layer: OperatorMapLayer): mapboxgl.ExpressionSpecification {
+  if (layer === 'demand') return ['interpolate', ['linear'], ['get', 'demand'], 0, '#e8f7f5', 12, '#78d8d1', 24, '#f4ada0', 36, '#a83426']
+  if (layer === 'supply') return ['interpolate', ['linear'], ['get', 'supply'], 0, '#eef2f1', 8, '#b8e9e5', 18, '#2bb8ad', 30, '#0c6e69']
+  return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#cbd5e1', ['match', ['get', 'severity'], 'Low', severityColors.Low, 'Medium', severityColors.Medium, 'High', severityColors.High, severityColors.Critical]]
 }
 
 function fitMapToZones(map: mapboxgl.Map, zones: readonly Zone[]) {
@@ -75,5 +95,5 @@ function fitMapToZones(map: mapboxgl.Map, zones: readonly Zone[]) {
 }
 
 function MapLegend() {
-  return <div className="pointer-events-none absolute bottom-9 left-3 flex flex-wrap gap-2 rounded-xl border border-white/70 bg-white/90 p-2 shadow-lg backdrop-blur">{Object.entries(severityColors).map(([level, color]) => <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700" key={level}><span className="size-2 rounded-sm" style={{ backgroundColor: color }} />{{ Low: 'Đủ xe', Medium: 'Theo dõi', High: 'Thiếu', Critical: 'Nghiêm trọng' }[level as keyof typeof severityColors]}</span>)}</div>
+  return <div className="nf-live-map-legend">{Object.entries(severityColors).map(([level, color]) => <span key={level}><i style={{ backgroundColor: color }} />{{ Low: 'Đủ xe', Medium: 'Theo dõi', High: 'Thiếu', Critical: 'Nghiêm trọng' }[level as keyof typeof severityColors]}</span>)}</div>
 }

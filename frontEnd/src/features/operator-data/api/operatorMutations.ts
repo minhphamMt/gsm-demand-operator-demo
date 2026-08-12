@@ -25,7 +25,7 @@ export function useOperatorActions() {
     ])
   }
   const refreshCampaignConflict = async (error: Error) => {
-    if (error instanceof AppError && error.status === 409) await refreshCampaignFlow()
+    if (error instanceof AppError && (error.status === 409 || error.status === 422)) await refreshCampaignFlow()
   }
 
   return {

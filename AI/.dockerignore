@@ -4,5 +4,16 @@ __pycache__
 .pytest_cache
 .mypy_cache
 .ruff_cache
-data
+data/*
+!data/snapshots/
+data/snapshots/*
+!data/snapshots/snapshot_test.parquet
+!data/models/
+!data/models/**
+!data/features/
+data/features/*
+!data/features/features_test.parquet
+!data/baseline/
+data/baseline/*
+!data/baseline/BASELINE_FREEZE.md
 tests

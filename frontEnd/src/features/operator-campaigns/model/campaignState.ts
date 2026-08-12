@@ -4,6 +4,12 @@ export type CampaignNotice = { message: string; tone: 'neutral' | 'success' | 'w
 
 export const activeCampaignStatuses = new Set<Campaign['status']>(['Active', 'Running'])
 
+export function isCampaignCancellable(campaign: Campaign, now = new Date()) {
+  return activeCampaignStatuses.has(campaign.status)
+    && new Date(campaign.expiresAt) > now
+    && (campaign.budgetLimit <= 0 || campaign.incentiveBudget < campaign.budgetLimit)
+}
+
 export function campaignNotice(campaign: Campaign, now = new Date()): CampaignNotice | undefined {
   if (campaign.status === 'Cancelled') {
     return { message: `${campaign.expired} offer mở đã hết hạn và ${campaign.cancelled} tài xế đã được giải phóng khỏi campaign.`, tone: 'neutral' }

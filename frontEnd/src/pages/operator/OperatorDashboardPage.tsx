@@ -1,5 +1,5 @@
-import { OperatorDashboard } from '@/features/operator-dashboard/components/OperatorDashboard'
+import { OperatorConsoleDashboard } from '@/features/operator-console/OperatorConsoleDashboard'
 
 export function OperatorDashboardPage() {
-  return <OperatorDashboard />
+  return <OperatorConsoleDashboard />
 }

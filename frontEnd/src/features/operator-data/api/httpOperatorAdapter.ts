@@ -44,7 +44,7 @@ async function getPlan(planId: string): Promise<Proposal | undefined> {
 
 export const httpOperatorAdapter: OperatorDataAdapter = {
   generateAiDecision: async (horizonMinutes) => {
-    await requestJson('/operator/ai/generate', { method: 'POST', body: body({ horizonMinutes }) })
+    await requestJson('/operator/ai/run-next', { method: 'POST', body: body({ horizonMinutes, regime: 'rain_peak' }) })
   },
   getSnapshot: async (scenario) => parseEntity(
     await requestJson(`/operator/snapshots/latest?scenario=${encodeURIComponent(scenario)}`),

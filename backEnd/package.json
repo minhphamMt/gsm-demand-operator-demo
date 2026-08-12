@@ -8,6 +8,8 @@
     "backup:verify": "node scripts/verify-critical-backup.mjs",
     "check": "npm run typecheck && npm test && npm run build",
     "check:live": "npm run check && npm run smoke:db && npm run smoke:api && npm run smoke:campaign && npm run smoke:security",
+    "clean:ai-readiness": "node --env-file=.env scripts/clean-ai-readiness-data.mjs",
+    "prepare:test-db": "node --env-file=.env --env-file=.env.test.local scripts/prepare-full-test-db.mjs",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",

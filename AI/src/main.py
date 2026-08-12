@@ -5,6 +5,7 @@ routes_plan, routes_activation, routes_driver, routes_history) được gắn v�
 T0.7 trở đi — xem docs/design/IMPLEMENTATION_PLAN.md.
 """
 
+import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -15,6 +16,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.routes_inference import router as inference_router
+from src.api.routes_inference import trained_model_readiness
 from src.common.errors import ConfigError
 from src.common.policy import REQUIRED_RULE_KEYS, get_policy
 from src.config import Settings, get_settings
@@ -42,14 +44,17 @@ def build_readiness(settings: Settings) -> dict[str, Any]:
     else:
         policy_loaded, policy_keys = True, REQUIRED_POLICY_KEYS
 
+    zones = json.loads(settings.zone_registry_path.read_text(encoding="utf-8"))
+    drivers = json.loads(settings.driver_registry_path.read_text(encoding="utf-8"))
     return {
         "status": "ok",
         "app_env": settings.app_env,
         "policy_loaded": policy_loaded,
         "policy_keys": policy_keys,
-        "zones": 0,  # T0.4
-        "drivers": 0,  # T0.6
+        "zones": len(zones),
+        "drivers": len(drivers),
         "history_db": "ok" if settings.history_db_path.is_file() else "missing",
+        "history_source": "supabase",
         "model_version": settings.model_version,
         "baseline_frozen": settings.baseline_freeze_path.is_file(),
     }
@@ -100,12 +105,13 @@ async def health() -> JSONResponse:
     """
     settings = get_settings()
     report = build_readiness(settings)
-    model_artifacts = list((settings.data_dir / "models").glob("*.txt"))
+    model_readiness = trained_model_readiness()
     report["inference_api"] = True
-    report["forecast_mode"] = "live_snapshot_baseline"
-    report["trained_model_ready"] = False
-    report["model_artifacts"] = len(model_artifacts)
-    ready = report["policy_loaded"] and report["policy_keys"] == REQUIRED_POLICY_KEYS
+    report["forecast_mode"] = "trained_model_replay" if model_readiness["ready"] else "live_snapshot_baseline"
+    report["trained_model_ready"] = model_readiness["ready"]
+    report["model_artifacts"] = model_readiness["artifacts"]
+    report["trained_model"] = model_readiness
+    ready = report["policy_loaded"] and report["policy_keys"] == REQUIRED_POLICY_KEYS and bool(model_readiness["ready"])
     if not ready:
         report["status"] = "degraded"
         return JSONResponse(status_code=503, content=report)

@@ -77,20 +77,21 @@ async function createFixtures() {
   const { data: template, error: templateError } = await adminDb.from('proposals').select('*').limit(1).single();
   if (templateError || !template) throw templateError ?? new Error('No proposal template exists');
   const common = {
-    bonus_amount: template.bonus_amount,
-    estimated_cost: template.estimated_cost,
+    bonus_amount: 25_000,
+    estimated_cost: 100_000,
     explanation: template.explanation,
-    fare_multiplier: template.fare_multiplier,
+    fare_multiplier: 1,
     generator_type: 'MANUAL',
     generator_version: 'campaign-flow-smoke/1',
     hotspot_id: template.hotspot_id,
     input_snapshot_id: template.input_snapshot_id,
     policy_status: 'PASSED',
-    simulation_details: template.simulation_details,
+    simulation_details: { ...(template.simulation_details ?? {}), warnings: [] },
     source_plan: template.source_plan,
     status: 'APPROVED',
     target_geofence: template.target_geofence,
     target_h3_indexes: template.target_h3_indexes,
+    target_zone_ids: template.target_zone_ids?.length ? template.target_zone_ids : [2],
     version: 1,
     window_start_at: new Date(Date.now() - 60_000).toISOString(),
     window_end_at: new Date(Date.now() + 15 * 60_000).toISOString(),
@@ -147,7 +148,14 @@ try {
   if (cancelCampaign.status !== 'Active') throw new Error(`Cancel flow did not activate: ${cancelCampaign.status}`);
   const [cancelOffer] = await api(baseUrl, `/api/v1/operator/offers?campaignId=${cancelCampaign.id}`, operator.token);
   if (!cancelOffer || cancelOffer.status !== 'Open') throw new Error('Cancel flow did not create an open offer');
-  await api(baseUrl, `/api/v1/offers/${cancelOffer.id}/respond`, driver.token, { method: 'POST', body: JSON.stringify({ response: 'Accepted' }), requestId: 'audit-smoke-offer-accept-cancel' });
+  const acceptedCancelOffer = await api(baseUrl, `/api/v1/driver/offers/${cancelOffer.id}/accept`, driver.token, {
+    method: 'POST', requestId: 'audit-smoke-offer-accept-cancel',
+  });
+  if (acceptedCancelOffer?.participation?.status !== 'ACCEPTED'
+    || acceptedCancelOffer?.navigation_target?.type !== 'Point'
+    || !Array.isArray(acceptedCancelOffer?.navigation_target?.coordinates)) {
+    throw new Error(`Driver accept adapter returned an invalid contract: ${JSON.stringify(acceptedCancelOffer)}`);
+  }
   const cancelled = await api(baseUrl, `/api/v1/operator/campaigns/${cancelCampaign.id}/cancel`, operator.token, { method: 'POST' });
   if (cancelled.status !== 'Cancelled' || cancelled.cancelled !== 1) throw new Error(`Cancellation result is incorrect: ${JSON.stringify(cancelled)}`);
   const { data: releasedParticipation } = await adminDb.from('campaign_participations').select('status').eq('campaign_id', cancelCampaign.id).single();
@@ -157,6 +165,17 @@ try {
   const budgetCampaign = await api(baseUrl, `/api/v1/operator/proposals/${budgetProposalId}/activate`, operator.token, {
     method: 'POST', body: JSON.stringify({ responseMode: 'human', driverIds: [driver.userId] }),
   });
+  const [budgetOffer] = await api(baseUrl, `/api/v1/operator/offers?campaignId=${budgetCampaign.id}`, operator.token);
+  const declinedBudgetOffer = await api(baseUrl, `/api/v1/driver/offers/${budgetOffer.id}/decline`, driver.token, {
+    method: 'POST', requestId: 'audit-smoke-offer-decline-budget',
+  });
+  if (declinedBudgetOffer?.offer_id !== budgetOffer.id || declinedBudgetOffer?.status !== 'DECLINED') {
+    throw new Error(`Driver decline adapter returned an invalid contract: ${JSON.stringify(declinedBudgetOffer)}`);
+  }
+  const [operatorVisibleDecline] = await api(baseUrl, `/api/v1/operator/offers?campaignId=${budgetCampaign.id}`, operator.token);
+  if (operatorVisibleDecline?.status !== 'Declined') {
+    throw new Error(`Operator did not observe the driver decline: ${JSON.stringify(operatorVisibleDecline)}`);
+  }
   await adminDb.from('campaigns').update({ budget_used: budgetCampaign.budgetLimit }).eq('id', budgetCampaign.id);
   const { error: budgetReconcileError } = await adminDb.rpc('reconcile_campaign_lifecycle', { p_request_id: 'campaign-smoke-budget' });
   if (budgetReconcileError) throw budgetReconcileError;
@@ -165,7 +184,7 @@ try {
     adminDb.from('driver_offers').select('status').eq('campaign_id', budgetCampaign.id),
     adminDb.from('audit_logs').select('actor_type,before_data,after_data,metadata').eq('entity_id', budgetCampaign.id).eq('action', 'CampaignBudgetExhausted'),
   ]);
-  if (exhaustedCampaign?.status !== 'BUDGET_EXHAUSTED' || exhaustedOffers?.some(({ status }) => status !== 'EXPIRED')
+  if (exhaustedCampaign?.status !== 'BUDGET_EXHAUSTED' || exhaustedOffers?.some(({ status }) => ['SENT', 'ACCEPTED'].includes(status))
     || exhaustedAudit?.length !== 1 || exhaustedAudit[0].actor_type !== 'SYSTEM'
     || exhaustedAudit[0].metadata?.request_id !== 'campaign-smoke-budget') {
     throw new Error('Budget exhaustion reconciliation is incomplete');
@@ -196,7 +215,7 @@ try {
   const targetOffers = await api(baseUrl, `/api/v1/operator/offers?campaignId=${targetCampaign.id}`, operator.token);
   const acceptedOffer = targetOffers.find((offer) => offer.driverId === driver.userId);
   if (!acceptedOffer) throw new Error('Target flow did not create the test driver offer');
-  await api(baseUrl, `/api/v1/offers/${acceptedOffer.id}/respond`, driver.token, { method: 'POST', body: JSON.stringify({ response: 'Accepted' }), requestId: 'audit-smoke-offer-accept-target' });
+  await api(baseUrl, `/api/v1/driver/offers/${acceptedOffer.id}/accept`, driver.token, { method: 'POST', requestId: 'audit-smoke-offer-accept-target' });
   const campaigns = await api(baseUrl, '/api/v1/operator/campaigns', operator.token);
   const reached = campaigns.find((campaign) => campaign.id === targetCampaign.id);
   const finalOffers = await api(baseUrl, `/api/v1/operator/offers?campaignId=${targetCampaign.id}`, operator.token);
@@ -224,6 +243,7 @@ try {
     authenticated: true,
     results: [
       { name: 'activate -> monitor -> accept -> cancel', ok: true },
+      { name: 'driver accept/decline adapters preserve offer and participation contracts', ok: true },
       { name: 'cancel releases participation and driver', ok: true },
       { name: 'budget exhaustion closes campaign and open offers with SYSTEM audit', ok: true },
       { name: 'end time completes campaign and open offers with SYSTEM audit', ok: true },

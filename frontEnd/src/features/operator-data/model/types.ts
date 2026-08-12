@@ -36,6 +36,7 @@ export type Proposal = {
   inputSnapshotId: string
   hotspotId: string
   targetZoneId: string | null
+  targetZoneIds?: readonly (string | number)[]
   targetZoneLabel: string
   confidence: number | null
   simulationAvailable: boolean
