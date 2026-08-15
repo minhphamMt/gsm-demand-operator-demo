@@ -25,20 +25,20 @@ export const mapLayerThresholds = {
 } as const
 
 export function zoneFillColor(layer: 'gap' | 'demand' | 'supply'): ExpressionSpecification {
-  if (layer === 'demand') return ['step', ['get', 'demand'], '#f9ded8', mapLayerThresholds.demand.medium, '#f4ada0', mapLayerThresholds.demand.high, '#e0503c']
-  if (layer === 'supply') return ['step', ['get', 'supply'], '#d9f4f1', mapLayerThresholds.supply.medium, '#72d8d1', mapLayerThresholds.supply.high, '#0c6e69']
+  if (layer === 'demand') return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#cbd5e1', ['step', ['get', 'demand'], '#f9ded8', mapLayerThresholds.demand.medium, '#f4ada0', mapLayerThresholds.demand.high, '#e0503c']]
+  if (layer === 'supply') return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#cbd5e1', ['step', ['get', 'supply'], '#d9f4f1', mapLayerThresholds.supply.medium, '#72d8d1', mapLayerThresholds.supply.high, '#0c6e69']]
   return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#cbd5e1', ['>=', ['get', 'operationalGap'], 8], mapTheme.deficitHigh, ['>=', ['get', 'operationalGap'], 3], mapTheme.deficitLow, ['<=', ['get', 'operationalGap'], -4], mapTheme.surplus, mapTheme.balanced]
 }
 
 export function zoneStrokeColor(layer: 'gap' | 'demand' | 'supply'): ExpressionSpecification {
-  if (layer === 'demand') return ['literal', mapTheme.deficitHighStroke]
-  if (layer === 'supply') return ['literal', mapTheme.surplusStroke]
-  return ['case', ['>=', ['get', 'operationalGap'], 8], mapTheme.deficitHighStroke, ['>=', ['get', 'operationalGap'], 3], mapTheme.deficitLowStroke, ['<=', ['get', 'operationalGap'], -4], mapTheme.surplusStroke, mapTheme.balancedStroke]
+  if (layer === 'demand') return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#64748b', ['literal', mapTheme.deficitHighStroke]]
+  if (layer === 'supply') return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#64748b', ['literal', mapTheme.surplusStroke]]
+  return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#64748b', ['>=', ['get', 'operationalGap'], 8], mapTheme.deficitHighStroke, ['>=', ['get', 'operationalGap'], 3], mapTheme.deficitLowStroke, ['<=', ['get', 'operationalGap'], -4], mapTheme.surplusStroke, mapTheme.balancedStroke]
 }
 
 export function zoneDotRadius(layer: 'gap' | 'demand' | 'supply'): ExpressionSpecification {
   const property = layer === 'supply' ? 'supply' : 'demand'
-  return ['interpolate', ['linear'], ['get', property], 0, 8, 5, 12.5, 15, 16, 30, 19, 60, 24, 100, 28.5]
+  return ['case', ['==', ['get', 'dataStatus'], 'missing'], 9, ['interpolate', ['linear'], ['get', property], 0, 8, 5, 12.5, 15, 16, 30, 19, 60, 24, 100, 28.5]]
 }
 
 export function buildFlowCollections(zones: readonly Zone[], moves: readonly Move[]) {

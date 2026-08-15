@@ -30,7 +30,8 @@ describe('buildFlowCollections', () => {
   it('uses per-zone bands that match the project dataset scale', () => {
     expect(mapLayerThresholds.supply).toEqual({ medium: 6, high: 13 })
     expect(mapLayerThresholds.demand).toEqual({ medium: 8, high: 16 })
-    expect(zoneFillColor('supply')).toContain(13)
-    expect(zoneFillColor('demand')).toContain(16)
+    expect(JSON.stringify(zoneFillColor('supply'))).toContain('13')
+    expect(JSON.stringify(zoneFillColor('demand'))).toContain('16')
+    expect(JSON.stringify(zoneFillColor('gap'))).toContain('missing')
   })
 })

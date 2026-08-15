@@ -11,7 +11,9 @@ import { env } from '@/shared/config/env'
 
 const hanoiCenter: [longitude: number, latitude: number] = [105.8342, 21.0278]
 const rainThreshold = 0.3
+const mapLoadTimeoutMs = 15_000
 type MapStatus = 'idle' | 'ready' | 'error'
+export type MapFailureKind = 'network' | 'timeout' | 'token-style' | 'unknown'
 export type OperatorMapLayer = 'gap' | 'demand' | 'supply'
 export type OperatorMapView = 'city' | 'core'
 type OperatorMapProps = {
@@ -25,6 +27,22 @@ type OperatorMapProps = {
   view?: OperatorMapView
   zones: readonly Zone[]
 }
+
+export function classifyMapFailure(error: unknown): MapFailureKind {
+  const detail = error instanceof Error ? `${error.name} ${error.message}` : String(error ?? '')
+  const normalized = detail.toLocaleLowerCase()
+  if (/access token|not authorized|unauthorized|forbidden|\b401\b|\b403\b|style.*(not found|denied)/.test(normalized)) return 'token-style'
+  if (/network|failed to fetch|networkerror|offline|err_internet|xhr/.test(normalized)) return 'network'
+  return 'unknown'
+}
+
+function mapFailureCopy(kind: MapFailureKind) {
+  if (kind === 'token-style') return 'Mapbox từ chối token hoặc style. Kiểm tra URL restriction, scope và style đã cấu hình.'
+  if (kind === 'network') return 'Không kết nối được tới Mapbox. Kiểm tra mạng rồi thử lại; danh sách zone vẫn dùng được.'
+  if (kind === 'timeout') return 'Mapbox tải quá lâu. Hãy thử lại; danh sách zone vẫn dùng được.'
+  return 'Không thể tải bản đồ. Hãy thử lại hoặc tiếp tục thao tác bằng danh sách zone.'
+}
+
 export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = 'gap', moves = [], onZoneSelect, selectedZoneId, timeLabel, view = 'city', zones }: OperatorMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -32,11 +50,15 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
   const flowStateRef = useRef(flowState)
   const layerRef = useRef(layer)
   const movesRef = useRef(moves)
+  const viewRef = useRef(view)
   const zonesRef = useRef(zones)
   const [mapStatus, setMapStatus] = useState<MapStatus>('idle')
+  const [mapFailure, setMapFailure] = useState<MapFailureKind | null>(null)
+  const [retryAttempt, setRetryAttempt] = useState(0)
   zonesRef.current = zones
   layerRef.current = layer
   movesRef.current = moves
+  viewRef.current = view
   flowStateRef.current = flowState
 
   useEffect(() => {
@@ -54,11 +76,23 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
       attributionControl: false,
     })
     mapRef.current = map
+    let ready = false
+    const fail = (kind: MapFailureKind) => {
+      if (ready) return
+      window.clearTimeout(loadTimeout)
+      setMapFailure(kind)
+      setMapStatus('error')
+    }
+    const loadTimeout = window.setTimeout(() => {
+      if (!map.isStyleLoaded()) fail('timeout')
+    }, mapLoadTimeoutMs)
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right')
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left')
     const resizeObserver = new ResizeObserver(() => map.resize())
     resizeObserver.observe(container)
     map.on('load', () => {
+      ready = true
+      window.clearTimeout(loadTimeout)
       map.addSource('operator-zone-areas', {
         type: 'geojson',
         data: zonesToFeatureCollection(zonesRef.current),
@@ -183,20 +217,19 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
         })
       }
       syncRainMarkers(map, rainMarkers, zonesRef.current)
-      fitMapToZones(map, zonesRef.current)
+      fitMapForView(map, zonesRef.current, viewRef.current)
       setMapStatus('ready')
     })
-    map.on('error', () => {
-      if (!map.isStyleLoaded()) setMapStatus('error')
-    })
+    map.on('error', (event) => fail(classifyMapFailure(event.error)))
     return () => {
+      window.clearTimeout(loadTimeout)
       resizeObserver.disconnect()
       for (const marker of rainMarkers.values()) marker.remove()
       rainMarkers.clear()
       mapRef.current = null
       map.remove()
     }
-  }, [onZoneSelect])
+  }, [onZoneSelect, retryAttempt])
 
   useEffect(() => {
     const map = mapRef.current
@@ -242,13 +275,9 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map?.isStyleLoaded()) return
-    if (view === 'core') {
-      fitMapToZones(map, zonesForMapView(zones, view), 650, 12)
-      return
-    }
-    fitMapToZones(map, zones, 650)
-  }, [view, zones])
+    if (!map?.isStyleLoaded() || mapStatus !== 'ready') return
+    fitMapForView(map, zones, view, 650)
+  }, [mapStatus, view, zones])
 
   useEffect(() => {
     const map = mapRef.current
@@ -268,6 +297,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
         <div>
           <p className="font-semibold text-ink">Chưa cấu hình Mapbox</p>
           <p className="mt-1 text-sm text-muted">Thêm public token vào VITE_MAPBOX_ACCESS_TOKEN.</p>
+          <p className="mt-3 text-xs text-muted">Khu vực vẫn là vùng đại diện AI zone, không phải ranh giới hành chính.</p>
         </div>
       </div>
     )
@@ -288,7 +318,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
       </div>
       <MapLegend layer={layer} />
       {mapStatus === 'idle' && <div className="pointer-events-none absolute inset-0 grid place-items-center bg-sky-50/80 text-sm text-muted">Đang tải bản đồ…</div>}
-      {mapStatus === 'error' && <div className="absolute inset-x-4 top-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">Không thể tải dữ liệu bản đồ. Kiểm tra token hoặc kết nối mạng.</div>}
+      {mapStatus === 'error' && <div className="absolute inset-x-4 top-4 z-10 flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><span>{mapFailureCopy(mapFailure ?? 'unknown')}</span><button className="btn btn-secondary shrink-0" onClick={() => { setMapFailure(null); setMapStatus('idle'); setRetryAttempt((value) => value + 1) }} type="button">Thử lại bản đồ</button></div>}
     </div>
   )
 }
@@ -324,6 +354,11 @@ function fitMapToZones(map: mapboxgl.Map, zones: readonly Zone[], duration = 0, 
   if (!centers.length) return
   const bounds = centers.reduce((current, center) => current.extend(center), new mapboxgl.LngLatBounds(centers[0], centers[0]))
   map.fitBounds(bounds, { padding: 58, duration, maxZoom })
+}
+
+function fitMapForView(map: mapboxgl.Map, zones: readonly Zone[], view: OperatorMapView, duration = 0) {
+  const visibleZones = zonesForMapView(zones, view)
+  fitMapToZones(map, visibleZones, duration, view === 'core' ? 12 : 10.7)
 }
 
 function MapLegend({ layer }: { layer: OperatorMapLayer }) {
@@ -366,7 +401,7 @@ function MapLegend({ layer }: { layer: OperatorMapLayer }) {
       ))}
       <p>
         <b className="nf-legend-area" />
-        Vòng mờ: diện tích thật
+        Vùng mờ: khu vực đại diện AI, không phải ranh giới hành chính
       </p>
       <p>
         <b className="nf-legend-rain">☁</b>Icon mưa: zone ≥ 0,3 mm/h

@@ -39,6 +39,7 @@ export function createRevisionRequest(plan: Proposal, quantities: MoveQuantities
     .filter((move) => (quantities[move.id] ?? move.quantity) !== move.quantity)
     .map((move) => `${move.sourceZoneLabel}→${move.targetZoneLabel}: ${move.quantity}→${quantities[move.id] ?? move.quantity}`)
   return {
+    expectedVersion: plan.version,
     moveQuantities: quantities,
     moveSourceZoneIds: Object.fromEntries(plan.moves.map((move) => [move.id, move.sourceZoneId])),
     targetDriverCount: plan.targetDriverCount,

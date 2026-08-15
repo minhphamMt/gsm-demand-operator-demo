@@ -6,7 +6,7 @@
 # Đặc tả: docs/design/DATA_CONTRACT.md §5 · Task: T0.1
 # Mọi giá trị `verified: false` là ĐỀ XUẤT của tài liệu, chưa được Data/BA/PM chốt —
 # tra mã `assumption` trong ASSUMPTION register (DATA_CONTRACT.md §8) để biết ai duyệt, hạn nào.
-version: "1.0"
+version: "1.1"
 frozen_at: "2026-08-08" # I-08 — sau mốc này chỉ thêm key mới, không đổi ngữ nghĩa key cũ
 
 rules:
@@ -209,3 +209,30 @@ derived:
   rain_travel_factor: # §5.4 "nhân hệ số 1.3–1.5 khi rain vượt ngưỡng"
     moderate: 1.3 # rain_threshold ≤ rain < heavy
     heavy: 1.5 # rain ≥ heavy
+
+# ---- Pricing research do trưởng nhóm cung cấp ngày 2026-08-14 ----
+# Khối này KHÔNG thuộc 19 ngưỡng vận hành phía trên và price_index vẫn KHÔNG được dùng
+# làm feature Model 1/2. Tất cả giá trị tiền/commission là giả định cho MVP mock;
+# không dùng cho demo/báo cáo chính thức hoặc settlement thật khi chưa có PM/BA xác nhận.
+pricing:
+  version: "draft-v1"
+  status: "assumption"
+  approved_scope: "MVP mock and synthetic data generation only"
+  customer_driver:
+    base_fare_first_2km_vnd: 27000
+    fare_per_km_after_2km_vnd: 9000
+    surge_base_multiplier: 1.0
+    surge_gap_ratio_cap: 1.0
+    surge_gap_ratio_weight: 0.5
+    surge_min_multiplier: 1.0
+    surge_max_multiplier: 2.0
+    formula: "price_index = clip(1.0 + min(1.0, gap_ratio) * 0.5, 1.0, 2.0)"
+    gap_ratio_definition: "max(0, demand_observed - idle_supply) / demand_observed"
+  business_driver:
+    commission_rate_car: 0.25
+    driver_payout_formula: "driver_payout = final_fare * (1 - commission_rate_car)"
+    platform_revenue_formula: "platform_revenue = final_fare * commission_rate_car"
+  provenance:
+    source: "Leader-provided pricing_policy_draft.yaml"
+    benchmark: "Public Grab/Be/Gojek market references supplied by the team"
+    limitation: "Assumption only; no real acceptance, transaction, tax or settlement data"

@@ -35,7 +35,7 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
       <div>
         <small>BẢNG CHI TIẾT · {hasDirectMoves ? `${preview.activeMoves} LƯỢT CHUYỂN` : 'KHÔNG CÓ LỜI GIẢI ĐIỀU CHUYỂN'}</small>
         <strong>{plan.status === 'Approved' ? 'Đã phê duyệt' : `Phương án đề xuất · v${plan.version}`}</strong>
-        <p>{plan.status === 'Approved' ? 'Chưa có lệnh nào được phát. Thực hiện là một thao tác riêng.' : 'Điều chỉnh số xe, lưu phiên bản mới rồi phê duyệt.'}</p>
+        <p>Chế độ: {plan.planMode === 'ACTIVATION_ONLY' ? 'chỉ activation' : plan.planMode === 'HYBRID' ? 'điều chuyển kết hợp activation' : 'điều chuyển'} · {plan.status === 'Approved' ? 'chưa có lệnh nào được phát. Thực hiện là một thao tác riêng.' : 'điều chỉnh số xe, lưu phiên bản mới rồi phê duyệt.'}</p>
       </div>
       <button aria-label="Đóng bảng chi tiết" onClick={onClose} type="button"><X size={17} /></button>
     </header>
@@ -62,6 +62,14 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
       <div className="nf-policy-tags">
         {plan.policyChecks.map((check) => <span className={check.passed ? 'pass' : 'fail'} key={check.id}>{check.passed ? '✓' : '!'} {check.label}</span>)}
       </div>
+      {(plan.forecastRunId || plan.modelInputId) && <>
+        <h3>TRUY XUẤT QUYẾT ĐỊNH</h3>
+        <dl className="nf-assumptions">
+          <dt>ForecastRun</dt><dd>{plan.forecastRunId ?? 'Không xác định'}</dd>
+          <dt>Model input</dt><dd>{plan.modelInputId ?? 'Không xác định'}</dd>
+          <dt>Snapshot</dt><dd>{plan.inputSnapshotId}</dd>
+        </dl>
+      </>}
       {plan.warnings.length > 0 && <>
         <h3>CẢNH BÁO CHÍNH SÁCH</h3>
         {plan.warnings.map((warning) => <p className="nf-warning" key={warning.id}>! {warning.title}: {warning.detail}</p>)}

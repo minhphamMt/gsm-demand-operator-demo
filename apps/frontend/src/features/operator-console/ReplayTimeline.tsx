@@ -65,5 +65,5 @@ export function ReplayTimeline({ hasError = false, isLoading, onSourceChange, se
 }
 
 function formatTime(sourceAt: string) {
-  return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }).format(new Date(sourceAt))
+  return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(sourceAt))
 }

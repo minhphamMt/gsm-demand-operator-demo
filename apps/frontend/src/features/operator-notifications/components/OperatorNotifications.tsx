@@ -3,21 +3,37 @@ import { Bell, CheckCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 
-import { campaignsQuery, offersQuery, plansQuery } from '@/features/operator-data'
+import { campaignsQuery, notificationsQuery, offersQuery, plansQuery, useOperatorActions } from '@/features/operator-data'
 import { buildOperatorNotifications, type OperatorNotification } from '@/features/operator-notifications/model/operatorNotifications'
 import { IconButton } from '@/shared/components/ui/IconButton'
+import { env } from '@/shared/config/env'
+import { routes } from '@/shared/config/routes'
 
 export function OperatorNotifications() {
   const plans = useQuery(plansQuery())
   const campaigns = useQuery(campaignsQuery())
   const offers = useQuery(offersQuery())
+  const persisted = useQuery(notificationsQuery())
+  const actions = useOperatorActions()
   const [isOpen, setOpen] = useState(false)
   const [readIds, setReadIds] = useState<ReadonlySet<string>>(() => new Set())
 
-  const notifications: OperatorNotification[] = buildOperatorNotifications(plans.data ?? [], campaigns.data ?? [], offers.data ?? [])
-  const unreadCount = notifications.filter((notification) => !readIds.has(notification.id)).length
-  const markRead = (id: string) => setReadIds((current) => new Set([...current, id]))
-  const markAllRead = () => setReadIds(new Set(notifications.map((notification) => notification.id)))
+  const derived: OperatorNotification[] = buildOperatorNotifications(plans.data ?? [], campaigns.data ?? [], offers.data ?? [])
+  const notifications: OperatorNotification[] = env.isLiveData
+    ? (persisted.data ?? []).map((notification) => ({
+        id: notification.id,
+        message: notification.message,
+        path: notification.entityType === 'proposal' && notification.entityId ? routes.operator.planDetail(notification.entityId) : routes.operator.root,
+        tone: notification.severity === 'CRITICAL' ? 'rose' : notification.severity === 'WARNING' ? 'amber' : 'sky',
+      }))
+    : derived
+  const persistedStatus = new Map((persisted.data ?? []).map((notification) => [notification.id, notification.status]))
+  const isRead = (id: string) => env.isLiveData ? persistedStatus.get(id) !== 'UNREAD' : readIds.has(id)
+  const unreadCount = notifications.filter((notification) => !isRead(notification.id)).length
+  const markRead = (id: string) => env.isLiveData ? actions.acknowledgeNotification.mutate(id) : setReadIds((current) => new Set([...current, id]))
+  const markAllRead = () => env.isLiveData
+    ? (persisted.data ?? []).filter((notification) => notification.status === 'UNREAD').forEach((notification) => actions.acknowledgeNotification.mutate(notification.id))
+    : setReadIds(new Set(notifications.map((notification) => notification.id)))
 
   return (
     <div className="relative">
@@ -31,11 +47,11 @@ export function OperatorNotifications() {
             <p className="font-semibold">Thông báo vận hành</p>
             {unreadCount > 0 && <button className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700" type="button" onClick={markAllRead}><CheckCheck className="size-3.5" />Đã đọc tất cả</button>}
           </div>
-          <p className="mt-1 text-xs text-slate-500">Trạng thái đã đọc chỉ được lưu trong phiên hiện tại.</p>
+          <p className="mt-1 text-xs text-slate-500">{env.isLiveData ? 'Trạng thái đọc/xác nhận được lưu trong DB và có chủ sở hữu.' : 'Demo lưu trạng thái đọc trong phiên hiện tại.'}</p>
           <div className="mt-3 space-y-2 text-sm">
             {notifications.map((notification) => (
               <Link
-                className={`block rounded-lg p-3 ${toneClasses[notification.tone]} ${readIds.has(notification.id) ? 'opacity-60' : ''}`}
+                className={`block rounded-lg p-3 ${toneClasses[notification.tone]} ${isRead(notification.id) ? 'opacity-60' : ''}`}
                 key={notification.id}
                 to={notification.path}
                 onClick={() => { markRead(notification.id); setOpen(false) }}

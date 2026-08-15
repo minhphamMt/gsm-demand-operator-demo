@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_OPERATOR_REPLAY_SOURCE_AT } from './defaultReplay'
+import { currentOperatorReplaySourceAt } from './defaultReplay'
 
 describe('default operator replay', () => {
-  it('starts at the selected rainy morning bucket on the five-minute grid', () => {
-    const sourceAt = new Date(DEFAULT_OPERATOR_REPLAY_SOURCE_AT)
-    expect(sourceAt.getMinutes() % 5).toBe(0)
-    expect(new Intl.DateTimeFormat('en-GB', {
-      hour: '2-digit',
-      hourCycle: 'h23',
-      timeZone: 'Asia/Ho_Chi_Minh',
-    }).format(sourceAt)).toBe('08')
+  it('uses the current Hanoi time rounded down to the latest five-minute bucket', () => {
+    expect(currentOperatorReplaySourceAt(new Date('2026-08-15T09:48:00.000Z')))
+      .toBe('2026-09-30T16:45:00+07:00')
+  })
+
+  it('keeps midnight buckets inside the frozen replay dataset day', () => {
+    expect(currentOperatorReplaySourceAt(new Date('2026-08-14T17:02:00.000Z')))
+      .toBe('2026-09-30T00:00:00+07:00')
   })
 })

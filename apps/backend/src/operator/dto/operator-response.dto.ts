@@ -18,10 +18,10 @@ class ZoneDto {
   @ApiProperty({ enum: ['live', 'missing'], example: 'live' }) dataStatus: string;
   @ApiProperty({ example: [105.79, 21.03], type: [Number] }) center: number[] | null;
   @ApiProperty({ example: [[105.78, 21.02], [105.80, 21.02], [105.79, 21.04]] }) boundary: number[][];
-  @ApiProperty({ example: 12 }) supply: number;
-  @ApiProperty({ example: 25 }) demand: number;
-  @ApiProperty({ example: 13 }) gap: number;
-  @ApiProperty({ enum: ['Low', 'Medium', 'High', 'Critical'], example: 'High' }) severity: string;
+  @ApiProperty({ example: 12, nullable: true, description: 'Null when the zone observation is missing; zero is a real observed value.' }) supply: number | null;
+  @ApiProperty({ example: 25, nullable: true, description: 'Null when the zone observation is missing; zero is a real observed value.' }) demand: number | null;
+  @ApiProperty({ example: 13, nullable: true, description: 'Null when the zone observation is missing.' }) gap: number | null;
+  @ApiProperty({ enum: ['Low', 'Medium', 'High', 'Critical', 'Unknown'], example: 'High' }) severity: string;
   @ApiProperty({ example: null, nullable: true, type: Number }) confidence: number | null;
   @ApiProperty({ example: 25 }) forecast15: number;
   @ApiProperty({ example: 25 }) forecast30: number;
@@ -36,6 +36,42 @@ class HotspotDto {
   @ApiProperty({ example: 'supply_shortage' }) reason: string;
   @ApiProperty({ example: 0 }) etaMinutes: number;
   @ApiProperty({ example: true }) isPersistent: boolean;
+  @ApiProperty({ example: 'hotspot-gap-v1' }) policyVersion: string;
+  @ApiProperty({ enum: ['Low', 'Medium', 'High', 'Critical'], example: 'High' }) severity: string;
+  @ApiProperty({ example: 6, description: 'Gap threshold that qualified this hotspot, including an applicable hysteresis exit threshold.' }) threshold: number;
+  @ApiProperty({ example: ['HIGH_DEMAND_GAP', 'SUPPLY_SHORTAGE'], type: [String] }) reasonCodes: string[];
+  @ApiProperty({ example: { demand: 13, supply: 2, gap: 11 } }) contributingFeatures: { demand: number; supply: number; gap: number };
+  @ApiPropertyOptional({ format: 'uuid' }) forecastRunId?: string;
+}
+
+class ForecastRunDto {
+  @ApiProperty({ format: 'uuid' }) id: string;
+  @ApiProperty({ enum: [5, 15, 30] }) horizonMinutes: number;
+  @ApiProperty({ enum: ['COMPLETED', 'FALLBACK'] }) status: string;
+  @ApiProperty() modelVersion: string;
+  @ApiProperty() featureVersion: string;
+  @ApiProperty() policyVersion: string;
+  @ApiProperty({ description: 'SHA-256 provenance hash for the inference input.' }) inputHash: string;
+  @ApiProperty() forecastMode: string;
+  @ApiProperty() dataSource: string;
+  @ApiProperty({ format: 'date-time' }) forecastAt: string;
+  @ApiProperty({ format: 'date-time' }) completedAt: string;
+  @ApiProperty({ example: 30 }) zoneCount: number;
+}
+
+class AiSnapshotDto {
+  @ApiProperty({ example: 'AI_ZONE_1_30' }) zoneContract: string;
+  @ApiProperty({ example: 30 }) registeredZones: number;
+  @ApiProperty({ example: 30 }) liveZones: number;
+  @ApiProperty({ example: 30 }) forecastedZones: number;
+  @ApiProperty({ type: [Number], example: [5, 15, 30] }) horizons: number[];
+  @ApiProperty({ type: [ForecastRunDto] }) forecastRuns: ForecastRunDto[];
+  @ApiProperty({ nullable: true }) modelVersion: string | null;
+  @ApiProperty({ nullable: true }) forecastMode: string | null;
+  @ApiProperty({ nullable: true }) dataSource: string | null;
+  @ApiProperty({ nullable: true, format: 'date-time' }) forecastAt: string | null;
+  @ApiProperty({ nullable: true, format: 'uuid' }) forecastRunId: string | null;
+  @ApiProperty({ nullable: true, enum: ['COMPLETED', 'FALLBACK'] }) forecastStatus: string | null;
 }
 
 export class SnapshotResponseDto {
@@ -48,6 +84,7 @@ export class SnapshotResponseDto {
   @ApiProperty({ type: [ZoneDto] }) zones: ZoneDto[];
   @ApiProperty({ type: [HotspotDto] }) hotspots: HotspotDto[];
   @ApiProperty({ type: SnapshotKpiDto }) kpis: SnapshotKpiDto;
+  @ApiProperty({ type: AiSnapshotDto }) ai: AiSnapshotDto;
 }
 
 export class BaselineResponseDto {
@@ -113,6 +150,10 @@ export class ProposalResponseDto {
   @ApiProperty({ enum: ['Generated', 'UnderReview', 'Approved', 'Rejected', 'Stale', 'FailedGeneration'], example: 'UnderReview' }) status: string;
   @ApiProperty({ example: '2026-08-09T08:30:00.000Z', format: 'date-time' }) createdAt: string;
   @ApiProperty({ example: 1 }) version: number;
+  @ApiProperty({ example: 'sha256' }) contentHash: string;
+  @ApiProperty({ nullable: true, example: 'sha256' }) approvedContentHash: string | null;
+  @ApiProperty({ nullable: true, example: 1 }) approvedVersion: number | null;
+  @ApiProperty({ nullable: true, format: 'uuid' }) optimizerRunId: string | null;
   @ApiProperty({ example: 1 }) rank: number;
   @ApiProperty({ example: 'normal' }) scenarioId: string;
   @ApiProperty({ enum: ['MOCK', 'RULE_BASED', 'AGENT', 'MANUAL'], example: 'RULE_BASED' }) generatorType: string;
@@ -181,6 +222,12 @@ class OperationsReportSummaryDto {
   @ApiProperty({ example: 250000 }) rewardQualifiedVnd: number;
   @ApiProperty({ description: 'Only SIMULATED_PAID reward ledger entries.', example: 150000 }) rewardPaidVnd: number;
   @ApiProperty({ example: 250000 }) budgetUsedVnd: number;
+  @ApiProperty({ example: 450000 }) reservedVnd: number;
+  @ApiProperty({ example: 250000 }) committedVnd: number;
+  @ApiProperty({ example: 200000 }) qualifiedVnd: number;
+  @ApiProperty({ example: 150000 }) paidVnd: number;
+  @ApiProperty({ example: 50000 }) compensationDueVnd: number;
+  @ApiProperty({ example: 200000 }) releasedVnd: number;
   @ApiProperty({ example: 0 }) rewardBudgetDeltaVnd: number;
   @ApiProperty({ example: 12 }) auditEvents: number;
   @ApiProperty({ nullable: true, example: null, description: 'Unavailable until an incremental revenue ledger exists.' }) netCostVnd: number | null;
@@ -200,6 +247,7 @@ class OperationsReportSourcesDto {
   @ApiProperty() rewardQualifiedVnd: string;
   @ApiProperty() rewardPaidVnd: string;
   @ApiProperty() budgetUsedVnd: string;
+  @ApiProperty() budgetLifecycle: string;
   @ApiProperty() auditEvents: string;
   @ApiProperty({ nullable: true, example: null }) netCostVnd: string | null;
 }
@@ -258,6 +306,10 @@ export class AuditEntryResponseDto {
   @ApiProperty({ example: 'OPERATOR' }) actor: string;
   @ApiProperty({ example: 'OPERATOR' }) actorType: string;
   @ApiPropertyOptional({ example: '05c42d43-4125-403f-a7ee-6403c887b54c', format: 'uuid' }) actorId?: string | null;
+  @ApiProperty({ nullable: true, example: 'request-42' }) requestId: string | null;
+  @ApiProperty({ nullable: true, example: 'correlation-42' }) correlationId: string | null;
+  @ApiProperty({ nullable: true, example: 2 }) entityVersion: number | null;
+  @ApiProperty({ nullable: true, example: 'sha256' }) entityHash: string | null;
   @ApiProperty({ example: '2026-08-09T08:30:00.000Z', format: 'date-time' }) occurredAt: string;
   @ApiProperty({ example: 'Proposal approved after policy review.' }) detail: string;
 }
@@ -270,4 +322,42 @@ export class AuditPageResponseDto {
   @ApiProperty({ example: 6 }) totalPages: number;
   @ApiProperty({ example: false }) hasPreviousPage: boolean;
   @ApiProperty({ example: true }) hasNextPage: boolean;
+  @ApiProperty({ nullable: true, example: 'opaque-cursor' }) nextCursor: string | null;
+}
+
+export class OperatorCapabilitiesResponseDto {
+  @ApiProperty({ example: '2026-08-15T10:00:00.000Z', format: 'date-time' }) serverTime: string;
+  @ApiProperty({ example: 'Asia/Ho_Chi_Minh' }) timezone: string;
+  @ApiProperty({ type: 'object', additionalProperties: true }) capabilities: Record<string, unknown>;
+}
+
+export class DispatchMoveResponseDto {
+  @ApiProperty({ format: 'uuid' }) id: string;
+  @ApiProperty({ example: 'move-1' }) sourceMoveKey: string;
+  @ApiProperty({ example: 6 }) sourceZoneId: number;
+  @ApiProperty({ example: 2 }) targetZoneId: number;
+  @ApiProperty({ example: 5 }) plannedUnits: number;
+  @ApiProperty({ example: 3 }) acknowledgedUnits: number;
+  @ApiProperty({ example: 2 }) arrivedUnits: number;
+  @ApiProperty({ example: 2 }) availableUnits: number;
+  @ApiProperty({ example: 0 }) failedUnits: number;
+  @ApiProperty({ example: 'EN_ROUTE' }) state: string;
+}
+
+export class DispatchBatchResponseDto {
+  @ApiProperty({ format: 'uuid' }) id: string;
+  @ApiProperty({ format: 'uuid' }) proposalId: string;
+  @ApiProperty({ example: 2 }) proposalVersion: number;
+  @ApiProperty({ example: 'sha256' }) approvedContentHash: string;
+  @ApiProperty({ example: 'IN_PROGRESS' }) status: string;
+  @ApiProperty({ type: [DispatchMoveResponseDto] }) moves: DispatchMoveResponseDto[];
+  @ApiProperty({ type: 'array', items: { type: 'object', additionalProperties: true } }) reconciliations: Record<string, unknown>[];
+  @ApiProperty({ format: 'date-time' }) releasedAt: string;
+}
+
+export class ScenarioComparisonResponseDto {
+  @ApiProperty({ format: 'uuid' }) id: string;
+  @ApiProperty({ example: 'sha256' }) commonInputHash: string;
+  @ApiProperty({ type: 'array', items: { type: 'object', additionalProperties: true } }) scenarios: Record<string, unknown>[];
+  @ApiProperty({ example: false }) hasObservedRevenue: boolean;
 }

@@ -25,9 +25,9 @@ export function ZoneDetailsDialog({ forecastMinutes, onClose, zone }: ZoneDetail
         </div>
         {zone.dataStatus === 'missing' && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Zone đã được tạo trong DB nhưng chưa có observation live. AI sẽ không chạy cho đến khi đủ dữ liệu thật của cả 30 zone.</div>}
         <dl className="grid grid-cols-3 gap-2.5">
-          <Metric label="Xe sẵn sàng" value={formatNumber(zone.supply)} />
-          <Metric label="Nhu cầu" value={formatNumber(zone.demand)} />
-          <Metric emphasis label="Thiếu hụt" value={zone.gap > 0 ? `-${formatNumber(zone.gap)}` : '0'} />
+          <Metric label="Xe sẵn sàng" value={zone.supply === null ? 'N/A' : formatNumber(zone.supply)} />
+          <Metric label="Nhu cầu" value={zone.demand === null ? 'N/A' : formatNumber(zone.demand)} />
+          <Metric emphasis label="Thiếu hụt" value={zone.gap === null ? 'N/A' : zone.gap > 0 ? `-${formatNumber(zone.gap)}` : '0'} />
         </dl>
         {demandRange && supplyRange && <div className="grid grid-cols-2 gap-2 rounded-xl border border-cyan-100 bg-cyan-50 p-3 text-xs text-cyan-900"><div><span className="block text-cyan-700">Khoảng cầu p10–p90</span><strong className="mt-1 block">{formatNumber(demandRange[0])}–{formatNumber(demandRange[1])}</strong></div><div><span className="block text-cyan-700">Khoảng cung p10–p90</span><strong className="mt-1 block">{formatNumber(supplyRange[0])}–{formatNumber(supplyRange[1])}</strong></div></div>}
         <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-3"><div><p className="text-xs text-muted">Mức độ ưu tiên</p><p className="mt-1 text-sm font-semibold text-ink">Đánh giá theo chênh lệch cung — cầu</p></div><SeverityBadge severity={zone.severity} /></div>

@@ -1,12 +1,17 @@
 import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 
 import { SupabaseService } from '../supabase/supabase.service';
+import { assertNoActiveExecution } from './active-execution.guard';
 import { buildRevisedSourcePlan } from './revision-source-plan';
+import { deriveHotspots } from './hotspot-policy';
 import { calculateSnapshotKpis, mapAiZone } from './snapshot.mapper';
 import {
   ActivateProposalDto,
   ApproveProposalDto,
   AuditQueryDto,
+  CancelCampaignDto,
+  DispatchEventDto,
   DriverStatusDto,
   OfferResponseDto,
   OperationsReportQueryDto,
@@ -47,6 +52,47 @@ const canonicalAuditEntity = (entityType: string) => Object.entries(auditEntityA
 export class OperatorService {
   constructor(private readonly db: SupabaseService) {}
 
+  async capabilities() {
+    const enabled = (name: string, defaultValue: boolean) => {
+      const value = process.env[name];
+      return value === undefined ? defaultValue : value.toLowerCase() === 'true';
+    };
+    const { error: databaseError } = await this.db.client.from('profiles').select('id').limit(1);
+    return {
+      serverTime: new Date().toISOString(),
+      timezone: 'Asia/Ho_Chi_Minh',
+      health: { api: 'UP', database: databaseError ? 'DEGRADED' : 'UP', ai: 'AVAILABLE', map: 'CLIENT' },
+      capabilities: {
+        forecastHorizons: { available: true, enabled: true, values: [5, 15, 30] },
+        proposalReview: { available: true, enabled: true },
+        dispatchRelease: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },
+        dispatchReconciliation: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },
+        activationRelease: { available: true, enabled: enabled('OPERATOR_ACTIVATION_ENABLED', true) },
+        compensationSettlement: { available: true, enabled: enabled('OPERATOR_SETTLEMENT_ENABLED', false) },
+        scenarioComparison: { available: true, enabled: true },
+      },
+    };
+  }
+
+  async operatorContext(operatorId: string) {
+    const now = new Date().toISOString();
+    const [scopeResult, shiftResult] = await Promise.all([
+      this.db.client.from('operator_scopes').select('*').eq('operator_id', operatorId)
+        .lte('valid_from', now).or(`valid_until.is.null,valid_until.gt.${now}`).order('valid_from', { ascending: false }).limit(1).maybeSingle(),
+      this.db.client.from('operator_shifts').select('*').eq('operator_id', operatorId)
+        .in('status', ['ACTIVE', 'HANDOVER']).lte('starts_at', now).gte('ends_at', now).order('starts_at', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (scopeResult.error) this.db.unwrap(null, scopeResult.error);
+    if (shiftResult.error) this.db.unwrap(null, shiftResult.error);
+    let tasks: any[] = [];
+    if (shiftResult.data?.id) {
+      const result = await this.db.client.from('handover_tasks').select('*')
+        .eq('shift_id', shiftResult.data.id).in('status', ['OPEN', 'ACKNOWLEDGED']).order('created_at');
+      tasks = this.db.unwrap(result.data, result.error);
+    }
+    return { operatorId, serverTime: now, timezone: 'Asia/Ho_Chi_Minh', scope: scopeResult.data, shift: shiftResult.data, handoverTasks: tasks };
+  }
+
   async latestSnapshot(query: SnapshotQueryDto = {}) {
     this.validateSnapshotWindow(query);
     let snapshotQuery = this.db.client
@@ -84,7 +130,11 @@ export class OperatorService {
   private async mapSnapshot(snapshot: any, query: SnapshotQueryDto) {
     let observationsQuery = this.db.client.from('ai_zone_observations').select('*').eq('snapshot_id', snapshot.id);
     const aiZoneQuery = this.db.client.from('ai_zone_registry_api_v').select('*').eq('is_active', true).order('zone_id');
-    let forecastQuery = this.db.client.from('ai_zone_forecasts').select('*').eq('snapshot_id', snapshot.id);
+    let forecastQuery = this.db.client
+      .from('ai_zone_forecasts')
+      .select('*,forecast_runs!inner(id,status,completed_at,started_at,model_version,feature_version,policy_version,input_hash,forecast_mode,data_source,error_code,error_message)')
+      .eq('snapshot_id', snapshot.id)
+      .in('forecast_runs.status', ['COMPLETED', 'FALLBACK']);
     if (query.zoneId) {
       observationsQuery = observationsQuery.eq('zone_id', query.zoneId);
       forecastQuery = forecastQuery.eq('zone_id', query.zoneId);
@@ -103,8 +153,32 @@ export class OperatorService {
     this.db.unwrap(aiZones, aiZonesError);
 
     const observationsByZone = new Map((observations ?? []).map((observation: any) => [Number(observation.zone_id), observation]));
-    const forecastsByZone = new Map<number, { horizon5?: any; horizon15?: any; horizon30?: any }>();
+    const registeredZoneCount = (aiZones ?? []).length;
+    const forecastRunsById = new Map<string, { forecasts: any[]; horizon: number; run: any; zoneIds: Set<number> }>();
     for (const forecast of forecasts ?? []) {
+      const runId = String(forecast.forecast_run_id);
+      const current = forecastRunsById.get(runId) ?? {
+        forecasts: [],
+        horizon: Number(forecast.horizon_min),
+        run: forecast.forecast_runs,
+        zoneIds: new Set<number>(),
+      };
+      current.forecasts.push(forecast);
+      current.zoneIds.add(Number(forecast.zone_id));
+      forecastRunsById.set(runId, current);
+    }
+    const latestRunByHorizon = new Map<number, { forecasts: any[]; horizon: number; run: any; zoneIds: Set<number> }>();
+    for (const candidate of forecastRunsById.values()) {
+      const current = latestRunByHorizon.get(candidate.horizon);
+      const currentTime = new Date(current?.run?.completed_at ?? 0).getTime();
+      const candidateTime = new Date(candidate.run?.completed_at ?? 0).getTime();
+      if (!current || candidateTime > currentTime) latestRunByHorizon.set(candidate.horizon, candidate);
+    }
+    const selectedRuns = [...latestRunByHorizon.values()]
+      .filter((candidate) => candidate.zoneIds.size === registeredZoneCount);
+    const latestForecasts = selectedRuns.flatMap((candidate) => candidate.forecasts);
+    const forecastsByZone = new Map<number, { horizon5?: any; horizon15?: any; horizon30?: any }>();
+    for (const forecast of latestForecasts) {
       const current = forecastsByZone.get(Number(forecast.zone_id)) ?? {};
       if (Number(forecast.horizon_min) === 5) current.horizon5 = forecast;
       if (Number(forecast.horizon_min) === 15) current.horizon15 = forecast;
@@ -112,14 +186,25 @@ export class OperatorService {
       forecastsByZone.set(Number(forecast.zone_id), current);
     }
     const liveZoneIds = new Set((observations ?? []).filter((observation: any) => observation.data_status === 'live').map((observation: any) => Number(observation.zone_id)));
-    const forecastedZoneIds = new Set((forecasts ?? []).map((forecast: any) => Number(forecast.zone_id)));
-    const latestForecast = [...(forecasts ?? [])].sort((left: any, right: any) =>
-      new Date(right.forecast_at).getTime() - new Date(left.forecast_at).getTime())[0];
+    const forecastedZoneIds = new Set(latestForecasts.map((forecast: any) => Number(forecast.zone_id)));
+    const latestRun = [...selectedRuns].sort((left, right) =>
+      new Date(right.run?.completed_at ?? 0).getTime() - new Date(left.run?.completed_at ?? 0).getTime())[0];
+    const latestForecast = latestRun?.forecasts[0];
+    const previousSeverityByZone = latestRun
+      ? await this.previousHotspotSeverities(snapshot, latestRun.horizon, registeredZoneCount)
+      : new Map<string, 'High' | 'Critical'>();
     const replaySource = String((observations ?? [])[0]?.source_name ?? '');
     const replayPrefix = ['AI_PARQUET_REPLAY:', 'AI_BRANCH_TEST_REPLAY:']
       .find((prefix) => replaySource.startsWith(prefix));
     const sourceAt = replayPrefix ? replaySource.slice(replayPrefix.length) : snapshot.captured_at;
     const kpis = calculateSnapshotKpis(observations ?? []);
+    const derivedHotspots = deriveHotspots((latestRun?.forecasts ?? []).map((forecast: any) => ({
+      zoneId: `AI-Z${String(forecast.zone_id).padStart(2, '0')}`,
+      forecastRunId: latestRun?.run?.id ?? forecast.forecast_run_id,
+      demand: liveZoneIds.has(Number(forecast.zone_id)) ? Number(forecast.predicted_demand) : null,
+      previousSeverity: previousSeverityByZone.get(`AI-Z${String(forecast.zone_id).padStart(2, '0')}`),
+      supply: liveZoneIds.has(Number(forecast.zone_id)) ? Number(forecast.predicted_supply) : null,
+    })));
 
     const scenarioCode = String(snapshot.scenario_code ?? 'normal').toLowerCase();
     const regime = scenarioCode.startsWith('rain_peak') ? 'rain_peak'
@@ -135,25 +220,80 @@ export class OperatorService {
       regime,
       ai: {
         zoneContract: 'AI_ZONE_1_30',
-        registeredZones: (aiZones ?? []).length,
+        registeredZones: registeredZoneCount,
         liveZones: liveZoneIds.size,
         forecastedZones: forecastedZoneIds.size,
-        horizons: [...new Set((forecasts ?? []).map((forecast: any) => Number(forecast.horizon_min)))].sort(),
-        modelVersion: latestForecast?.model_version ?? null,
-        forecastMode: latestForecast?.forecast_mode ?? null,
-        dataSource: latestForecast?.data_source ?? null,
+        horizons: selectedRuns.map((candidate) => candidate.horizon).sort(),
+        forecastRuns: selectedRuns.map((candidate) => ({
+          id: candidate.run?.id ?? candidate.forecasts[0]?.forecast_run_id,
+          horizonMinutes: candidate.horizon,
+          status: candidate.run?.status ?? null,
+          modelVersion: candidate.run?.model_version ?? candidate.forecasts[0]?.model_version ?? null,
+          featureVersion: candidate.run?.feature_version ?? null,
+          policyVersion: candidate.run?.policy_version ?? null,
+          inputHash: candidate.run?.input_hash ?? null,
+          forecastMode: candidate.run?.forecast_mode ?? candidate.forecasts[0]?.forecast_mode ?? null,
+          dataSource: candidate.run?.data_source ?? candidate.forecasts[0]?.data_source ?? null,
+          forecastAt: candidate.forecasts[0]?.forecast_at ?? null,
+          completedAt: candidate.run?.completed_at ?? null,
+          zoneCount: candidate.zoneIds.size,
+        })),
+        modelVersion: latestRun?.run?.model_version ?? latestForecast?.model_version ?? null,
+        forecastMode: latestRun?.run?.forecast_mode ?? latestForecast?.forecast_mode ?? null,
+        dataSource: latestRun?.run?.data_source ?? latestForecast?.data_source ?? null,
         forecastAt: latestForecast?.forecast_at ?? null,
+        forecastRunId: latestRun?.run?.id ?? latestForecast?.forecast_run_id ?? null,
+        forecastStatus: latestRun?.run?.status ?? null,
       },
       zones: (aiZones ?? []).map((zone: any) => {
         return mapAiZone(zone, observationsByZone.get(Number(zone.zone_id)), forecastsByZone.get(Number(zone.zone_id)));
       }),
-      hotspots: [...forecastsByZone.entries()]
-        .map(([zoneId, value]) => ({ zoneId, forecast: value.horizon15 ?? value.horizon30 }))
-        .filter(({ forecast }) => Number(forecast?.predicted_demand ?? 0) > Number(forecast?.predicted_supply ?? 0))
-        .sort((left, right) => (Number(right.forecast.predicted_demand) - Number(right.forecast.predicted_supply)) - (Number(left.forecast.predicted_demand) - Number(left.forecast.predicted_supply)))
-        .map(({ zoneId }, index) => ({ zoneId: `AI-Z${String(zoneId).padStart(2, '0')}`, rank: index + 1, reason: 'ai_supply_gap', etaMinutes: 0, isPersistent: false })),
+      hotspots: derivedHotspots.map((hotspot) => ({
+        ...hotspot,
+        reason: hotspot.reasonCodes.join(','),
+        etaMinutes: 0,
+      })),
       kpis,
     };
+  }
+
+  private async previousHotspotSeverities(snapshot: any, horizon: number, registeredZoneCount: number) {
+    let previousSnapshotQuery = this.db.client
+      .from('supply_demand_snapshots')
+      .select('id')
+      .lt('id', snapshot.id)
+      .order('id', { ascending: false });
+    if (snapshot.scenario_code) previousSnapshotQuery = previousSnapshotQuery.eq('scenario_code', snapshot.scenario_code);
+    const { data: previousSnapshot, error: previousSnapshotError } = await previousSnapshotQuery.limit(1).maybeSingle();
+    if (previousSnapshotError) this.db.unwrap(null, previousSnapshotError);
+    if (!previousSnapshot) return new Map<string, 'High' | 'Critical'>();
+
+    const { data, error } = await this.db.client
+      .from('ai_zone_forecasts')
+      .select('*,forecast_runs!inner(id,status,completed_at)')
+      .eq('snapshot_id', previousSnapshot.id)
+      .eq('horizon_min', horizon)
+      .in('forecast_runs.status', ['COMPLETED', 'FALLBACK', 'SUPERSEDED']);
+    const forecasts = this.db.unwrap(data, error) ?? [];
+    const runs = new Map<string, { forecasts: any[]; completedAt: number; zoneIds: Set<number> }>();
+    for (const forecast of forecasts) {
+      const runId = String(forecast.forecast_run_id);
+      const current = runs.get(runId) ?? {
+        forecasts: [], completedAt: new Date(forecast.forecast_runs?.completed_at ?? 0).getTime(), zoneIds: new Set<number>(),
+      };
+      current.forecasts.push(forecast);
+      current.zoneIds.add(Number(forecast.zone_id));
+      runs.set(runId, current);
+    }
+    const latestComplete = [...runs.values()]
+      .filter((run) => run.zoneIds.size === registeredZoneCount)
+      .sort((left, right) => right.completedAt - left.completedAt)[0];
+    if (!latestComplete) return new Map<string, 'High' | 'Critical'>();
+    return new Map(deriveHotspots(latestComplete.forecasts.map((forecast: any) => ({
+      zoneId: `AI-Z${String(forecast.zone_id).padStart(2, '0')}`,
+      demand: Number(forecast.predicted_demand),
+      supply: Number(forecast.predicted_supply),
+    }))).map((hotspot) => [hotspot.zoneId, hotspot.severity] as const));
   }
 
   private validateSnapshotWindow(query: Pick<SnapshotQueryDto, 'from' | 'to'>) {
@@ -224,7 +364,7 @@ export class OperatorService {
   async reviseProposal(id: string, dto: ReviseProposalDto, actorId: string, requestId: string) {
     const { data: current, error: currentError } = await this.db.client
       .from('proposals')
-      .select('status,source_plan,window_end_at')
+      .select('id,input_snapshot_id,status,source_plan,version,window_end_at')
       .eq('id', id)
       .maybeSingle();
     if (currentError) this.db.unwrap(null, currentError);
@@ -235,6 +375,13 @@ export class OperatorService {
         message: 'Proposal was changed by another operator.',
       });
     }
+    if (Number(current.version) !== dto.expectedVersion) {
+      throw new ConflictException({
+        code: 'PROPOSAL_VERSION_CONFLICT',
+        message: 'Proposal was changed by another operator. Refresh before editing again.',
+      });
+    }
+    await this.assertProposalSnapshotCurrent(current, id);
     if (!current.window_end_at || new Date(current.window_end_at).getTime() <= Date.now()) {
       throw new ConflictException({
         code: 'STALE_PROPOSAL',
@@ -266,6 +413,7 @@ export class OperatorService {
       p_zone_trip_bonus: dto.zoneTripBonus,
       p_fare_multiplier: dto.fareMultiplier,
       p_budget_limit: dto.budgetLimit,
+      p_expected_version: dto.expectedVersion,
       p_note: dto.note ?? null,
       p_request_id: requestId,
     });
@@ -279,14 +427,30 @@ export class OperatorService {
     dto: ApproveProposalDto | RejectProposalDto,
     actorId: string,
     requestId: string,
+    idempotencyKey = requestId,
   ) {
+    // A retry may arrive after the first request has already changed the
+    // proposal status. In that case, let the database validate the stored
+    // command hash and replay its result before state validation sees a
+    // terminal proposal.
+    const { data: existingCommand, error: existingCommandError } = await this.db.client
+      .from('command_records')
+      .select('id')
+      .eq('actor_id', actorId)
+      .eq('command_type', 'PROPOSAL_REVIEW')
+      .eq('idempotency_key', idempotencyKey)
+      .maybeSingle();
+    if (existingCommandError) this.db.unwrap(null, existingCommandError);
+
     const { data: current, error: currentError } = await this.db.client
       .from('proposals')
-      .select('status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details,generator_type,parent_proposal_id,source_plan')
+      .select('id,input_snapshot_id,status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details,generator_type,parent_proposal_id,source_plan')
       .eq('id', id)
       .maybeSingle();
     if (currentError) this.db.unwrap(null, currentError);
     if (!current) throw new NotFoundException(`Proposal ${id} was not found`);
+    if (!existingCommand) {
+    if (status === 'APPROVED') await this.assertProposalSnapshotCurrent(current, id);
     const issue = proposalReviewIssue(current, status);
     if (issue?.kind === 'conflict') {
       throw new ConflictException({ code: issue.code, message: 'Proposal is stale or was changed by another operator.' });
@@ -298,6 +462,7 @@ export class OperatorService {
         message: 'Proposal policy check failed.',
       });
     }
+    }
     const { data, error } = await this.db.client.rpc('review_proposal', {
       p_proposal_id: id,
       p_actor_id: actorId,
@@ -305,6 +470,8 @@ export class OperatorService {
       p_note: dto.note ?? null,
       p_reason_code: 'reasonCode' in dto ? dto.reasonCode : null,
       p_request_id: requestId,
+      p_idempotency_key: idempotencyKey,
+      p_expected_version: dto.expectedVersion,
     });
     if (error) this.db.unwrap(null, error);
     return this.getProposal(String(data));
@@ -313,7 +480,7 @@ export class OperatorService {
   async activateProposal(id: string, dto: ActivateProposalDto, actorId: string, requestId: string) {
     const [{ data: proposal, error: proposalError }, { data: existingCampaign, error: existingCampaignError }] = await Promise.all([
       this.db.client.from('proposals')
-        .select('status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details,generator_type,parent_proposal_id,source_plan')
+        .select('id,input_snapshot_id,status,policy_status,window_end_at,bonus_amount,estimated_cost,target_driver_count,simulation_details,generator_type,parent_proposal_id,source_plan')
         .eq('id', id)
         .maybeSingle(),
       this.db.client.from('campaigns').select('id').eq('proposal_id', id).maybeSingle(),
@@ -327,6 +494,8 @@ export class OperatorService {
         message: 'Proposal already has a campaign.',
       });
     }
+    await assertNoActiveExecution(this.db, id);
+    await this.assertProposalSnapshotCurrent(proposal, id);
     if (!proposal.window_end_at || new Date(proposal.window_end_at).getTime() <= Date.now()) {
       throw new ConflictException({
         code: 'STALE_PROPOSAL',
@@ -352,6 +521,143 @@ export class OperatorService {
     const campaignId = typeof data === 'string' ? data : data?.campaign_id ?? data?.id;
     if (!campaignId) throw new UnprocessableEntityException('Activation did not return a campaign');
     return this.getCampaign(campaignId);
+  }
+
+  private async assertProposalSnapshotCurrent(proposal: any, proposalId: string) {
+    const inputSnapshotId = Number(proposal.input_snapshot_id);
+    if (!Number.isInteger(inputSnapshotId)) return;
+    const { data: latestSnapshot, error } = await this.db.client
+      .from('supply_demand_snapshots')
+      .select('id')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) this.db.unwrap(null, error);
+    if (!latestSnapshot || Number(latestSnapshot.id) === inputSnapshotId) return;
+    throw new ConflictException({
+      code: 'STALE_PROPOSAL',
+      message: `Proposal ${proposalId} uses an older snapshot; run the model again before continuing.`,
+    });
+  }
+
+  async releaseDispatch(id: string, actorId: string, requestId: string, idempotencyKey = requestId) {
+    if (process.env.OPERATOR_DISPATCH_ENABLED?.toLowerCase() !== 'true') {
+      throw new UnprocessableEntityException({
+        code: 'CAPABILITY_DISABLED',
+        message: 'Live dispatch is installed but disabled until the limited-dispatch gate is enabled.',
+      });
+    }
+    await assertNoActiveExecution(this.db, id);
+    const { data, error } = await this.db.client.rpc('release_dispatch_batch', {
+      p_proposal_id: id,
+      p_actor_id: actorId,
+      p_idempotency_key: idempotencyKey,
+      p_request_id: requestId,
+    });
+    if (error) this.db.unwrap(null, error);
+    return this.getDispatch(String(data));
+  }
+
+  async listDispatch() {
+    const { data, error } = await this.db.client.from('dispatch_batches').select('*').order('released_at', { ascending: false });
+    const batches = this.db.unwrap(data, error);
+    return Promise.all(batches.map((batch: any) => this.getDispatch(batch.id)));
+  }
+
+  async getDispatch(id: string) {
+    const [batchResult, moveResult, reconciliationResult] = await Promise.all([
+      this.db.client.from('dispatch_batches').select('*').eq('id', id).maybeSingle(),
+      this.db.client.from('dispatch_moves').select('*').eq('batch_id', id).order('created_at'),
+      this.db.client.from('reconciliations').select('*').eq('batch_id', id).order('revision', { ascending: false }),
+    ]);
+    if (batchResult.error) this.db.unwrap(null, batchResult.error);
+    if (!batchResult.data) throw new NotFoundException(`Dispatch batch ${id} was not found`);
+    const moves = this.db.unwrap(moveResult.data, moveResult.error);
+    const reconciliations = this.db.unwrap(reconciliationResult.data, reconciliationResult.error);
+    return {
+      id: batchResult.data.id,
+      proposalId: batchResult.data.proposal_id,
+      proposalVersion: batchResult.data.proposal_version,
+      approvedContentHash: batchResult.data.approved_content_hash,
+      status: batchResult.data.status,
+      releasedAt: batchResult.data.released_at,
+      requestId: batchResult.data.request_id,
+      moves: moves.map((move: any) => ({
+        id: move.id,
+        sourceMoveKey: move.source_move_key,
+        sourceZoneId: move.source_zone_id,
+        targetZoneId: move.target_zone_id,
+        plannedUnits: move.planned_units,
+        acknowledgedUnits: move.acknowledged_units,
+        arrivedUnits: move.arrived_units,
+        availableUnits: move.available_units,
+        failedUnits: move.failed_units,
+        state: move.state,
+        routeSource: move.route_source,
+        etaMinutes: Number(move.eta_minutes ?? 0),
+        distanceKm: Number(move.distance_km ?? 0),
+      })),
+      reconciliations: reconciliations.map((row: any) => ({
+        id: row.id,
+        revision: row.revision,
+        plannedUnits: row.planned_units,
+        acknowledgedUnits: row.acknowledged_units,
+        arrivedUnits: row.arrived_units,
+        availableUnits: row.available_units,
+        failedUnits: row.failed_units,
+        actualContribution: row.actual_contribution,
+        residualGap: row.residual_gap === null ? null : Number(row.residual_gap),
+        isSnapshotFresh: row.is_snapshot_fresh,
+        createdAt: row.created_at,
+      })),
+    };
+  }
+
+  async cancelDispatch(id: string, reason: string, actorId: string, requestId: string) {
+    const { data, error } = await this.db.client.rpc('cancel_dispatch_batch', {
+      p_batch_id: id,
+      p_actor_id: actorId,
+      p_reason: reason,
+      p_request_id: requestId,
+    });
+    if (error) this.db.unwrap(null, error);
+    return this.getDispatch(String(data));
+  }
+
+  async recordDispatchEvent(batchId: string, moveId: string, dto: DispatchEventDto, actorId: string, requestId: string) {
+    const { error } = await this.db.client.rpc('record_dispatch_event', {
+      p_batch_id: batchId,
+      p_move_id: moveId,
+      p_event_key: dto.eventKey,
+      p_event_type: dto.eventType,
+      p_units: dto.units,
+      p_occurred_at: dto.occurredAt,
+      p_source: dto.source,
+      p_payload: dto.payload ?? {},
+      p_request_id: requestId,
+      p_actor_id: actorId,
+    });
+    if (error) this.db.unwrap(null, error);
+    return this.getDispatch(batchId);
+  }
+
+  async retryDispatchMove(batchId: string, moveId: string, reason: string, actorId: string, requestId: string) {
+    const { data: move, error: moveError } = await this.db.client.from('dispatch_moves')
+      .select('planned_units,state').eq('id', moveId).eq('batch_id', batchId).maybeSingle();
+    if (moveError) this.db.unwrap(null, moveError);
+    if (!move) throw new NotFoundException(`Dispatch move ${moveId} was not found`);
+    if (move.state !== 'FAILED') {
+      throw new ConflictException({ code: 'DISPATCH_MOVE_NOT_RETRYABLE', message: 'Only a failed dispatch move can be retried.' });
+    }
+    return this.recordDispatchEvent(batchId, moveId, {
+      eventKey: `retry:${requestId}`,
+      eventType: 'RETRY_REQUESTED',
+      occurredAt: new Date().toISOString(),
+      payload: { reason },
+      source: 'operator-retry',
+      units: Number(move.planned_units),
+    }, actorId, requestId);
   }
 
   async listCampaigns() {
@@ -383,11 +689,12 @@ export class OperatorService {
     const campaignIds = campaignRows.map((campaign: any) => campaign.id);
     if (!campaignIds.length) return buildOperationsReport([], [], [], [], []);
 
-    const [participationResult, tripResult, rewardResult, auditResult] = await Promise.all([
+    const [participationResult, tripResult, rewardResult, auditResult, ledgerResult] = await Promise.all([
       this.db.client.from('campaign_participations').select('campaign_id,status').in('campaign_id', campaignIds),
       this.db.client.from('trips').select('campaign_id,status').in('campaign_id', campaignIds),
       this.db.client.from('reward_records').select('campaign_id,status,amount').in('campaign_id', campaignIds),
       this.db.client.from('audit_logs').select('entity_id').in('entity_id', campaignIds),
+      this.db.client.from('budget_ledger_entries').select('campaign_id,entry_type,amount').in('campaign_id', campaignIds),
     ]);
     return buildOperationsReport(
       campaignRows,
@@ -395,6 +702,8 @@ export class OperatorService {
       this.db.unwrap(tripResult.data, tripResult.error),
       this.db.unwrap(rewardResult.data, rewardResult.error),
       this.db.unwrap(auditResult.data, auditResult.error),
+      undefined,
+      this.db.unwrap(ledgerResult.data, ledgerResult.error),
     );
   }
 
@@ -405,14 +714,141 @@ export class OperatorService {
     return campaign;
   }
 
-  async cancelCampaign(id: string, actorId: string, requestId: string) {
+  async cancelCampaign(id: string, dto: CancelCampaignDto, actorId: string, requestId: string) {
     const { error } = await this.db.client.rpc('cancel_campaign', {
       p_campaign_id: id,
       p_actor_id: actorId,
+      p_reason: dto.reason,
+      p_disposition: dto.disposition,
+      p_policy_version: dto.policyVersion,
       p_request_id: requestId,
     });
     if (error) this.db.unwrap(null, error);
     return this.getCampaign(id);
+  }
+
+  async compareScenarios(proposalId: string, actorId: string) {
+    const { data: proposal, error } = await this.db.client.from('proposals').select('*').eq('id', proposalId).maybeSingle();
+    if (error) this.db.unwrap(null, error);
+    if (!proposal) throw new NotFoundException(`Proposal ${proposalId} was not found`);
+    const forecastRunId = proposal.source_plan?.forecast_run_id;
+    if (!forecastRunId) {
+      throw new UnprocessableEntityException({ code: 'SCENARIO_INPUT_MISSING', message: 'Proposal has no immutable forecast run.' });
+    }
+    const { data: run, error: runError } = await this.db.client.from('forecast_runs').select('*').eq('id', forecastRunId).maybeSingle();
+    if (runError) this.db.unwrap(null, runError);
+    if (!run) throw new UnprocessableEntityException({ code: 'SCENARIO_INPUT_MISSING', message: 'Forecast run was not found.' });
+    const commonInputHash = createHash('sha256').update(JSON.stringify({
+      snapshotId: proposal.input_snapshot_id,
+      forecastRunId,
+      modelVersion: run.model_version,
+      policyVersion: run.policy_version,
+    })).digest('hex');
+    const { data: scenarioRun, error: scenarioError } = await this.db.client.from('scenario_runs').upsert({
+      snapshot_id: proposal.input_snapshot_id,
+      forecast_run_id: forecastRunId,
+      model_version: run.model_version,
+      policy_version: run.policy_version,
+      common_input_hash: commonInputHash,
+      status: 'SUCCEEDED',
+      created_by: actorId,
+      completed_at: new Date().toISOString(),
+    }, { onConflict: 'forecast_run_id,common_input_hash' }).select('*').single();
+    if (scenarioError) this.db.unwrap(null, scenarioError);
+    const details = proposal.simulation_details ?? {};
+    const rows = [
+      { type: 'NO_ACTION', metrics: details.metrics_before ?? {}, source: 'forecast_no_action' },
+      { type: 'RELOCATION', metrics: details.metrics_after_relocation ?? details.metrics_after ?? {}, source: 'optimizer_estimate' },
+      { type: 'ACTIVATION', metrics: details.metrics_after_activation_expected ?? {}, source: details.activation_policy?.accept_rate_source ?? 'policy_assumption' },
+      { type: 'HYBRID', metrics: details.metrics_after_activation_expected ?? details.metrics_after ?? {}, source: 'optimizer_plus_policy_assumption' },
+    ];
+    const scenarioResults = rows.map((row) => ({
+      scenario_run_id: scenarioRun.id,
+      scenario_type: row.type,
+      estimated_metrics: row.metrics,
+      observed_metrics: null,
+      uncertainty: { kind: 'model_quantile_or_policy_assumption', confidence: proposal.confidence ?? null },
+      response_source: row.source,
+    }));
+    const { data: persisted, error: resultError } = await this.db.client.from('scenario_results')
+      .upsert(scenarioResults, { onConflict: 'scenario_run_id,scenario_type' }).select('*');
+    if (resultError) this.db.unwrap(null, resultError);
+    return {
+      id: scenarioRun.id,
+      commonInputHash,
+      snapshotId: String(proposal.input_snapshot_id),
+      forecastRunId,
+      modelVersion: run.model_version,
+      policyVersion: run.policy_version,
+      scenarios: (persisted ?? []).map((row: any) => ({
+        type: row.scenario_type,
+        estimatedMetrics: row.estimated_metrics,
+        observedMetrics: row.observed_metrics,
+        uncertainty: row.uncertainty,
+        responseSource: row.response_source,
+      })),
+      hasObservedRevenue: false,
+      revenueNotice: 'Incremental revenue is unavailable until an observed revenue ledger exists.',
+    };
+  }
+
+  async listNotifications(ownerId: string) {
+    const { data, error } = await this.db.client.from('operator_notifications').select('*')
+      .or(`owner_id.eq.${ownerId},owner_id.is.null`).order('created_at', { ascending: false }).limit(100);
+    return this.db.unwrap(data, error).map((row: any) => ({
+      id: row.id,
+      ownerId: row.owner_id,
+      severity: row.severity,
+      category: row.category,
+      title: row.title,
+      message: row.message,
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      requestId: row.request_id,
+      status: row.status,
+      escalateAt: row.escalate_at,
+      createdAt: row.created_at,
+    }));
+  }
+
+  async acknowledgeNotification(id: string, ownerId: string, requestId: string) {
+    const { data: before, error: beforeError } = await this.db.client.from('operator_notifications').select('*')
+      .eq('id', id).or(`owner_id.eq.${ownerId},owner_id.is.null`).maybeSingle();
+    if (beforeError) this.db.unwrap(null, beforeError);
+    if (!before) throw new NotFoundException(`Notification ${id} was not found`);
+    const { data, error } = await this.db.client.from('operator_notifications').update({
+      owner_id: ownerId,
+      status: 'ACKNOWLEDGED',
+      read_at: before.read_at ?? new Date().toISOString(),
+      acknowledged_at: new Date().toISOString(),
+    }).eq('id', id).select('*').single();
+    if (error) this.db.unwrap(null, error);
+    const { error: auditError } = await this.db.client.from('audit_logs').insert({
+      actor_id: ownerId,
+      actor_type: 'OPERATOR',
+      entity_type: 'notification',
+      entity_id: id,
+      action: 'NotificationAcknowledged',
+      before_data: { status: before.status },
+      after_data: { status: 'ACKNOWLEDGED' },
+      request_id: requestId,
+      correlation_id: requestId,
+    });
+    if (auditError) this.db.unwrap(null, auditError);
+    return {
+      id: data.id,
+      ownerId: data.owner_id,
+      severity: data.severity,
+      category: data.category,
+      title: data.title,
+      message: data.message,
+      entityType: data.entity_type,
+      entityId: data.entity_id,
+      requestId: data.request_id,
+      status: data.status,
+      escalateAt: data.escalate_at,
+      createdAt: data.created_at,
+    };
   }
 
   async listOffers(campaignId?: string) {
@@ -471,7 +907,7 @@ export class OperatorService {
     if (filters.from && filters.to && new Date(filters.from) > new Date(filters.to)) {
       throw new UnprocessableEntityException('Audit start date must be before end date');
     }
-    const offset = (filters.page - 1) * filters.pageSize;
+    const offset = filters.cursor ? 0 : (filters.page - 1) * filters.pageSize;
     let query = this.db.client
       .from('audit_logs')
       .select('*', { count: 'exact' })
@@ -486,8 +922,22 @@ export class OperatorService {
     if (filters.actorId) query = query.eq('actor_id', filters.actorId);
     if (filters.from) query = query.gte('created_at', filters.from);
     if (filters.to) query = query.lte('created_at', filters.to);
+    if (filters.cursor) {
+      let cursorAt: string;
+      let cursorId: string;
+      try {
+        [cursorAt, cursorId] = Buffer.from(filters.cursor, 'base64url').toString('utf8').split('|');
+      } catch {
+        throw new UnprocessableEntityException('Audit cursor is invalid');
+      }
+      if (!cursorAt || !cursorId || Number.isNaN(new Date(cursorAt).getTime()) || !/^\d+$/.test(cursorId)) {
+        throw new UnprocessableEntityException('Audit cursor is invalid');
+      }
+      query = query.or(`created_at.lt.${cursorAt},and(created_at.eq.${cursorAt},id.lt.${cursorId})`);
+    }
     const { data, error, count } = await query.range(offset, offset + filters.pageSize - 1);
-    const items = this.db.unwrap(data, error).map((row: any) => ({
+    const rows = this.db.unwrap(data, error);
+    const items = rows.map((row: any) => ({
       id: String(row.id),
       planId: ['proposal', 'proposals'].includes(row.entity_type) ? row.entity_id : row.metadata?.proposal_id ?? '',
       entityType: canonicalAuditEntity(row.entity_type),
@@ -496,11 +946,16 @@ export class OperatorService {
       actor: row.actor_type ?? row.actor_id ?? 'SYSTEM',
       actorType: row.actor_type ?? 'SYSTEM',
       actorId: row.actor_id ?? null,
+      requestId: row.request_id ?? row.metadata?.request_id ?? null,
+      correlationId: row.correlation_id ?? null,
+      entityVersion: row.entity_version ?? null,
+      entityHash: row.entity_hash ?? null,
       occurredAt: row.created_at,
       detail: row.metadata?.detail ?? row.action,
     }));
     const total = count ?? 0;
     const totalPages = total === 0 ? 0 : Math.ceil(total / filters.pageSize);
+    const last = rows.at(-1);
     return {
       items,
       page: filters.page,
@@ -508,7 +963,10 @@ export class OperatorService {
       total,
       totalPages,
       hasPreviousPage: filters.page > 1,
-      hasNextPage: filters.page < totalPages,
+      hasNextPage: filters.cursor ? rows.length === filters.pageSize : filters.page < totalPages,
+      nextCursor: rows.length === filters.pageSize && last
+        ? Buffer.from(`${last.created_at}|${last.id}`).toString('base64url')
+        : null,
     };
   }
 

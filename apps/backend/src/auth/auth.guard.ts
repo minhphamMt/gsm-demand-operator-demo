@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
@@ -11,6 +12,17 @@ import type { Request } from 'express';
 import { SupabaseService } from '../supabase/supabase.service';
 import { IS_PUBLIC_KEY, ROLES_KEY } from './auth.decorators';
 import type { AppRole, AuthenticatedUser } from './auth.types';
+
+function authErrorStatus(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null || !('status' in error)) return undefined;
+  const status = error.status;
+  return typeof status === 'number' ? status : undefined;
+}
+
+function isRejectedAccessToken(error: unknown): boolean {
+  const status = authErrorStatus(error);
+  return status === 400 || status === 401 || status === 403;
+}
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -30,14 +42,28 @@ export class AuthGuard implements CanActivate {
     if (!token) throw new UnauthorizedException('Missing bearer token');
 
     const { data, error } = await this.db.client.auth.getUser(token);
-    if (error || !data.user) throw new UnauthorizedException('Invalid or expired access token');
+    if (error) {
+      if (isRejectedAccessToken(error)) throw new UnauthorizedException('Invalid or expired access token');
+      throw new ServiceUnavailableException({
+        code: 'AUTH_PROVIDER_UNAVAILABLE',
+        message: 'Authentication provider is temporarily unavailable',
+      });
+    }
+    if (!data.user) throw new UnauthorizedException('Invalid or expired access token');
 
     const { data: profile, error: profileError } = await this.db.client
       .from('profiles')
       .select('role,is_active')
       .eq('id', data.user.id)
       .maybeSingle();
-    if (profileError || !profile?.is_active) throw new ForbiddenException('Inactive or missing profile');
+    if (profileError) {
+      if (profileError.code === '42501') throw new ForbiddenException('Profile lookup is not permitted');
+      throw new ServiceUnavailableException({
+        code: 'PROFILE_LOOKUP_UNAVAILABLE',
+        message: 'Profile lookup is temporarily unavailable',
+      });
+    }
+    if (!profile?.is_active) throw new ForbiddenException('Inactive or missing profile');
 
     const appRole = profile.role as AppRole;
     const allowedRoles = this.reflector.getAllAndOverride<AppRole[]>(ROLES_KEY, [

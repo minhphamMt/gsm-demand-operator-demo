@@ -18,6 +18,7 @@
     "seed:review-proposals": "node --env-file=.env scripts/seed-review-proposals.mjs",
     "smoke:api": "node --env-file=.env --env-file=.env.test.local scripts/api-smoke.mjs",
     "smoke:campaign": "node --env-file=.env --env-file=.env.test.local scripts/campaign-flow-smoke.mjs",
+    "smoke:dispatch": "node --env-file=.env --env-file=.env.test.local scripts/dispatch-flow-smoke.mjs",
     "smoke:model-flow": "node --env-file=.env --env-file=.env.test.local scripts/model-operator-flow-smoke.mjs",
     "smoke:security": "node --env-file=.env --env-file=.env.test.local scripts/security-concurrency-smoke.mjs",
     "simulate:planning": "node --env-file=.env scripts/simulate-planning.mjs",

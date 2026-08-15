@@ -17,6 +17,7 @@ describe('mock proposal review engine', () => {
   it('re-simulates impact, economics and policy after an operator revision', () => {
     const plan = createAgentPlans('rain-peak')[0]!
     const revised = reviseAgentPlan(plan, {
+      expectedVersion: plan.version,
       moveQuantities: Object.fromEntries(plan.moves.map((move) => [move.id, 1])),
       moveSourceZoneIds: Object.fromEntries(plan.moves.map((move) => [move.id, 'AI-Z04'])),
       targetDriverCount: 12,
@@ -38,6 +39,7 @@ describe('mock proposal review engine', () => {
   it('blocks a revision that drains one source through multiple moves', () => {
     const plan = createAgentPlans('rain-peak')[0]!
     const revised = reviseAgentPlan(plan, {
+      expectedVersion: plan.version,
       moveQuantities: Object.fromEntries(plan.moves.map((move) => [move.id, 5])),
       moveSourceZoneIds: Object.fromEntries(plan.moves.map((move) => [move.id, 'AI-Z04'])),
       targetDriverCount: plan.targetDriverCount,

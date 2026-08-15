@@ -3,8 +3,8 @@ import { IsDateString, IsIn, IsInt, IsOptional, Min } from 'class-validator';
 
 export class GenerateAiDecisionDto {
   @Transform(({ value }) => Number(value))
-  @IsIn([15, 30])
-  horizonMinutes: 15 | 30 = 15;
+  @IsIn([5, 15, 30])
+  horizonMinutes: 5 | 15 | 30 = 15;
 }
 
 export class OptimizeAiDecisionDto {

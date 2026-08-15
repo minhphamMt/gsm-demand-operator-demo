@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { requireSupabase } from '../lib/supabase';
 import { useDriverId } from '../state/AuthProvider';
@@ -17,9 +17,26 @@ import { qk } from './queryKeys';
 export function DriverRealtime() {
   const driverId = useDriverId();
   const qc = useQueryClient();
+  const [isPageVisible, setPageVisible] = useState(() => document.visibilityState !== 'hidden');
 
   useEffect(() => {
+    const onVisibilityChange = () => setPageVisible(document.visibilityState !== 'hidden');
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    // Realtime list_changes is an ongoing database workload. A background tab
+    // cannot present an event to a driver, so release the channel instead of
+    // keeping a WAL reader alive. Returning to the tab refetches authoritative
+    // state before subscribing again.
+    if (!isPageVisible) return;
     const sb = requireSupabase();
+    void Promise.all([
+      qc.invalidateQueries({ queryKey: qk.offers(driverId) }),
+      qc.invalidateQueries({ queryKey: qk.campaigns(driverId) }),
+      qc.invalidateQueries({ queryKey: qk.earnings(driverId) }),
+    ]);
 
     const channel = sb
       .channel(`driver:${driverId}`)
@@ -58,7 +75,7 @@ export function DriverRealtime() {
     return () => {
       sb.removeChannel(channel);
     };
-  }, [driverId, qc]);
+  }, [driverId, isPageVisible, qc]);
 
   return null;
 }

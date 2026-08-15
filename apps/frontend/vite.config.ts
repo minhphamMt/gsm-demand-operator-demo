@@ -13,6 +13,12 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    env: {
+      // UI tests exercise the deterministic in-memory adapter. Live API/Supabase
+      // behavior is covered by adapter tests and must never depend on developer .env.
+      VITE_DATA_SOURCE: 'mock',
+      VITE_MAPBOX_ACCESS_TOKEN: '',
+    },
     setupFiles: ['./src/test/setup.ts'],
   },
 })

@@ -1,6 +1,22 @@
+const replayDatasetDay = '2026-09-30'
+
 /**
- * This rainy morning bucket was selected from the frozen project dataset using
- * the real optimizer outcome: it yields a meaningful, feasible relocation plan
- * instead of an extreme shortage. Replay still advances on the real 5-minute grid.
+ * The model replay uses a frozen, checksummed dataset, so its calendar date must
+ * stay inside that dataset. The clock follows the current Hanoi server time and
+ * is rounded down to the latest complete five-minute bucket.
  */
-export const DEFAULT_OPERATOR_REPLAY_SOURCE_AT = '2026-09-30T08:55:00+07:00'
+export function currentOperatorReplaySourceAt(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    hourCycle: 'h23',
+    minute: '2-digit',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).formatToParts(now)
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value)
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value)
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
+    throw new Error('Không thể xác định giờ vận hành hiện tại.')
+  }
+  const completedBucketMinute = Math.floor(minute / 5) * 5
+  return `${replayDatasetDay}T${String(hour).padStart(2, '0')}:${String(completedBucketMinute).padStart(2, '0')}:00+07:00`
+}

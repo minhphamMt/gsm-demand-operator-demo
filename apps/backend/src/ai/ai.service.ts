@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import { BadGatewayException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 
 import { SupabaseService } from '../supabase/supabase.service';
+import { assertNoActiveExecution } from '../operator/active-execution.guard';
 
 type DbRow = Record<string, unknown>;
 type AiForecastZone = {
@@ -70,13 +72,14 @@ export class AiService {
     return this.request('/health', { method: 'GET' });
   }
 
-  async runNext(horizonMinutes: 15 | 30, regime?: DatasetRegime) {
+  async runNext(horizonMinutes: 5 | 15 | 30, regime?: DatasetRegime) {
     const snapshot = await this.ingestNext(regime);
     const decision = await this.generate(horizonMinutes, snapshot.id, false, true);
     return { snapshot, decision };
   }
 
   async optimize(snapshotId: number, horizonMinutes: 5 | 15 | 30) {
+    await assertNoActiveExecution(this.db);
     const decision = await this.generate(horizonMinutes, snapshotId, true, true);
     return { decision };
   }
@@ -91,7 +94,7 @@ export class AiService {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source_at: sourceAt }),
     });
     const snapshot = await this.ingestExact(dataset);
-    const decision = await this.generate(5, snapshot.id, false);
+    const decision = await this.generate(5, snapshot.id, false, true);
     if (decision.forecast_mode !== 'trained_model_replay') {
       throw new UnprocessableEntityException({ code: 'REPLAY_MODEL_REQUIRED', message: 'Replay requires the trained LightGBM model; fallback output was rejected.' });
     }
@@ -105,6 +108,7 @@ export class AiService {
   }
 
   async generate(horizonMinutes: 5 | 15 | 30, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
+    const inferenceStartedAt = Date.now();
     let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');
     snapshotQuery = snapshotId
       ? snapshotQuery.eq('id', snapshotId)
@@ -142,6 +146,7 @@ export class AiService {
     }).select('id').single();
     if (inputError) this.db.unwrap(null, inputError);
     if (!modelInput) throw new UnprocessableEntityException('Model input ledger could not be created');
+    const forecastRunId = await this.startForecastRun(snapshot, inputPayload, horizonMinutes);
 
     try {
       const decision = await this.request<AiDecision>('/api/v1/decisions', {
@@ -155,12 +160,16 @@ export class AiService {
           message: 'Replay input requires the trained model; fallback output was rejected.',
         });
       }
+      const optimizerRunId = persistProposal
+        ? await this.persistOptimizerRun(forecastRunId, String(modelInput.id), decision, Date.now() - inferenceStartedAt)
+        : undefined;
       if (persistForecast && persistProposal) {
-        await this.persistDecision(snapshot, decision, String(modelInput.id));
+        await this.persistDecision(snapshot, decision, String(modelInput.id), forecastRunId, optimizerRunId);
       } else {
-        if (persistForecast) await this.persistForecast(snapshot, decision);
-        if (persistProposal) await this.persistProposal(snapshot, decision, String(modelInput.id));
+        if (persistForecast) await this.persistForecast(snapshot, decision, forecastRunId);
+        if (persistProposal) await this.persistProposal(snapshot, decision, String(modelInput.id), forecastRunId, optimizerRunId);
       }
+      await this.completeForecastRun(forecastRunId, decision);
       const { error: completeError } = await this.db.client.from('model_inputs').update({
         status: 'COMPLETED',
         error_message: null,
@@ -168,6 +177,7 @@ export class AiService {
       if (completeError) this.db.unwrap(null, completeError);
       return decision;
     } catch (cause) {
+      await this.failForecastRun(forecastRunId, cause);
       await this.db.client.from('model_inputs').update({
         status: 'FAILED',
         error_message: cause instanceof Error ? cause.message.slice(0, 1000) : 'Unknown inference failure',
@@ -240,6 +250,7 @@ export class AiService {
       await this.db.client.from('supply_demand_snapshots').delete().eq('id', snapshot.id);
       this.db.unwrap(null, observationsError);
     }
+    await this.supersedePriorForecastRuns(Number(snapshot.id));
     return { ...snapshot, dataset: dataset.dataset, sourceAt: dataset.source_at, regime: dataset.regime };
   }
 
@@ -272,7 +283,16 @@ export class AiService {
       await this.db.client.from('supply_demand_snapshots').delete().eq('id', snapshot.id);
       this.db.unwrap(null, observationsError);
     }
+    await this.supersedePriorForecastRuns(Number(snapshot.id));
     return snapshot;
+  }
+
+  private async supersedePriorForecastRuns(snapshotId: number) {
+    const { error } = await this.db.client.from('forecast_runs').update({
+      status: 'SUPERSEDED',
+      superseded_at: new Date().toISOString(),
+    }).lt('snapshot_id', snapshotId).in('status', ['COMPLETED', 'FALLBACK']);
+    if (error) this.db.unwrap(null, error);
   }
 
   private validateLiveZones(rows: DbRow[]) {
@@ -306,9 +326,48 @@ export class AiService {
     }));
   }
 
-  private async persistForecast(snapshot: DbRow, decision: AiDecision) {
+  private async startForecastRun(snapshot: DbRow, inputPayload: DbRow, horizonMinutes: number) {
+    const inputHash = createHash('sha256').update(JSON.stringify(inputPayload)).digest('hex');
+    const { data, error } = await this.db.client.from('forecast_runs').insert({
+      snapshot_id: snapshot.id,
+      horizon_min: horizonMinutes,
+      model_version: 'PENDING',
+      feature_version: 'ai-zone-observation-v1',
+      policy_version: 'policy-v1',
+      input_hash: inputHash,
+      status: 'RUNNING',
+    }).select('id').single();
+    if (error) this.db.unwrap(null, error);
+    if (!data?.id) throw new UnprocessableEntityException('Forecast run could not be created');
+    return String(data.id);
+  }
+
+  private async completeForecastRun(runId: string, decision: AiDecision) {
+    const { error } = await this.db.client.from('forecast_runs').update({
+      completed_at: new Date().toISOString(),
+      data_source: decision.data_source,
+      forecast_mode: decision.forecast_mode,
+      model_version: decision.forecast.model_version,
+      status: decision.forecast_mode.includes('fallback') ? 'FALLBACK' : 'COMPLETED',
+    }).eq('id', runId);
+    if (error) this.db.unwrap(null, error);
+  }
+
+  private async failForecastRun(runId: string, cause: unknown) {
+    const message = cause instanceof Error ? cause.message : 'Unknown inference failure';
+    const { error } = await this.db.client.from('forecast_runs').update({
+      completed_at: new Date().toISOString(),
+      error_code: cause instanceof BadGatewayException ? 'AI_SERVICE_UNAVAILABLE' : 'FORECAST_FAILED',
+      error_message: message.slice(0, 1000),
+      status: 'FAILED',
+    }).eq('id', runId);
+    if (error) this.db.unwrap(null, error);
+  }
+
+  private async persistForecast(snapshot: DbRow, decision: AiDecision, forecastRunId: string) {
     const forecastRows = decision.forecast.zones.map((zone) => ({
       ...zone,
+      forecast_run_id: forecastRunId,
       snapshot_id: snapshot.id,
       horizon_min: decision.forecast.horizon_min,
       forecast_at: decision.forecast.forecast_ts,
@@ -319,16 +378,43 @@ export class AiService {
     }));
     const { error: forecastError } = await this.db.client
       .from('ai_zone_forecasts')
-      .upsert(forecastRows, { onConflict: 'snapshot_id,zone_id,horizon_min' });
+      .insert(forecastRows);
     if (forecastError) this.db.unwrap(null, forecastError);
   }
 
-  private async persistDecision(snapshot: DbRow, decision: AiDecision, modelInputId?: string) {
-    await this.persistForecast(snapshot, decision);
-    await this.persistProposal(snapshot, decision, modelInputId);
+  private async persistOptimizerRun(forecastRunId: string, modelInputId: string, decision: AiDecision, runtimeMs: number) {
+    const hasAction = decision.plan.moves.length > 0 || decision.activation_recommendation.total_requested_offers > 0;
+    const status = decision.forecast_mode.includes('fallback') ? 'FALLBACK' : hasAction ? 'SUCCEEDED' : 'INFEASIBLE';
+    const inputHash = createHash('sha256').update(JSON.stringify({
+      forecastRunId,
+      hotspots: decision.hotspots,
+      activationPolicy: decision.activation_policy,
+    })).digest('hex');
+    const noSolution = decision.plan.warnings.find((warning) => warning.code === 'NO_SOLUTION');
+    const { data, error } = await this.db.client.from('optimizer_runs').insert({
+      forecast_run_id: forecastRunId,
+      model_input_id: modelInputId,
+      input_hash: inputHash,
+      solver_name: 'greedy-relocation',
+      solver_version: 'v1',
+      policy_version: 'policy-v1',
+      status,
+      fallback_reason: status === 'FALLBACK' ? decision.forecast_mode : null,
+      infeasible_reason: status === 'INFEASIBLE' ? String(noSolution?.message ?? 'No safe improving action') : null,
+      runtime_ms: runtimeMs,
+      completed_at: new Date().toISOString(),
+    }).select('id').single();
+    if (error) this.db.unwrap(null, error);
+    if (!data?.id) throw new UnprocessableEntityException('Optimizer run could not be persisted');
+    return String(data.id);
   }
 
-  private async persistProposal(snapshot: DbRow, decision: AiDecision, modelInputId?: string) {
+  private async persistDecision(snapshot: DbRow, decision: AiDecision, modelInputId: string | undefined, forecastRunId: string, optimizerRunId?: string) {
+    await this.persistForecast(snapshot, decision, forecastRunId);
+    await this.persistProposal(snapshot, decision, modelInputId, forecastRunId, optimizerRunId);
+  }
+
+  private async persistProposal(snapshot: DbRow, decision: AiDecision, modelInputId?: string, forecastRunId?: string, optimizerRunId?: string) {
     const activation = decision.activation_recommendation;
     const actionableTargetZoneIds = [...new Set([
       ...decision.plan.moves.map((move) => Number(move.to_zone)).filter((zoneId) => Number.isInteger(zoneId)),
@@ -407,15 +493,20 @@ export class AiService {
       };
     });
     const { data: proposal, error: proposalError } = await this.db.client.from('proposals').insert({
+      optimizer_run_id: optimizerRunId ?? null,
       generator_type: 'AGENT',
       generator_version: decision.forecast.model_version,
-      status: 'UNDER_REVIEW',
+      // A result without a safe relocation or activation improvement is retained
+      // as evidence, but must never enter the human approval queue.
+      status: isOperationalPlan ? 'UNDER_REVIEW' : 'FAILED_GENERATION',
       policy_status: isOperationalPlan ? 'PASSED' : 'FAILED',
       version: 1,
       input_snapshot_id: snapshot.id,
-      target_zone_ids: targetZoneIds,
+      target_zone_ids: targetZoneIds.length ? targetZoneIds : null,
       source_plan: {
         ...decision.plan,
+        forecast_run_id: forecastRunId ?? null,
+        model_input_id: modelInputId ?? null,
         moves: persistedMoves,
         activation_recommendation: activation,
         candidate_source_zones: candidateSourceZones,
@@ -434,6 +525,8 @@ export class AiService {
         metrics_after: { unmet_demand: unmetAfterRelocation, fulfillment_rate: fulfillmentRate(unmetAfterRelocation) },
         metrics_after_activation_expected: { unmet_demand: unmetAfterActivation, fulfillment_rate: fulfillmentRate(unmetAfterActivation) },
         forecast_mode: decision.forecast_mode,
+        forecast_run_id: forecastRunId ?? null,
+        model_input_id: modelInputId ?? null,
         data_source: decision.data_source,
         activation_policy: decision.activation_policy,
         activation_recommendation: activation,

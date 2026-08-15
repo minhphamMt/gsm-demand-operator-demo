@@ -33,4 +33,15 @@ describe('PlanDrawer', () => {
     expect(onRevise).toHaveBeenCalledOnce()
     expect(onRevise.mock.calls[0]![0].moveQuantities[firstMove.id]).toBe(firstMove.quantity - 1)
   })
+
+  it('shows immutable forecast and model-input provenance before review', () => {
+    plan = { ...plan, planMode: 'ACTIVATION_ONLY', forecastRunId: 'run-immutable-1', modelInputId: 'input-immutable-1' }
+
+    render(<PlanDrawer error={null} isSaving={false} onClose={vi.fn()} onRevise={vi.fn()} plan={plan} />)
+
+    expect(screen.getByText('run-immutable-1')).toBeInTheDocument()
+    expect(screen.getByText('input-immutable-1')).toBeInTheDocument()
+    expect(screen.getByText(plan.inputSnapshotId)).toBeInTheDocument()
+    expect(screen.getByText(/Chế độ: chỉ activation/)).toBeInTheDocument()
+  })
 })

@@ -17,19 +17,70 @@ function eligibleDriverQuery(count: number) {
 }
 
 describe('AiService persistence', () => {
+  it('persists the exact five-minute replay forecast without creating a proposal', async () => {
+    const service = new AiService({} as never);
+    const sourceAt = '2026-08-11T21:30:00Z';
+    const dataset = { dataset: 'project', source_at: sourceAt, regime: 'rain_peak', zones: [] };
+    jest.spyOn(service as never, 'request').mockResolvedValue(dataset as never);
+    jest.spyOn(service as never, 'ingestExact').mockResolvedValue({ id: 42 } as never);
+    const generate = jest.spyOn(service, 'generate').mockResolvedValue({ forecast_mode: 'trained_model_replay' } as never);
+
+    await service.runReplay(sourceAt);
+
+    expect(generate).toHaveBeenCalledWith(5, 42, false, true);
+  });
+
+  it('supersedes completed forecasts from older snapshots after ingesting a new replay snapshot', async () => {
+    const existingObservation = {
+      eq: jest.fn(), limit: jest.fn(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }), order: jest.fn(), select: jest.fn(),
+    };
+    existingObservation.eq.mockReturnValue(existingObservation);
+    existingObservation.order.mockReturnValue(existingObservation);
+    existingObservation.limit.mockReturnValue(existingObservation);
+    existingObservation.select.mockReturnValue(existingObservation);
+    const snapshotSingle = jest.fn().mockResolvedValue({ data: { id: 9, captured_at: '2026-08-15T00:00:00.000Z' }, error: null });
+    const snapshotInsert = jest.fn().mockReturnValue({ select: jest.fn().mockReturnValue({ single: snapshotSingle }) });
+    const forecastStatusIn = jest.fn().mockResolvedValue({ error: null });
+    const forecastStatusLt = jest.fn().mockReturnValue({ in: forecastStatusIn });
+    const forecastUpdate = jest.fn().mockReturnValue({ lt: forecastStatusLt });
+    const db = {
+      client: {
+        from: jest.fn((table: string) => {
+          if (table === 'ai_zone_observations') return { ...existingObservation, insert: jest.fn().mockResolvedValue({ error: null }) };
+          if (table === 'supply_demand_snapshots') return { insert: snapshotInsert };
+          if (table === 'forecast_runs') return { update: forecastUpdate };
+          throw new Error(`unexpected table ${table}`);
+        }),
+      },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    };
+    const service = new AiService(db as never);
+    jest.spyOn(service as never, 'request').mockResolvedValue({
+      dataset: 'test', source_at: '2026-08-15T00:00:00.000Z', regime: 'normal',
+      zones: [{ zone_id: 1, demand_observed: 10, idle_supply: 8, enroute_supply: 0, rain_mm_h: 0, rain_forecast_15: 0, rain_forecast_30: 0, peak_flag: 0, holiday_flag: 0 }],
+    } as never);
+    jest.spyOn(service, 'generate').mockResolvedValue({ forecast_mode: 'trained_model_replay' } as never);
+
+    await service.runReplay('2026-08-15T00:00:00.000Z');
+
+    expect(forecastUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'SUPERSEDED' }));
+    expect(forecastStatusLt).toHaveBeenCalledWith('snapshot_id', 9);
+    expect(forecastStatusIn).toHaveBeenCalledWith('status', ['COMPLETED', 'FALLBACK']);
+  });
+
   it('persists trained forecasts and gives the proposal a non-zero offer batch', async () => {
     const proposalInsert = jest.fn().mockReturnValue({
       select: jest.fn().mockReturnValue({
         single: jest.fn().mockResolvedValue({ data: { id: 'proposal-1' }, error: null }),
       }),
     });
-    const forecastUpsert = jest.fn().mockResolvedValue({ error: null });
+    const forecastInsert = jest.fn().mockResolvedValue({ error: null });
     const outputInsert = jest.fn().mockResolvedValue({ error: null });
     const drivers = eligibleDriverQuery(3);
     const db = {
       client: {
         from: jest.fn((table: string) => {
-          if (table === 'ai_zone_forecasts') return { upsert: forecastUpsert };
+          if (table === 'ai_zone_forecasts') return { insert: forecastInsert };
           if (table === 'model_outputs') return { insert: outputInsert };
           if (table === 'driver_states') return drivers;
           return { insert: proposalInsert };
@@ -52,7 +103,7 @@ describe('AiService persistence', () => {
       confidence: null,
     }));
 
-    await (service as unknown as { persistDecision(snapshot: object, decision: object, modelInputId?: string): Promise<void> })
+    await (service as unknown as { persistDecision(snapshot: object, decision: object, modelInputId: string | undefined, forecastRunId: string): Promise<void> })
       .persistDecision(
         { id: 7, captured_at: '2026-08-11T21:30:00Z' },
         {
@@ -82,12 +133,12 @@ describe('AiService persistence', () => {
             warnings: [],
           },
         },
-        'model-input-1',
+        'model-input-1', 'run-1',
       );
 
-    expect(forecastUpsert).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ model_version: 'lgbm_quantile_v1', forecast_mode: 'trained_model_replay' }),
-    ]), { onConflict: 'snapshot_id,zone_id,horizon_min' });
+    expect(forecastInsert).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ forecast_run_id: 'run-1', model_version: 'lgbm_quantile_v1', forecast_mode: 'trained_model_replay' }),
+    ]));
     expect(proposalInsert).toHaveBeenCalledWith(expect.objectContaining({
       generator_version: 'lgbm_quantile_v1',
       target_driver_count: 2,
@@ -97,6 +148,8 @@ describe('AiService persistence', () => {
       policy_status: 'PASSED',
       target_zone_ids: [9],
       source_plan: expect.objectContaining({
+        forecast_run_id: 'run-1',
+        model_input_id: 'model-input-1',
         candidate_source_zones: [expect.objectContaining({
           availableSupply: 2,
           capacitySource: 'optimizer_allocation',
@@ -106,7 +159,7 @@ describe('AiService persistence', () => {
         })],
         moves: [expect.objectContaining({ source_supply_after: 10 })],
       }),
-      simulation_details: expect.objectContaining({ eligible_driver_count: 3, scenario_id: 'rain-peak' }),
+      simulation_details: expect.objectContaining({ eligible_driver_count: 3, scenario_id: 'rain-peak', forecast_run_id: 'run-1', model_input_id: 'model-input-1' }),
     }));
     expect(outputInsert).toHaveBeenCalledWith(expect.objectContaining({
       model_input_id: 'model-input-1',
@@ -127,7 +180,7 @@ describe('AiService persistence', () => {
     const db = {
       client: {
         from: jest.fn((table: string) => {
-          if (table === 'ai_zone_forecasts') return { upsert: jest.fn().mockResolvedValue({ error: null }) };
+          if (table === 'ai_zone_forecasts') return { insert: jest.fn().mockResolvedValue({ error: null }) };
           if (table === 'driver_states') return drivers;
           return { insert: proposalInsert };
         }),
@@ -139,7 +192,7 @@ describe('AiService persistence', () => {
     };
     const service = new AiService(db as never);
 
-    await (service as unknown as { persistDecision(snapshot: object, decision: object): Promise<void> })
+    await (service as unknown as { persistDecision(snapshot: object, decision: object, modelInputId: string | undefined, forecastRunId: string): Promise<void> })
       .persistDecision(
         { id: 8, captured_at: '2026-08-11T21:30:00Z' },
         {
@@ -157,10 +210,11 @@ describe('AiService persistence', () => {
             plan_totals: { total_cost: 0, budget_cap: 500_000 },
             warnings: [{ code: 'NO_SOLUTION', message: 'No source zone' }],
           },
-        },
+        }, undefined, 'run-2',
       );
 
     expect(proposalInsert).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'UNDER_REVIEW',
       target_zone_ids: [1],
       policy_status: 'PASSED',
       bonus_amount: 20_000,
@@ -171,6 +225,53 @@ describe('AiService persistence', () => {
         plan_mode: 'ACTIVATION_ONLY',
         warnings: [expect.objectContaining({ code: 'NO_RELOCATION_SOURCE' })],
       }),
+    }));
+  });
+
+  it('persists a balanced no-solution result without violating the target-zone contract', async () => {
+    const proposalInsert = jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({ data: { id: 'proposal-no-solution' }, error: null }),
+      }),
+    });
+    const db = {
+      client: {
+        from: jest.fn((table: string) => {
+          if (table === 'driver_states') return eligibleDriverQuery(0);
+          if (table === 'proposals') return { insert: proposalInsert };
+          throw new Error(`unexpected table ${table}`);
+        }),
+      },
+      unwrap: jest.fn((data: unknown, error: unknown) => {
+        if (error) throw error;
+        return data;
+      }),
+    };
+    const service = new AiService(db as never);
+
+    await (service as unknown as { persistProposal(snapshot: object, decision: object): Promise<void> })
+      .persistProposal(
+        { id: 140, captured_at: '2026-08-14T04:25:00Z' },
+        {
+          data_source: 'supabase:ai_zone_observations:140', forecast_mode: 'trained_model_replay',
+          activation_policy: { incentive_amount: 20_000, incentive_budget_cap: 500_000, overbooking_factor: 1.6, assumed_accept_rate: 0.6 },
+          activation_recommendation: {
+            target_zones: [], total_requested_offers: 0, total_expected_units_gained: 0,
+            total_expected_gap_remaining: 0, projected_gap_reduction_pct: 0,
+            worst_case_commitment: 0, constrained_by_budget: false, accept_rate_source: 'policy_assumption',
+          },
+          forecast: { forecast_ts: '2026-08-14T04:30:00Z', horizon_min: 5, model_version: 'v1', regime: 'normal', zones: [] },
+          hotspots: { hotspots: [], surplus_zones: [] },
+          plan: { moves: [], residual_gap: [], plan_totals: { total_cost: 0, budget_cap: 500_000 }, warnings: [] },
+        },
+      );
+
+    expect(proposalInsert).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'FAILED_GENERATION',
+      policy_status: 'FAILED',
+      target_zone_ids: null,
+      target_driver_count: 0,
+      offer_count: 0,
     }));
   });
 
@@ -210,12 +311,16 @@ describe('AiService persistence', () => {
     const inputInsert = jest.fn().mockReturnValue({ select: inputSelect });
     const inputUpdateEq = jest.fn().mockResolvedValue({ error: null });
     const inputUpdate = jest.fn().mockReturnValue({ eq: inputUpdateEq });
+    const runSingle = jest.fn().mockResolvedValue({ data: { id: 'run-1' }, error: null });
+    const runInsert = jest.fn().mockReturnValue({ select: jest.fn().mockReturnValue({ single: runSingle }) });
+    const runUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) });
     const db = {
       client: {
         from: jest.fn((table: string) => {
           if (table === 'supply_demand_snapshots') return snapshot;
           if (table === 'ai_zone_observations') return observationQuery;
           if (table === 'model_inputs') return { insert: inputInsert, update: inputUpdate };
+          if (table === 'forecast_runs') return { insert: runInsert, update: runUpdate };
           throw new Error(`unexpected table ${table}`);
         }),
       },
@@ -231,5 +336,24 @@ describe('AiService persistence', () => {
       response: expect.objectContaining({ code: 'REPLAY_MODEL_REQUIRED' }),
     });
     expect(inputUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'FAILED' }));
+    expect(runUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'FAILED', error_code: 'FORECAST_FAILED' }));
+  });
+
+  it('marks a declared model fallback as FALLBACK rather than a fresh completed forecast', async () => {
+    const runUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) });
+    const service = new AiService({
+      client: { from: jest.fn(() => ({ update: runUpdate })) },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    } as never);
+
+    await (service as unknown as { completeForecastRun(runId: string, decision: object): Promise<void> }).completeForecastRun('run-fallback', {
+      data_source: 'fallback:baseline',
+      forecast_mode: 'baseline_fallback',
+      forecast: { model_version: 'baseline-v1' },
+    });
+
+    expect(runUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'FALLBACK', model_version: 'baseline-v1', forecast_mode: 'baseline_fallback',
+    }));
   });
 });

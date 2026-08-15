@@ -3,14 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { planningHorizonFor, resolveWorkflowStage } from '@/features/operator-console/model/operatorWorkflow'
 
 describe('planningHorizonFor', () => {
-  it('keeps replay stepping at five minutes separate from the selected planning horizon', () => {
-    expect(planningHorizonFor(5, 30)).toBe(30)
-    expect(planningHorizonFor(5, 15)).toBe(15)
-  })
-
-  it('preserves an explicit operational forecast horizon', () => {
-    expect(planningHorizonFor(15, 30)).toBe(15)
-    expect(planningHorizonFor(30, 15)).toBe(30)
+  it('optimizes against the exact forecast visible to the operator', () => {
+    expect(planningHorizonFor(5)).toBe(5)
+    expect(planningHorizonFor(15)).toBe(15)
+    expect(planningHorizonFor(30)).toBe(30)
   })
 })
 

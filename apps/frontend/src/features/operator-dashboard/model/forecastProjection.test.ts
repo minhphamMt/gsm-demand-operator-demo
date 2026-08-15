@@ -36,6 +36,22 @@ describe('projectZonesAtMinute', () => {
     expect(projected).toMatchObject({ demand: 30, supply: 26, operationalGap: 16, gap: 16 })
   })
 
+  it('keeps a missing observation unknown at every forecast horizon', () => {
+    const missing = { ...zone, dataStatus: 'missing' as const, supply: null, demand: null, gap: null, severity: 'Unknown' }
+    expect(projectZonesAtMinute([missing], 30)[0]).toMatchObject({ dataStatus: 'missing', supply: null, demand: null, gap: null, severity: 'Unknown' })
+  })
+
+  it('uses the persisted five-minute quantiles and confidence for replay', () => {
+    const projected = projectZonesAtMinute([{
+      ...zone,
+      confidence5: 87,
+      demandRange5: [20, 33],
+      forecast5: 26,
+      forecastSupply5: 24,
+    }], 5, true)[0]
+    expect(projected).toMatchObject({ confidence: 87, demand: 26, supply: 24, operationalGap: 9, gap: 9 })
+  })
+
   it('interpolates rain on every five-minute replay step', () => {
     expect(projectZonesAtMinute([zone], 5)[0]?.rainMmH).toBe(0.5)
     expect(projectZonesAtMinute([zone], 15)[0]?.rainMmH).toBe(0.9)

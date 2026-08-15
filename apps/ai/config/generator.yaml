@@ -109,9 +109,9 @@ enroute_supply:
     Thời gian chuyển từ enroute_supply -> idle_supply = haversine(from_zone, to_zone) / avg_vehicle_speed_kmh.
 
 price_index:
-  status: "PLACEHOLDER — chưa có công thức tính giá (2 bài toán pricing chưa được chốt spec)"
-  fallback_value: 1.0
-  note: "Giữ cột với giá trị mặc định 1.0, KHÔNG dùng làm feature Model 1/2 (đã chốt). Sẽ cập nhật công thức khi có spec pricing."
+  status: "DYNAMIC ASSUMPTION — chỉ dùng cho synthetic data/MVP mock"
+  policy_ref: "config/policy.yaml#pricing.customer_driver"
+  note: "Tính từ gap demand/supply theo policy trưởng nhóm cung cấp; KHÔNG dùng làm feature Model 1/2."
 
 output:
   format: "parquet"

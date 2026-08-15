@@ -39,18 +39,19 @@ ehthumbs.db
 Icon?
 
 # Data (never commit large data)
-<<<<<<< HEAD
-
-=======
 data/
 !apps/ai/data/
 apps/ai/data/*
+!apps/ai/data/models/
+!apps/ai/data/models/**
 !apps/ai/data/snapshots/
 apps/ai/data/snapshots/*
 !apps/ai/data/snapshots/snapshot_test.parquet
+!apps/ai/data/baseline/
+apps/ai/data/baseline/*
+!apps/ai/data/baseline/BASELINE_FREEZE.md
 !apps/frontend/src/features/driver-app/data
 !apps/frontend/src/features/driver-app/data/**
->>>>>>> refactor/reorganize-project-structure
 *.db
 *.sqlite3
 
@@ -92,19 +93,12 @@ out/
 .ai-log/*.jsonl
 .ai-log/archive/
 
-<<<<<<< HEAD
-# Project-generated artifacts
-runs/
-eval/results/*.json
-frontend/dist/
-
-SEA
-=======
 # Local run artifacts and editor/tool metadata
 runs/*
 !.gitkeep
+eval/results/*.json
+frontend/dist/
 .claude/
 .cursor/
 .gemini/
 .codex/
->>>>>>> refactor/reorganize-project-structure

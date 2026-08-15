@@ -2,24 +2,45 @@ import {
   isAuditPage,
   isBaseline,
   isCampaign,
+  isDispatchBatch,
   isDriver,
   isDriverView,
   isOffer,
   isOperationsReport,
+  isOperatorCapabilities,
+  isPersistentNotification,
   isProposal,
   isSnapshot,
+  isScenarioComparison,
   parseEntities,
   parseEntity,
 } from '@/features/operator-data/api/responseGuards'
+import { runIdempotentCommand } from '@/features/operator-data/api/commandIdempotency'
 import type { AuditFilters, DemoScenario, OperationsReportFilters, OperatorDataAdapter, Proposal } from '@/features/operator-data/model/types'
 import { latestAgentProposalForSnapshot } from '@/features/operator-data/model/proposalSelection'
 import { AppError, requestJson } from '@/shared/api/client'
 
 const body = (value: unknown) => JSON.stringify(value)
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
-type ReplayForecastZone = { zone_id: number; predicted_demand: number; predicted_supply: number }
+type ReplayForecastZone = {
+  zone_id: number
+  predicted_demand: number
+  predicted_supply: number
+  demand_p10: number
+  demand_p90: number
+  supply_p10: number
+  supply_p90: number
+  confidence: number | null
+}
 const isReplayForecastZone = (value: unknown): value is ReplayForecastZone => isRecord(value)
-  && typeof value.zone_id === 'number' && typeof value.predicted_demand === 'number' && typeof value.predicted_supply === 'number'
+  && typeof value.zone_id === 'number'
+  && typeof value.predicted_demand === 'number'
+  && typeof value.predicted_supply === 'number'
+  && typeof value.demand_p10 === 'number'
+  && typeof value.demand_p90 === 'number'
+  && typeof value.supply_p10 === 'number'
+  && typeof value.supply_p90 === 'number'
+  && (value.confidence === null || typeof value.confidence === 'number')
 const aiZoneNumber = (value: string) => Number(value.replace(/^AI-Z/i, ''))
 const auditSearch = (filters: AuditFilters) => {
   const search = new URLSearchParams({ page: String(filters.page), pageSize: String(filters.pageSize) })
@@ -48,6 +69,7 @@ async function getPlan(planId: string): Promise<Proposal | undefined> {
 }
 
 export const httpOperatorAdapter: OperatorDataAdapter = {
+  getCapabilities: async () => parseEntity(await requestJson('/operator/capabilities'), isOperatorCapabilities, 'capability'),
   generateAiDecision: async (snapshotId, horizonMinutes) => {
     await requestJson('/operator/ai/forecast', { method: 'POST', body: body({ snapshotId, horizonMinutes }) })
     return parseEntity(await requestJson(`/operator/snapshots/${snapshotId}?scenario=baseline`), isSnapshot, 'snapshot dự báo')
@@ -74,7 +96,15 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
       zones: snapshot.zones.map((zone) => {
         const prediction = predictedByZone.get(zone.aiZoneId)
         if (!prediction) throw new AppError(`Model thiếu dự báo cho ${zone.zoneCode}.`, { code: 'INVALID_RESPONSE' })
-        return { ...zone, forecast5: Number(prediction.predicted_demand), forecastSupply5: Number(prediction.predicted_supply) }
+        return {
+          ...zone,
+          confidence: prediction.confidence === null ? null : prediction.confidence * 100,
+          confidence5: prediction.confidence === null ? null : prediction.confidence * 100,
+          demandRange5: [prediction.demand_p10, prediction.demand_p90] as const,
+          forecast5: prediction.predicted_demand,
+          forecastSupply5: prediction.predicted_supply,
+          supplyRange5: [prediction.supply_p10, prediction.supply_p90] as const,
+        }
       }),
     }
   },
@@ -120,6 +150,7 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
     return parseEntity(await requestJson(`/operator/proposals/${planId}/revisions`, {
       method: 'POST',
       body: body({
+        expectedVersion: request.expectedVersion,
         sourcePlan: { moves, residual_gap: [] },
         targetDriverCount: request.targetDriverCount,
         campaignDurationMinutes: request.campaignDurationMinutes,
@@ -131,17 +162,23 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
       }),
     }), isProposal, 'proposal')
   },
-  approvePlan: async (planId, note) => parseEntity(await requestJson(`/operator/proposals/${planId}/approve`, {
-    method: 'POST', body: body({ note }),
-  }), isProposal, 'proposal'),
-  rejectPlan: async (planId, request) => parseEntity(await requestJson(`/operator/proposals/${planId}/reject`, {
-    method: 'POST', body: body(request),
-  }), isProposal, 'proposal'),
+  approvePlan: async (planId, expectedVersion, note) => runIdempotentCommand(
+    'proposal-approve', { planId, expectedVersion, note },
+    async (idempotencyKey) => parseEntity(await requestJson(`/operator/proposals/${planId}/approve`, {
+      method: 'POST', headers: { 'x-idempotency-key': idempotencyKey }, body: body({ expectedVersion, note }),
+    }), isProposal, 'proposal'),
+  ),
+  rejectPlan: async (planId, request) => runIdempotentCommand(
+    'proposal-reject', { planId, ...request },
+    async (idempotencyKey) => parseEntity(await requestJson(`/operator/proposals/${planId}/reject`, {
+      method: 'POST', headers: { 'x-idempotency-key': idempotencyKey }, body: body(request),
+    }), isProposal, 'proposal'),
+  ),
   startCampaign: async (planId, mode = 'human') => parseEntity(await requestJson(`/operator/proposals/${planId}/activate`, {
     method: 'POST', body: body({ responseMode: mode }),
   }), isCampaign, 'campaign'),
   cancelCampaign: async (campaignId) => parseEntity(await requestJson(`/operator/campaigns/${campaignId}/cancel`, {
-    method: 'POST', body: body({}),
+    method: 'POST', body: body({ reason: 'Operator cancelled after impact review.', disposition: 'RELEASE_OPEN_AND_COMPENSATE_ACCEPTED', policyVersion: 'policy-v1' }),
   }), isCampaign, 'campaign'),
   getDriverView: async (driverId) => {
     try {
@@ -162,4 +199,24 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
   expireOffer: async (offerId) => parseEntity(await requestJson(`/offers/${offerId}/expire`, {
     method: 'POST', body: body({}),
   }), isOffer, 'offer'),
+  listDispatch: async () => parseEntities(await requestJson('/operator/dispatch'), isDispatchBatch, 'dispatch'),
+  releaseDispatch: async (planId) => runIdempotentCommand(
+    'dispatch-release', { planId },
+    async (idempotencyKey) => parseEntity(await requestJson(`/operator/proposals/${planId}/dispatch`, {
+      method: 'POST', headers: { 'x-idempotency-key': idempotencyKey }, body: body({}),
+    }), isDispatchBatch, 'dispatch'),
+  ),
+  cancelDispatch: async (batchId, reason) => parseEntity(await requestJson(`/operator/dispatch/${batchId}/cancel`, {
+    method: 'POST', body: body({ reason }),
+  }), isDispatchBatch, 'dispatch'),
+  retryDispatchMove: async (batchId, moveId, reason) => parseEntity(await requestJson(`/operator/dispatch/${batchId}/moves/${moveId}/retry`, {
+    method: 'POST', body: body({ reason }),
+  }), isDispatchBatch, 'dispatch'),
+  compareScenarios: async (planId) => parseEntity(await requestJson('/operator/scenarios/compare', {
+    method: 'POST', body: body({ proposalId: planId }),
+  }), isScenarioComparison, 'so sÃ¡nh ká»‹ch báº£n'),
+  listNotifications: async () => parseEntities(await requestJson('/operator/notifications'), isPersistentNotification, 'thÃ´ng bÃ¡o'),
+  acknowledgeNotification: async (notificationId) => parseEntity(await requestJson(`/operator/notifications/${notificationId}/acknowledge`, {
+    method: 'POST', body: body({}),
+  }), isPersistentNotification, 'thÃ´ng bÃ¡o'),
 }

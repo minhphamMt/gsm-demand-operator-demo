@@ -14,7 +14,7 @@ describe('driver activation closed loop', () => {
 
   it('updates the campaign, driver state, audit and activation snapshot after acceptance', async () => {
     await mockOperatorAdapter.loadScenario('rain-peak')
-    await mockOperatorAdapter.approvePlan('PLN-042')
+    await mockOperatorAdapter.approvePlan('PLN-042', 1)
     const campaign = await mockOperatorAdapter.startCampaign('PLN-042', 'human')
     const driver = await mockOperatorAdapter.getDriverView('DRV-001')
     const offer = driver?.activeOffers[0]
@@ -30,13 +30,13 @@ describe('driver activation closed loop', () => {
     expect(updatedCampaign?.enRoute).toBe(1)
     expect(updatedCampaign?.unitsGained).toBe(0)
     expect(updatedDriver?.driver.status).toBe('en_route')
-    expect(snapshot.kpis.fleetAvailable).toBe(snapshot.zones.reduce((sum, zone) => sum + zone.supply, 0))
+    expect(snapshot.kpis.fleetAvailable).toBe(snapshot.zones.reduce((sum, zone) => sum + (zone.supply ?? 0), 0))
     expect((await mockOperatorAdapter.listAudit()).some((entry) => entry.action === 'OfferAccepted')).toBe(true)
   })
 
   it('keeps decline and expiry as non-punitive offer-history states', async () => {
     await mockOperatorAdapter.loadScenario('rain-peak')
-    await mockOperatorAdapter.approvePlan('PLN-042')
+    await mockOperatorAdapter.approvePlan('PLN-042', 1)
     await mockOperatorAdapter.startCampaign('PLN-042', 'human')
     const firstDriver = await mockOperatorAdapter.getDriverView('DRV-001')
     const secondDriver = await mockOperatorAdapter.getDriverView('DRV-002')
