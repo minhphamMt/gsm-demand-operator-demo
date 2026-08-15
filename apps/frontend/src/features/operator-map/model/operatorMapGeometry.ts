@@ -63,7 +63,7 @@ export function buildFlowCollections(zones: readonly Zone[], moves: readonly Mov
 
 export function zonesForMapView(zones: readonly Zone[], view: 'city' | 'core') {
   if (view === 'city') return zones
-  const coreZones = zones.filter((zone) => zone.tier === 'core')
+  const coreZones = zones.filter((zone) => zone.tier === 'core' || zone.tier === 'high')
   return coreZones.length ? coreZones : zones
 }
 

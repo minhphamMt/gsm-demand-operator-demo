@@ -302,6 +302,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
       </div>
     )
   const resolvedTimeLabel = timeLabel ?? (forecastMinutes === 0 ? 'Hiện tại' : `Dự báo +${forecastMinutes} phút`)
+  const visibleZoneCount = zonesForMapView(zones, view).length
   const rainingZones = zones.filter((zone) => zone.rainMmH >= rainThreshold).length
   const meanRain = zones.reduce((sum, zone) => sum + zone.rainMmH, 0) / Math.max(1, zones.length)
   return (
@@ -313,7 +314,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
           Hà Nội · {resolvedTimeLabel}
         </p>
         <small>
-          {rainingZones}/30 zone đang mưa · trung bình {meanRain.toFixed(2)} mm/h
+          {view === 'core' ? `Vùng lõi · ${visibleZoneCount}/${zones.length} zone` : `Toàn thành phố · ${zones.length} zone`} · {rainingZones} zone đang mưa · trung bình {meanRain.toFixed(2)} mm/h
         </small>
       </div>
       <MapLegend layer={layer} />

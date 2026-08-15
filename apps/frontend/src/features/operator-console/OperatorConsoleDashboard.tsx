@@ -53,6 +53,7 @@ import {
 } from "./model/operatorWorkflow";
 import { proposalCoverageForStage } from "./model/proposalCoverage";
 import { scenarioPresentation } from "./model/scenarioPresentation";
+import { fleetBalanceSummary } from "./model/fleetBalanceSummary";
 import "./operator-dashboard.css";
 
 const OperatorMap = lazy(() =>
@@ -189,16 +190,7 @@ export function OperatorConsoleDashboard() {
   const replayTime = formatTimeLabel(sourceAt);
   const forecastTime = addMinutesLabel(sourceAt, displayedHorizon);
   const selectedZone = zones.find((zone) => zone.id === selectedZoneId);
-  const deficit = zones.filter(hasOperationalObservation).reduce(
-    (sum, zone) =>
-      sum + Math.max(0, zone.operationalGap ?? operationalGapFor(zone) ?? 0),
-    0,
-  );
-  const available = zones.filter(hasOperationalObservation).reduce(
-    (sum, zone) =>
-      sum + Math.max(0, -(zone.operationalGap ?? operationalGapFor(zone) ?? 0)),
-    0,
-  );
+  const balance = fleetBalanceSummary(zones);
   const hotspots = zones.filter(hasOperationalObservation).filter((zone) => {
     const gap = zone.operationalGap ?? operationalGapFor(zone) ?? 0;
     return zone.supply < 3 || (zone.demand > 0 && gap / zone.demand >= 0.3);
@@ -447,9 +439,8 @@ export function OperatorConsoleDashboard() {
           className={`nf-command-rail ${railOpen ? "is-open" : ""}`}
         >
           <KpiPanel
-            available={available}
+            balance={balance}
             campaign={campaign}
-            deficit={deficit}
             hotspots={hotspots}
             plan={planReady ? plan : undefined}
             requests={activeSnapshot.kpis.requests}
@@ -795,17 +786,15 @@ function ZoneCard({ onClose, zone }: { onClose: () => void; zone: Zone }) {
 }
 
 function KpiPanel({
-  available,
+  balance,
   campaign,
-  deficit,
   hotspots,
   plan,
   requests,
   stage,
 }: {
-  available: number;
+  balance: ReturnType<typeof fleetBalanceSummary>;
   campaign: Campaign | undefined;
-  deficit: number;
   hotspots: number;
   plan: Proposal | undefined;
   requests: number;
@@ -825,19 +814,19 @@ function KpiPanel({
         <b className={["executing", "executed", "campaign"].includes(stage) ? "is-active" : ""}>Thực hiện</b>
       </div>
       <section className="nf-kpi-primary">
-        <small>{stage === "observe" ? "THIẾU HỤT GHI NHẬN" : "THIẾU HỤT DỰ BÁO"}</small>
+        <small>{stage === "observe" ? "THIẾU HỤT GHI NHẬN" : "THIẾU HỤT CẦN XỬ LÝ"}</small>
         <strong>
-          {deficit}
+          {balance.medianDeficit}
           <em> xe</em>
         </strong>
         <span>
-          {hotspots} khu vực cần chú ý · {requests} yêu cầu
+          {balance.riskBuffer > 0 ? `+${balance.riskBuffer} xe đệm rủi ro · ` : ''}{hotspots} khu vực · {requests} yêu cầu
         </span>
       </section>
       <div className="nf-kpi-grid">
-        <span>
-          <small>XE CÓ THỂ ĐIỀU PHỐI</small>
-          <b>{available}</b>
+        <span title={`${balance.safeDispatchable} xe có thể rút mà vẫn giữ biên an toàn trên ${balance.forecastSurplus} xe dư dự báo`}>
+          <small>NGUỒN RÚT AN TOÀN</small>
+          <b>{balance.safeDispatchable}<em> / {balance.forecastSurplus} xe dư</em></b>
         </span>
         <span>
           <small>{coverage.label}</small>

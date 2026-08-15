@@ -1,3 +1,8 @@
+import { LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router'
+
+import { routes } from '@/shared/config/routes'
+
 import { DriverRealtime } from './data/DriverRealtime'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { PhoneShell } from './components/PhoneShell'
@@ -72,6 +77,46 @@ function DriverScreens() {
   )
 }
 
+function DriverSignOutButton() {
+  const { signOut } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleSignOut() {
+    await signOut()
+    navigate(routes.login, { replace: true })
+  }
+
+  return (
+    <button
+      aria-label="Đăng xuất"
+      onClick={() => void handleSignOut()}
+      title="Đăng xuất"
+      type="button"
+      style={{
+        position: 'absolute',
+        top: 60,
+        right: 16,
+        zIndex: 64,
+        height: 42,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 7,
+        padding: '0 14px',
+        border: '1px solid rgba(27,34,37,.12)',
+        borderRadius: 22,
+        background: 'rgba(255,255,255,.96)',
+        boxShadow: '0 4px 14px rgba(27,34,37,.14)',
+        color: '#3f484c',
+        font: "600 12px/1 'Be Vietnam Pro',sans-serif",
+        cursor: 'pointer',
+      }}
+    >
+      <LogOut aria-hidden="true" size={19} strokeWidth={2} />
+      Đăng xuất
+    </button>
+  )
+}
+
 function Gate() {
   const { status, profileError, signOut } = useAuth()
 
@@ -115,6 +160,7 @@ function Gate() {
   return (
     <PhoneShell>
       <StatusBar />
+      <DriverSignOutButton />
       <DriverScreens />
     </PhoneShell>
   )

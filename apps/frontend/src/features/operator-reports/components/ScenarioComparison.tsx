@@ -6,6 +6,7 @@ import type { Proposal, ScenarioComparison as ScenarioComparisonData } from '@/f
 import { Card } from '@/shared/components/ui/Card'
 import { Select } from '@/shared/components/ui/Field'
 import { recommendedScenarioType, scenarioMetricSummary } from '@/features/operator-reports/model/scenarioMetricPresentation'
+import { ScenarioComparisonChart } from '@/features/operator-reports/components/ScenarioComparisonChart'
 
 const labels: Record<string, string> = {
   NO_ACTION: 'Không hành động',
@@ -47,6 +48,7 @@ function ComparisonResult({ value }: { value: ScenarioComparisonData }) {
   const recommended = recommendedScenarioType(value.scenarios)
   return <div className="mt-4 space-y-3">
     <div className="nf-compare-ready"><CheckCircle2 size={16} /><span>Đã chuẩn hóa cùng đầu vào</span><small>{value.scenarios.length} kịch bản</small></div>
+    <ScenarioComparisonChart scenarios={value.scenarios} />
     <div className="nf-scenario-grid">
       {value.scenarios.map((scenario) => <ScenarioCard isRecommended={scenario.type === recommended} key={scenario.type} scenario={scenario} />)}
     </div>

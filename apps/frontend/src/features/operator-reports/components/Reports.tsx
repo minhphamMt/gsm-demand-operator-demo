@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router'
 
 import { campaignsQuery, operationsReportQuery, plansQuery } from '@/features/operator-data'
 import type { OperationsCampaignReport, OperationsReport } from '@/features/operator-data'
-import { ReportCampaignChart } from '@/features/operator-reports/components/ReportCampaignChart'
+import { ReportVisuals } from '@/features/operator-reports/components/ReportVisuals'
 import { ScenarioComparison } from '@/features/operator-reports/components/ScenarioComparison'
 import { hasInvalidReportRange, reportFilterState, toOperationsReportFilters } from '@/features/operator-reports/model/reportFilters'
 import { Card } from '@/shared/components/ui/Card'
@@ -41,9 +41,8 @@ export function Reports() {
       <ScenarioComparison plans={plans.data} />
     </div>
     <ReportSummary report={report.data} />
-    <BudgetLifecycle report={report.data} />
     {report.data.campaigns.length ? <>
-      <Card className="nf-workspace-panel"><div className="mb-3"><h2 className="font-semibold text-slate-950">Kết quả ghi trong DB theo campaign</h2><p className="mt-1 text-sm text-slate-500">Chỉ hiển thị tài xế kích hoạt và chuyến hoàn tất có bản ghi nguồn.</p></div><ReportCampaignChart campaigns={report.data.campaigns} /></Card>
+      <ReportVisuals report={report.data} />
       <details className="nf-disclosure"><summary>Xem bảng đối soát chi tiết</summary><CampaignReportTable campaigns={report.data.campaigns} /></details>
     </> : <EmptyState description="Không có campaign nào trong bộ lọc phía server." title="Không có dữ liệu báo cáo" />}
     <details className="nf-disclosure"><summary>Nguồn dữ liệu & giới hạn</summary><ReportProvenance report={report.data} /></details>
@@ -66,17 +65,6 @@ function ReportSummary({ report }: { report: OperationsReport }) {
     { icon: <WalletCards className="size-4" />, label: 'Thưởng mô phỏng đã trả', value: formatCurrency(summary.rewardPaidVnd) },
     { detail: `${summary.campaigns} campaign`, icon: <CircleDollarSign className="size-4" />, label: 'Ngân sách đã dùng', value: formatCurrency(summary.budgetUsedVnd) },
   ]} /></section>
-}
-
-function BudgetLifecycle({ report }: { report: OperationsReport }) {
-  const summary = report.summary
-  return <Card className="nf-workspace-panel"><h2 className="font-semibold text-slate-950">Dòng tiền</h2><div className="mt-3 grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6">
-    {[
-      ['Đã giữ chỗ', summary.reservedVnd], ['Đã cam kết', summary.committedVnd],
-      ['Đủ điều kiện', summary.qualifiedVnd], ['Đã trả', summary.paidVnd],
-      ['Bồi thường chờ trả', summary.compensationDueVnd], ['Đã hoàn', summary.releasedVnd],
-    ].map(([label, amount]) => <div className="rounded-lg bg-slate-50 p-3" key={String(label)}><span className="text-xs text-slate-500">{label}</span><strong className="mt-1 block">{formatCurrency(Number(amount))}</strong></div>)}
-  </div></Card>
 }
 
 function CampaignReportTable({ campaigns }: { campaigns: readonly OperationsCampaignReport[] }) {
