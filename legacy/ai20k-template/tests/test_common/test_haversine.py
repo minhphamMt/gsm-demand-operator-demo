@@ -13,7 +13,6 @@ import math
 from pathlib import Path
 
 import pytest
-
 from src.common.errors import ConfigError
 from src.common.haversine import (
     DEFAULT_ZONE_REGISTRY_PATH,

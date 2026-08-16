@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from src.common.policy import DEFAULT_POLICY_PATH, load_policy
 from src.common.regime import REGIMES
 from src.forecasting.lgbm_quantile import MODEL_VERSION

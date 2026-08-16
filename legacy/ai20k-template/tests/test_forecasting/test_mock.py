@@ -13,7 +13,6 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
-
 from src.contracts import ZONE_COUNT
 from src.contracts.forecast import Forecast
 from src.forecasting import baseline_hist_avg, lgbm_quantile, mock

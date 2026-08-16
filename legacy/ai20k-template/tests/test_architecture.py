@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 
 from src.common.policy import DEFAULT_POLICY_PATH, REQUIRED_RULE_KEYS, get_policy
+
 from src.config import PROJECT_ROOT
 
 SRC_DIR = PROJECT_ROOT / "src"

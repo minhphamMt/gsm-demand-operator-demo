@@ -1,8 +1,8 @@
 """Fixture cho tầng contract."""
 
 import pytest
-
 from src.common.policy import Policy, load_policy
+
 from src.config import PROJECT_ROOT
 
 POLICY_PATH = PROJECT_ROOT / "config" / "policy.yaml"

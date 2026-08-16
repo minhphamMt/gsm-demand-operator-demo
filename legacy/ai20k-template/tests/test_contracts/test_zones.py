@@ -9,10 +9,10 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
-
 from src.contracts import ZONE_COUNT
 from src.contracts.forecast import Forecast
 from src.contracts.snapshot import Snapshot
+
 from tests.test_contracts import spec_examples as ex
 
 

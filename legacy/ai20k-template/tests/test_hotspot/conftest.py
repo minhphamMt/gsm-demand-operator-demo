@@ -15,7 +15,6 @@ from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from src.common.regime import Regime
 from src.contracts import ZONE_COUNT
 from src.contracts.forecast import Forecast, HorizonMin, ZoneForecast

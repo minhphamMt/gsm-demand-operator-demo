@@ -23,7 +23,6 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import pytest
-
 from src.contracts import ZONE_COUNT
 from src.forecasting.baseline_hist_avg import build_lookup
 from src.forecasting.features import (

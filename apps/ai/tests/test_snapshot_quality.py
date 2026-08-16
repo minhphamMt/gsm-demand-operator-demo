@@ -5,7 +5,6 @@ import pandas as pd
 
 from generate_snapshots import operational_quality
 
-
 AI_DIR = Path(__file__).resolve().parents[1]
 
 
