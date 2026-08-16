@@ -1,11 +1,12 @@
-import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, Optional, UnprocessableEntityException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 
+import { AiService } from '../ai/ai.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { assertNoActiveExecution } from './active-execution.guard';
 import { buildRevisedSourcePlan } from './revision-source-plan';
 import { deriveHotspots } from './hotspot-policy';
-import { evaluateForecast } from './forecast-evaluation';
+import { evaluateForecast, isGroundTruthDue, replayGroundTruthSourceAt } from './forecast-evaluation';
 import { calculateSnapshotKpis, mapAiZone } from './snapshot.mapper';
 import {
   ActivateProposalDto,
@@ -51,7 +52,7 @@ const canonicalAuditEntity = (entityType: string) => Object.entries(auditEntityA
 
 @Injectable()
 export class OperatorService {
-  constructor(private readonly db: SupabaseService) {}
+  constructor(private readonly db: SupabaseService, @Optional() private readonly ai?: AiService) {}
 
   async capabilities() {
     const enabled = (name: string, defaultValue: boolean) => {
@@ -797,27 +798,53 @@ export class OperatorService {
 
   private async getForecastEvaluation(forecastRunId: string) {
     const { data: forecastRows, error: forecastError } = await this.db.client.from('ai_zone_forecasts')
-      .select('zone_id,forecast_at,predicted_demand,predicted_supply,demand_p10,demand_p90,supply_p10,supply_p90')
+      .select('snapshot_id,zone_id,horizon_min,forecast_at,predicted_demand,predicted_supply,demand_p10,demand_p90,supply_p10,supply_p90')
       .eq('forecast_run_id', forecastRunId)
       .order('zone_id', { ascending: true });
     if (forecastError) this.db.unwrap(null, forecastError);
     const targetAt = forecastRows?.[0]?.forecast_at ? String(forecastRows[0].forecast_at) : null;
     if (!targetAt) return { status: 'PENDING_GROUND_TRUTH', targetAt: null, evaluatedZones: 0 };
+    if (!isGroundTruthDue(targetAt)) {
+      return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
+    }
 
-    // Replay source timestamps are stored in source_name, while forecast_at is a
-    // timestamptz. Compare their parsed instants so +07:00 and UTC forms match.
+    const sourceSnapshotId = forecastRows?.[0]?.snapshot_id;
+    const horizonMinutes = forecastRows?.[0]?.horizon_min;
+    const { data: sourceObservation, error: sourceError } = await this.db.client.from('ai_zone_observations')
+      .select('source_name')
+      .eq('snapshot_id', sourceSnapshotId)
+      .limit(1)
+      .maybeSingle();
+    if (sourceError) this.db.unwrap(null, sourceError);
+    const replayTargetAt = replayGroundTruthSourceAt(sourceObservation?.source_name, horizonMinutes);
+    if (!replayTargetAt) return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
+
+    // forecast_at follows the displayed server clock. Ground truth must instead
+    // advance from the immutable replay source bucket by the forecast horizon.
     const { data: candidates, error: candidateError } = await this.db.client.from('ai_zone_observations')
       .select('snapshot_id,source_name')
       .like('source_name', 'AI_PARQUET_REPLAY:%')
       .order('snapshot_id', { ascending: false })
       .limit(2000);
     if (candidateError) this.db.unwrap(null, candidateError);
-    const targetMs = Date.parse(targetAt);
+    const targetMs = Date.parse(replayTargetAt);
     const targetSnapshotId = candidates?.find((row: any) => {
       const sourceAt = String(row.source_name ?? '').slice('AI_PARQUET_REPLAY:'.length);
       return Number.isFinite(targetMs) && Date.parse(sourceAt) === targetMs;
     })?.snapshot_id;
-    if (!targetSnapshotId) return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
+    if (!targetSnapshotId) {
+      if (!this.ai) return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
+      try {
+        const replaySnapshot = await this.ai.replaySnapshotAt(replayTargetAt);
+        return evaluateForecast(
+          forecastRows ?? [],
+          replaySnapshot.zones.map((zone) => ({ ...zone, data_status: 'live' })),
+          targetAt,
+        ) ?? { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
+      } catch {
+        return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
+      }
+    }
 
     const { data: observations, error: observationError } = await this.db.client.from('ai_zone_observations')
       .select('zone_id,data_status,demand_observed,idle_supply')

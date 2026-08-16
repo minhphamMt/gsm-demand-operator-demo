@@ -103,11 +103,15 @@ export class AiService {
   }
 
   async runReplay(sourceAt: string) {
-    const dataset = await this.request<DatasetSnapshot>('/api/v1/datasets/snapshots/at', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source_at: sourceAt }),
-    });
+    const dataset = await this.replaySnapshotAt(sourceAt);
     const snapshot = await this.ingestExact(dataset);
     return { snapshot };
+  }
+
+  async replaySnapshotAt(sourceAt: string) {
+    return this.request<DatasetSnapshot>('/api/v1/datasets/snapshots/at', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source_at: sourceAt }),
+    });
   }
 
   async replayWindow(sourceAt: string) {

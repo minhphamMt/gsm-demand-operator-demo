@@ -15,6 +15,23 @@ type ObservationValue = {
   idle_supply?: unknown;
 }
 
+const replaySourcePrefix = 'AI_PARQUET_REPLAY:'
+
+export function isGroundTruthDue(targetAt: unknown, now = Date.now()): boolean {
+  const target = Date.parse(String(targetAt ?? ''))
+  return Number.isFinite(target) && target <= now
+}
+
+/** Resolve the frozen-data bucket that becomes observable at a replay forecast horizon. */
+export function replayGroundTruthSourceAt(sourceName: unknown, horizonMinutes: unknown): string | null {
+  const value = String(sourceName ?? '')
+  const horizon = Number(horizonMinutes)
+  if (!value.startsWith(replaySourcePrefix) || !Number.isInteger(horizon) || horizon <= 0) return null
+  const sourceAt = new Date(value.slice(replaySourcePrefix.length))
+  if (!Number.isFinite(sourceAt.getTime())) return null
+  return new Date(sourceAt.getTime() + horizon * 60_000).toISOString()
+}
+
 export type ForecastEvaluation = {
   status: 'OBSERVED';
   targetAt: string;

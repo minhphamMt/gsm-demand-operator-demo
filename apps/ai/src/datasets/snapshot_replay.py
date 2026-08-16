@@ -203,7 +203,7 @@ def snapshot_at(source_at: pd.Timestamp) -> dict[str, Any]:
     return {**dataset_status(), "source_at": source_at.isoformat(), "regime": step_regime, "zones": zones}
 
 
-def snapshot_window(center_at: pd.Timestamp, lookback_minutes: int = 120) -> list[dict[str, Any]]:
+def snapshot_window(center_at: pd.Timestamp, lookback_minutes: int = 60) -> list[dict[str, Any]]:
     """Return only observed buckets from the lookback window through ``center_at``.
 
     Replay is an observation reader, not an inference loop.  Keeping future

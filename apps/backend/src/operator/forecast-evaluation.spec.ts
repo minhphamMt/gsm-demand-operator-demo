@@ -1,4 +1,4 @@
-import { evaluateForecast } from './forecast-evaluation'
+import { evaluateForecast, isGroundTruthDue, replayGroundTruthSourceAt } from './forecast-evaluation'
 
 describe('evaluateForecast', () => {
   it('compares per-zone predictions with later live observations', () => {
@@ -28,5 +28,17 @@ describe('evaluateForecast', () => {
       [{ zone_id: 1, data_status: 'missing', demand_observed: null, idle_supply: null }],
       '2026-09-25T01:10:00.000Z',
     )).toBeNull()
+  })
+
+  it('maps a wall-clock forecast to the later frozen replay bucket', () => {
+    expect(replayGroundTruthSourceAt('AI_PARQUET_REPLAY:2026-09-25T08:30:00+07:00', 15))
+      .toBe('2026-09-25T01:45:00.000Z')
+    expect(replayGroundTruthSourceAt('OTHER:2026-09-25T08:30:00+07:00', 15)).toBeNull()
+  })
+
+  it('keeps replay ground truth hidden until the wall-clock horizon arrives', () => {
+    const now = Date.parse('2026-09-25T01:30:00.000Z')
+    expect(isGroundTruthDue('2026-09-25T01:35:00.000Z', now)).toBe(false)
+    expect(isGroundTruthDue('2026-09-25T01:30:00.000Z', now)).toBe(true)
   })
 })

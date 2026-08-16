@@ -35,4 +35,14 @@ describe('ForecastDrawer', () => {
     expect(screen.getByText('COMPLETED · 30/30 zone')).toBeInTheDocument()
     expect(screen.getByText('Hotspot High: gap 6 xe ≥ ngưỡng 6 xe · HIGH_DEMAND_GAP')).toBeInTheDocument()
   })
+
+  it('separates the p50 operating balance from the p90 risk buffer', () => {
+    const surplus = { ...zone, id: 'AI-Z02', aiZoneId: 2, zoneCode: 'AI-Z02', label: 'Hoàn Kiếm', demand: 5, supply: 11, operationalGap: -2 }
+    render(<ForecastDrawer forecastTime="08:05" horizon={5} hotspots={[hotspot]} onClose={vi.fn()} onZoneSelect={vi.fn()} sourceTime="08:00" zones={[zone, surplus]} />)
+
+    expect(screen.getByText('5 xe')).toBeInTheDocument()
+    expect(screen.getByText('1 vùng rủi ro · +0 xe đệm p90')).toBeInTheDocument()
+    expect(screen.getByText('6 xe')).toBeInTheDocument()
+    expect(screen.getByText('1 zone · trước giới hạn khoảng cách, đệm nguồn và cooldown')).toBeInTheDocument()
+  })
 })
