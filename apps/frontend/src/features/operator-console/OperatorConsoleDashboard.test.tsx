@@ -144,6 +144,22 @@ describe('operator console safety states', () => {
     expect(screen.getByText(/không tự đánh dấu hoàn tất/i)).toBeInTheDocument()
   })
 
+  it('shows expected hybrid coverage from the plan stage', () => {
+    const source = createAgentPlans('rain-peak')[0]!
+    const plan = {
+      ...source,
+      planMode: 'HYBRID' as const,
+      metricsBefore: { ...source.metricsBefore, residualGap: 43 },
+      metrics: { ...source.metrics, residualGap: 41 },
+      metricsAfterActivation: { ...source.metrics, residualGap: 15.8 },
+    }
+
+    expect(proposalCoverageForStage(plan, 'plan')).toEqual({
+      label: 'MỨC PHỦ KỲ VỌNG',
+      percent: 63,
+    })
+  })
+
   it('blocks model actions while a source zone has no observation', () => {
     const action = vi.fn()
     render(<RailActions

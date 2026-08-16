@@ -173,7 +173,40 @@ def test_curated_demo_buckets_produce_relocation_for_every_horizon() -> None:
 
     assert all(response.status_code == 200 for response in decisions)
     assert all(response.json()["forecast_mode"] == "trained_model_replay" for response in decisions)
-    assert all(response.json()["plan"]["moves"] for response in decisions)
+    for response in decisions:
+        body = response.json()
+        targets = body["plan"]["relocation_targets"]
+        direct_units = sum(move["units_to_move"] for move in body["plan"]["moves"])
+        assert body["hotspots"]["conservative_gap_mode"] == "p90_p50"
+        assert body["simulation"]["basis"] == "forecast_p90_p50_after_all_moves_arrive"
+        assert len(targets) >= 8
+        assert all(target["target_basis"] == "p90_p50" for target in targets)
+        assert direct_units == 2
+        assert body["activation_recommendation"]["total_requested_offers"] > direct_units
+        assert body["activation_recommendation"]["total_expected_units_gained"] > direct_units
+
+
+def test_local_rain_cell_keeps_p90_planning_when_citywide_regime_is_peak() -> None:
+    source_at = "2026-09-25T08:35:00+07:00"
+    with TestClient(app) as client:
+        zones = client.post(
+            "/api/v1/datasets/snapshots/at",
+            json={"source_at": source_at},
+        ).json()["zones"]
+        payload = _request()
+        payload["zones"] = zones
+        payload["horizon_min"] = 5
+        payload["replay_source_at"] = source_at
+        response = client.post("/api/v1/decisions", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["forecast"]["regime"] == "peak"
+    assert any(zone["rain_mm_h"] >= 0.5 for zone in zones)
+    assert body["hotspots"]["conservative_gap_mode"] == "p90_p50"
+    assert body["simulation"]["metrics_before"]["unmet_demand"] > 40
+    assert sum(move["units_to_move"] for move in body["plan"]["moves"]) == 2
+    assert body["activation_recommendation"]["total_requested_offers"] == 50
 
 
 def test_replay_window_never_reads_future_steps_at_dataset_boundary() -> None:
