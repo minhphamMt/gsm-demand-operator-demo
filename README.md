@@ -10,6 +10,9 @@ Kiến trúc hiện tại gồm React/Vite, NestJS, FastAPI/LightGBM và Supabas
 
 - [Chạy full stack](#chạy-full-stack-từ-clean-clone)
 - [Chạy từng workspace](#chạy-và-kiểm-tra-từng-workspace)
+- [Biến môi trường](#biến-môi-trường)
+- [Sample queries](#sample-queries)
+- [Eval evidence](#eval-evidence)
 - [Cấu trúc và mô tả file](#cấu-trúc-và-mô-tả-file)
 - [CI và quality gates](#ci-và-quality-gates)
 - [Vận hành và bảo mật](#vận-hành-và-bảo-mật)
@@ -63,6 +66,70 @@ Các địa chỉ local:
 | Backend API | http://localhost:3000/api/v1 | `/health/live`, `/health/ready`, `/health/metrics` |
 | Swagger | http://localhost:3000/docs | — |
 | AI inference | http://localhost:8000 | `/health` |
+
+## Biến môi trường
+
+Không commit `.env`. Copy các template rồi chỉ thay giá trị trên máy hoặc secret store của môi trường deploy:
+
+| Service | Template | Biến runtime |
+|---|---|---|
+| AI | [`apps/ai/.env.example`](apps/ai/.env.example) | `APP_ENV`, `APP_HOST`, `APP_PORT`, `LOG_LEVEL`, `MODEL_VERSION`; các path `POLICY_PATH`, `ZONE_REGISTRY_PATH`, `DRIVER_REGISTRY_PATH`, `HISTORY_DB_PATH` là tùy chọn |
+| Backend | [`apps/backend/.env.example`](apps/backend/.env.example) | `NODE_ENV`, `PORT`, `CORS_ORIGINS`, `AI_SERVICE_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, các tài khoản test và feature flag vận hành |
+| Frontend | [`apps/frontend/.env.example`](apps/frontend/.env.example) | `VITE_DATA_SOURCE`, `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_MAPBOX_ACCESS_TOKEN`, `VITE_DEMO_MODE` |
+| AI logging hook | [`.env.example`](.env.example) | `AI_LOG_SERVER`, `AI_LOG_API_KEY`, `AI_LOG_DIR` |
+
+Các ngưỡng nghiệp vụ như bán kính điều chuyển, nguồn dự trữ, budget, incentive và acceptance rate chỉ nằm trong [`apps/ai/config/policy.yaml`](apps/ai/config/policy.yaml), không nhân bản sang `.env`.
+
+## Sample queries
+
+Health check không cần token:
+
+```powershell
+Invoke-RestMethod http://localhost:8000/health
+Invoke-RestMethod http://localhost:3000/api/v1/health/ready
+```
+
+Đọc một bucket replay thật, sau đó chạy model cho 5 phút tới:
+
+```powershell
+$sourceAt = '2026-09-25T08:35:00+07:00'
+$snapshot = Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/datasets/snapshots/at `
+  -ContentType 'application/json' -Body (@{ source_at = $sourceAt } | ConvertTo-Json)
+
+$decisionBody = @{
+  snapshot_id = 'readme-sample-0835'
+  t = $sourceAt
+  horizon_min = 5
+  data_source = "replay:$sourceAt"
+  replay_source_at = $sourceAt
+  zones = $snapshot.zones
+} | ConvertTo-Json -Depth 8
+
+$decision = Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/decisions `
+  -ContentType 'application/json' -Body $decisionBody
+$decision.plan.moves
+$decision.activation_recommendation
+```
+
+Đọc capability và snapshot vận hành qua backend. Các endpoint operator cần Supabase access token hợp lệ:
+
+```powershell
+$headers = @{ Authorization = "Bearer $env:OPERATOR_ACCESS_TOKEN" }
+Invoke-RestMethod http://localhost:3000/api/v1/operator/capabilities -Headers $headers
+Invoke-RestMethod http://localhost:3000/api/v1/operator/snapshots/latest -Headers $headers
+```
+
+Swagger tại `http://localhost:3000/docs` mô tả toàn bộ request/response của backend.
+
+## Eval evidence
+
+[`eval/decision_flow_evidence.md`](eval/decision_flow_evidence.md) lưu năm acceptance case với output model thực tế cho replay 5/10/15 phút. Có thể tái tạo JSON evidence mà không sửa model bằng:
+
+```powershell
+Set-Location apps/ai
+$env:PYTHONPATH='.'
+./.venv/Scripts/python.exe eval_decision_flow.py
+```
 
 Compose cố ý fail fast:
 
