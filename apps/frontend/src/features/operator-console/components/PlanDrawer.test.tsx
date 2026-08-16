@@ -60,18 +60,44 @@ describe('PlanDrawer', () => {
     expect(waitRow).not.toHaveTextContent("0′")
   })
 
-  it('explains coverage as the optimizer target and rounds model metrics for operators', () => {
+  it('explains direct relocation coverage and rounds model metrics for operators', () => {
+    const { metricsAfterActivation: _metricsAfterActivation, ...relocationPlan } = plan
     plan = {
-      ...plan,
+      ...relocationPlan,
+      planMode: 'RELOCATION',
+      targetDriverCount: 0,
+      expectedOfferCount: 0,
       metricsBefore: { ...plan.metricsBefore, residualGap: 0.552, fulfillmentRate: 99.882, avgWaitProxy: 2.65 },
       metrics: { ...plan.metrics, residualGap: 0, fulfillmentRate: 100, avgWaitProxy: 2.649 },
     }
 
     render(<PlanDrawer error={null} isSaving={false} onClose={vi.fn()} onRevise={vi.fn()} plan={plan} />)
 
-    expect(screen.getByText(/mức phủ mục tiêu khả thi do optimizer chọn/)).toBeInTheDocument()
+    expect(screen.getByText(/mức phủ trực tiếp theo lời giải optimizer/)).toBeInTheDocument()
     expect(screen.getByText('Thiếu hụt mục tiêu').closest('tr')).toHaveTextContent('0,60')
     expect(screen.getByText('Tỷ lệ đáp ứng').closest('tr')).toHaveTextContent('99,9%100%')
+  })
+
+  it('shows the complete hybrid plan instead of presenting one route as the whole solution', () => {
+    plan = {
+      ...plan,
+      planMode: 'HYBRID',
+      targetDriverCount: 25,
+      expectedOfferCount: 43,
+      estimatedRewardCost: 430_000,
+      moves: [{ ...plan.moves[0]!, quantity: 2 }],
+      metricsBefore: { ...plan.metricsBefore, residualGap: 43 },
+      metrics: { ...plan.metrics, residualGap: 41 },
+      metricsAfterActivation: { ...plan.metrics, residualGap: 15.8 },
+    }
+
+    render(<PlanDrawer error={null} isSaving={false} onClose={vi.fn()} onRevise={vi.fn()} plan={plan} />)
+
+    expect(screen.getByText(/Chế độ: điều chuyển kết hợp activation/)).toBeInTheDocument()
+    expect(screen.getByText(/2 xe điều chuyển an toàn \+ 43 offer/)).toBeInTheDocument()
+    expect(screen.getByText(/kỳ vọng bổ sung 25,2 xe/)).toBeInTheDocument()
+    expect(screen.getByText('ACTIVATION KỲ VỌNG').parentElement).toHaveTextContent('25,2 / 43 offer')
+    expect(screen.getByRole('columnheader', { name: 'Sau activation (kỳ vọng)' })).toBeInTheDocument()
   })
 
   it('does not present a failed empty result as free instant 100% coverage', () => {
