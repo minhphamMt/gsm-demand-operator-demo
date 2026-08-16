@@ -20,7 +20,7 @@ from src.contracts.hotspot import Hotspot, HotspotOutput, SurplusZone
 from src.datasets.snapshot_replay import dataset_status, next_snapshot, replay_features, snapshot_at, snapshot_window
 from src.forecasting.lgbm_quantile import ModelKey, forecast_at, load_models, verify_model_bundle
 from src.forecasting.live_snapshot_baseline import forecast_from_live_zones
-from src.hotspot.detector import gap_of, meets_condition, severity_of
+from src.hotspot.detector import gap_inputs, gap_of, meets_condition, severity_of
 from src.optimizer.greedy import solve
 from src.simulation.metrics import system_metrics
 
@@ -245,11 +245,23 @@ def _detect_without_hidden_state(
     policy: Policy,
 ) -> HotspotOutput:
     idle = {zone.zone_id: zone.idle_supply for zone in request.zones}
-    mode = policy.rules.conservative_gap_mode if forecast.regime == "rain_peak" else None
+    # The replay can contain a local rain cell while the citywide mean remains just
+    # below the global rain-regime threshold. The map already exposes those wet zones
+    # and their p90 risk. Planning must therefore use the same conservative basis when
+    # a peak snapshot has any observed/near-term rain, instead of silently falling back
+    # to p50 and dispatching a single vehicle against many red risk zones.
+    has_peak = any(zone.peak_flag == 1 for zone in request.zones)
+    has_local_rain = any(
+        max(zone.rain_mm_h, zone.rain_forecast_15, zone.rain_forecast_30)
+        >= policy.derived.rain_threshold_mm_h
+        for zone in request.zones
+    )
+    mode = policy.rules.conservative_gap_mode if has_peak and has_local_rain else None
+    planning_regime = "rain_peak" if mode else forecast.regime
     hotspots: list[Hotspot] = []
     surplus: list[SurplusZone] = []
     for zone in forecast.zones:
-        gap = gap_of(zone, regime=forecast.regime, conservative_gap_mode=mode)
+        gap = gap_of(zone, regime=planning_regime, conservative_gap_mode=mode)
         if meets_condition(
             predicted_supply=zone.predicted_supply,
             gap=gap,
@@ -288,21 +300,30 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
     forecast, forecast_mode, forecast_warnings = _forecast(request)
     hotspot_output = _detect_without_hidden_state(forecast, request, policy)
     policy_hotspot_ids = {hotspot.zone_id for hotspot in hotspot_output.hotspots}
-    balancing_targets = tuple(
+    planning_regime = "rain_peak" if hotspot_output.conservative_gap_mode else forecast.regime
+    planning_gap_by_zone = {
+        zone.zone_id: gap_of(
+            zone,
+            regime=planning_regime,
+            conservative_gap_mode=hotspot_output.conservative_gap_mode,
+        )
+        for zone in forecast.zones
+    }
+    risk_targets = tuple(
         Hotspot(
             zone_id=zone.zone_id,
             is_hotspot=True,
-            gap=zone.predicted_demand - zone.predicted_supply,
-            severity_score=severity_of(zone.predicted_demand - zone.predicted_supply, zone.predicted_demand),
+            gap=planning_gap_by_zone[zone.zone_id],
+            severity_score=severity_of(planning_gap_by_zone[zone.zone_id], zone.predicted_demand),
             idle_supply_current=next(item.idle_supply for item in request.zones if item.zone_id == zone.zone_id),
         )
         for zone in forecast.zones
-        if zone.zone_id not in policy_hotspot_ids and zone.predicted_demand - zone.predicted_supply >= 0.5
+        if zone.zone_id not in policy_hotspot_ids and planning_gap_by_zone[zone.zone_id] >= 0.5
     )
     optimizer_output = HotspotOutput(
         forecast_ts=hotspot_output.forecast_ts,
         horizon_min=hotspot_output.horizon_min,
-        hotspots=(*hotspot_output.hotspots, *balancing_targets),
+        hotspots=(*hotspot_output.hotspots, *risk_targets),
         surplus_zones=hotspot_output.surplus_zones,
         conservative_gap_mode=hotspot_output.conservative_gap_mode,
     )
@@ -314,15 +335,23 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         policy=policy,
         zone_coords=get_zone_coords(settings.zone_registry_path),
     )
-    supply_after = {zone.zone_id: zone.predicted_supply for zone in forecast.zones}
+    planning_inputs = {
+        zone.zone_id: gap_inputs(
+            zone,
+            regime=planning_regime,
+            conservative_gap_mode=hotspot_output.conservative_gap_mode,
+        )
+        for zone in forecast.zones
+    }
+    supply_after = {zone_id: supply for zone_id, (_, supply) in planning_inputs.items()}
     for move in result.moves:
         supply_after[move.from_zone] -= move.units_to_move
         supply_after[move.to_zone] += move.units_to_move
     metrics_before = system_metrics(
-        (zone.predicted_demand, zone.predicted_supply) for zone in forecast.zones
+        planning_inputs.values()
     )
     metrics_after_relocation = system_metrics(
-        (zone.predicted_demand, supply_after[zone.zone_id]) for zone in forecast.zones
+        (planning_inputs[zone.zone_id][0], supply_after[zone.zone_id]) for zone in forecast.zones
     )
     activation = recommend_activation(
         result.residual_gap,
@@ -377,7 +406,11 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         "simulation": {
             "metrics_before": metrics_before.__dict__,
             "metrics_after_relocation": metrics_after_relocation.__dict__,
-            "basis": "forecast_p50_after_all_moves_arrive",
+            "basis": (
+                f"forecast_{hotspot_output.conservative_gap_mode}_after_all_moves_arrive"
+                if hotspot_output.conservative_gap_mode
+                else "forecast_p50_after_all_moves_arrive"
+            ),
         },
         "plan": {
             "moves": [move.model_dump(mode="json") for move in result.moves],
@@ -389,6 +422,7 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
                     "gap": target.gap,
                     "required_units": max(0, math.floor(target.gap + 0.5)),
                     "is_policy_hotspot": target.zone_id in policy_hotspot_ids,
+                    "target_basis": hotspot_output.conservative_gap_mode or "p50",
                 }
                 for target in optimizer_output.hotspots
                 if target.gap > 0
