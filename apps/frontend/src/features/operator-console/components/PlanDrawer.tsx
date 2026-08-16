@@ -35,7 +35,8 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
     Math.min(100, Math.round((1 - expectedResidualGap / Math.max(1, plan.metricsBefore.residualGap)) * 100)),
   )
   const displayedCoverage = hasActivation ? expectedCoverage : preview.coverage
-  const maximumCommittedCost = preview.estimatedCost + (hasActivation ? plan.estimatedRewardCost : 0)
+  const maximumCommittedCost = preview.estimatedCost
+    + (hasActivation ? plan.expectedOfferCount * plan.relocationBonus : 0)
   const planModeLabel = !hasOperationalAction
     ? 'không có hành động khả thi'
     : plan.planMode === 'ACTIVATION_ONLY'
@@ -82,7 +83,7 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
         <thead><tr><th>Chỉ số</th><th>Không hành động</th><th>Sau điều chuyển</th>{hasActivation && <th>Sau activation (kỳ vọng)</th>}</tr></thead>
         <tbody>
           <tr><td>Thiếu hụt mục tiêu</td><td>{formatModelMetric(plan.metricsBefore.residualGap)}</td><td>{formatModelMetric(preview.residualGap)}</td>{hasActivation && <td>{formatModelMetric(expectedResidualGap)}</td>}</tr>
-          <tr><td>Tỷ lệ đáp ứng</td><td>{formatModelMetric(plan.metricsBefore.fulfillmentRate)}%</td><td>{formatModelMetric(preview.fulfillmentRate)}%</td>{hasActivation && <td>{displayedCoverage}% mục tiêu rủi ro</td>}</tr>
+          <tr><td>Tỷ lệ đáp ứng</td><td>{formatModelMetric(plan.metricsBefore.fulfillmentRate)}%</td><td>{formatModelMetric(preview.fulfillmentRate)}%</td>{hasActivation && <td>{plan.metricsAfterActivation ? `${formatModelMetric(plan.metricsAfterActivation.fulfillmentRate)}%` : '—'}</td>}</tr>
           <tr><td>Phút chờ trung bình</td><td>{plan.metricsBefore.avgWaitProxy > 0 ? `${formatModelMetric(plan.metricsBefore.avgWaitProxy)}′` : '—'}</td><td>{plan.metrics.avgWaitProxy > 0 ? `${formatModelMetric(plan.metrics.avgWaitProxy)}′` : '—'}</td>{hasActivation && <td>Chờ dữ liệu thực tế</td>}</tr>
         </tbody>
       </table></>}
