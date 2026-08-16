@@ -13,12 +13,23 @@ type PlanDrawerProps = {
   plan: Proposal
 }
 
+const formatWait = (minutes: number) => minutes > 0 ? `${formatNumber(minutes)}′` : '—'
+
 export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDrawerProps) {
   const [quantities, setQuantities] = useState(() => initialMoveQuantities(plan))
   useEffect(() => setQuantities(initialMoveQuantities(plan)), [plan])
   const hasDirectMoves = plan.moves.length > 0
+  const hasActivation = plan.targetDriverCount > 0
+  const hasOperationalAction = hasDirectMoves || hasActivation
   const canEdit = plan.status === 'UnderReview' || plan.status === 'Revised'
   const preview = previewPlanRevision(plan, quantities)
+  const planModeLabel = !hasOperationalAction
+    ? 'không có hành động khả thi'
+    : plan.planMode === 'ACTIVATION_ONLY'
+      ? 'chỉ activation'
+      : plan.planMode === 'HYBRID'
+        ? 'điều chuyển kết hợp activation'
+        : 'điều chuyển'
 
   const adjustMove = (moveId: string, delta: number) => {
     setQuantities((current) => {
@@ -35,29 +46,29 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
       <div>
         <small>BẢNG CHI TIẾT · {hasDirectMoves ? `${preview.activeMoves} LƯỢT CHUYỂN` : 'KHÔNG CÓ LỜI GIẢI ĐIỀU CHUYỂN'}</small>
         <strong>{plan.status === 'Approved' ? 'Đã phê duyệt' : `Phương án đề xuất · v${plan.version}`}</strong>
-        <p>Chế độ: {plan.planMode === 'ACTIVATION_ONLY' ? 'chỉ activation' : plan.planMode === 'HYBRID' ? 'điều chuyển kết hợp activation' : 'điều chuyển'} · {plan.status === 'Approved' ? 'chưa có lệnh nào được phát. Thực hiện là một thao tác riêng.' : 'điều chỉnh số xe, lưu phiên bản mới rồi phê duyệt.'}</p>
+        <p>Chế độ: {planModeLabel} · {plan.status === 'Approved' ? 'chưa có lệnh nào được phát. Thực hiện là một thao tác riêng.' : hasOperationalAction ? 'điều chỉnh số xe, lưu phiên bản mới rồi phê duyệt.' : 'kết quả này chỉ được lưu để truy vết, không thể phê duyệt.'}</p>
       </div>
       <button aria-label="Đóng bảng chi tiết" onClick={onClose} type="button"><X size={17} /></button>
     </header>
     <div aria-live="polite" className="nf-plan-summary">
-      <strong>{preview.coverage}%</strong>
-      <span>thiếu hụt dự kiến được phủ bởi điều chuyển<br />{preview.activeMoves} lượt chuyển · còn thiếu {formatNumber(preview.residualGap)} xe</span>
+      <strong>{hasOperationalAction ? `${preview.coverage}%` : '—'}</strong>
+      <span>{hasOperationalAction ? <>thiếu hụt dự kiến được phủ bởi điều chuyển<br />{preview.activeMoves} lượt chuyển · còn thiếu {formatNumber(preview.residualGap)} xe</> : <>Không có phương án điều phối để tính hiệu quả<br />Không phát hiện hotspot và nguồn dư đồng thời đạt ngưỡng policy</>}</span>
     </div>
     <div className="nf-plan-metrics">
-      <span><small>CHUYỂN TRỰC TIẾP</small><b>{preview.activeMoves}</b></span>
-      <span><small>CHI PHÍ</small><b>{formatCurrency(preview.estimatedCost)}</b></span>
-      <span><small>ETA TỐI ĐA</small><b>{Math.max(0, ...plan.moves.filter((move) => (quantities[move.id] ?? move.quantity) > 0).map((move) => move.etaMinutes))}′</b></span>
+      <span><small>CHUYỂN TRỰC TIẾP</small><b>{hasOperationalAction ? preview.activeMoves : '—'}</b></span>
+      <span><small>CHI PHÍ</small><b>{hasOperationalAction ? formatCurrency(preview.estimatedCost) : '—'}</b></span>
+      <span><small>ETA TỐI ĐA</small><b>{hasOperationalAction ? `${Math.max(0, ...plan.moves.filter((move) => (quantities[move.id] ?? move.quantity) > 0).map((move) => move.etaMinutes))}′` : '—'}</b></span>
     </div>
     <div className="nf-plan-scroll nf-scroll">
-      <h3>TÁC ĐỘNG DỰ KIẾN</h3>
+      {hasOperationalAction && <><h3>TÁC ĐỘNG DỰ KIẾN</h3>
       <table className="table">
         <thead><tr><th>Chỉ số</th><th>Không hành động</th><th>Sau điều phối</th></tr></thead>
         <tbody>
           <tr><td>Thiếu hụt</td><td>{formatNumber(plan.metricsBefore.residualGap)}</td><td>{formatNumber(preview.residualGap)}</td></tr>
           <tr><td>Tỷ lệ đáp ứng</td><td>{formatNumber(plan.metricsBefore.fulfillmentRate)}%</td><td>{formatNumber(preview.fulfillmentRate)}%</td></tr>
-          <tr><td>Phút chờ trung bình</td><td>{formatNumber(plan.metricsBefore.avgWaitProxy)}′</td><td>{formatNumber(plan.metrics.avgWaitProxy)}′</td></tr>
+          <tr><td>Phút chờ trung bình</td><td>{formatWait(plan.metricsBefore.avgWaitProxy)}</td><td>{formatWait(plan.metrics.avgWaitProxy)}</td></tr>
         </tbody>
-      </table>
+      </table></>}
       <h3>RÀNG BUỘC VẬN HÀNH</h3>
       <div className="nf-policy-tags">
         {plan.policyChecks.map((check) => <span className={check.passed ? 'pass' : 'fail'} key={check.id}>{check.passed ? '✓' : '!'} {check.label}</span>)}
@@ -75,7 +86,7 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
         {plan.warnings.map((warning) => <p className="nf-warning" key={warning.id}>! {warning.title}: {warning.detail}</p>)}
       </>}
       <h3>{hasDirectMoves ? `LƯỢT ĐIỀU CHUYỂN ${canEdit ? 'ĐỀ XUẤT' : 'ĐÃ DUYỆT'}` : 'NGUYÊN NHÂN KHÔNG CÓ LỜI GIẢI'}</h3>
-      {!hasDirectMoves && <p className="nf-activation-plan">Không có zone dư an toàn để rút xe. Bạn có thể tạo một bản nháp activation riêng. Chưa có offer nào được gửi.</p>}
+      {!hasDirectMoves && <p className="nf-activation-plan">{hasActivation ? 'Không có zone dư an toàn để rút xe; phương án dùng activation tài xế.' : 'Không có hotspot và zone dư an toàn cùng đạt ngưỡng policy. Không có lệnh điều chuyển hay activation nào được tạo.'} Chưa có offer nào được gửi.</p>}
       {plan.moves.map((move, index) => {
         const quantity = quantities[move.id] ?? move.quantity
         const limit = moveQuantityLimit(plan, quantities, move.id)

@@ -1,4 +1,4 @@
-import { AiService } from './ai.service';
+import { AiService, isReplaySnapshotReusable } from './ai.service';
 
 function eligibleDriverQuery(count: number) {
   const chain = {
@@ -17,6 +17,14 @@ function eligibleDriverQuery(count: number) {
 }
 
 describe('AiService persistence', () => {
+  it('does not reuse a replay snapshot beyond the frontend freshness window', () => {
+    const now = new Date('2026-08-15T13:10:00.000Z').getTime();
+
+    expect(isReplaySnapshotReusable('2026-08-15T13:06:00.000Z', now)).toBe(true);
+    expect(isReplaySnapshotReusable('2026-08-15T13:05:00.000Z', now)).toBe(false);
+    expect(isReplaySnapshotReusable('invalid', now)).toBe(false);
+  });
+
   it('persists the exact five-minute replay forecast without creating a proposal', async () => {
     const service = new AiService({} as never);
     const sourceAt = '2026-08-11T21:30:00Z';

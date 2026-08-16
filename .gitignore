@@ -97,7 +97,10 @@ out/
 runs/*
 !.gitkeep
 eval/results/*.json
+apps/ai/runs/*
+apps/ai/eval/results/*.json
 frontend/dist/
+.runtime/
 .claude/
 .cursor/
 .gemini/

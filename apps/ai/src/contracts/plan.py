@@ -207,7 +207,7 @@ class RelocationPlan(ContractModel):
         if self.plan_totals.total_cost != expected_cost:
             raise ValueError(f"total_cost={self.plan_totals.total_cost} không bằng Σ moves = {expected_cost}")
 
-        expected_km = sum(move.deadhead_km for move in self.moves)
+        expected_km = sum(move.deadhead_km * move.units_to_move for move in self.moves)
         if not math.isclose(self.plan_totals.total_deadhead_km, expected_km, abs_tol=FLOAT_TOLERANCE):
             raise ValueError(
                 f"total_deadhead_km={self.plan_totals.total_deadhead_km} không bằng Σ moves = {expected_km}"

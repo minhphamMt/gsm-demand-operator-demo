@@ -18,4 +18,12 @@ describe('SnapshotStaleAlert', () => {
     const { container } = render(<SnapshotStaleAlert generatedAt="2026-08-09T12:08:00.000Z" isRefreshing={false} now={now} onRefresh={vi.fn()} />)
     expect(container).toBeEmptyDOMElement()
   })
+
+  it('explains that stale data will be retried automatically', () => {
+    render(<SnapshotStaleAlert autoRefresh generatedAt="2026-08-09T12:00:00.000Z" isRefreshing={false} now={now} onRefresh={vi.fn()} />)
+
+    expect(screen.getByText('Snapshot đang được tự động làm mới')).toBeInTheDocument()
+    expect(screen.getByText(/tự thử lại sau 15 giây/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Làm mới ngay' })).toBeInTheDocument()
+  })
 })

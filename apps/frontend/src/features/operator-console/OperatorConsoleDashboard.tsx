@@ -82,6 +82,7 @@ export function OperatorConsoleDashboard() {
     sourceAt: string;
   } | null>(null);
   const [workflowStage, setWorkflowStage] = useState<OperatorWorkflowStage>("observe");
+  const [autoReplayRetry, setAutoReplayRetry] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
   const [dialog, setDialog] = useState<DialogKind>(null);
@@ -98,6 +99,7 @@ export function OperatorConsoleDashboard() {
   const dispatches = useQuery(dispatchQuery());
   const actions = useOperatorActions();
   const lastAutoReplayAtRef = useRef<string | undefined>(undefined);
+  const autoReplayRetryTimerRef = useRef<number | undefined>(undefined);
   const requestedForecastRef = useRef<ForecastHorizon | undefined>(undefined);
 
   useEffect(() => {
@@ -107,6 +109,10 @@ export function OperatorConsoleDashboard() {
     setDrawerOpen(false);
     actions.runReplayStep.mutate(replayAnchorAt, {
       onSuccess: (nextSnapshot) => {
+        if (autoReplayRetryTimerRef.current !== undefined) {
+          window.clearTimeout(autoReplayRetryTimerRef.current);
+          autoReplayRetryTimerRef.current = undefined;
+        }
         const nextAt = nextSnapshot.sourceAt ?? nextSnapshot.generatedAt;
         setReplaySnapshot(nextSnapshot);
         setForecastMinutes(5);
@@ -114,9 +120,25 @@ export function OperatorConsoleDashboard() {
         setWorkflowStage("forecast");
         setMapSource("forecast");
       },
+      onError: () => {
+        lastAutoReplayAtRef.current = undefined;
+        if (autoReplayRetryTimerRef.current !== undefined) {
+          window.clearTimeout(autoReplayRetryTimerRef.current);
+        }
+        autoReplayRetryTimerRef.current = window.setTimeout(
+          () => setAutoReplayRetry((attempt) => attempt + 1),
+          15_000,
+        );
+      },
       onSettled: () => setReplayTargetAt(undefined),
     });
-  }, [actions.runReplayStep, replayAnchorAt, snapshot.data]);
+  }, [actions.runReplayStep, autoReplayRetry, replayAnchorAt, snapshot.data]);
+
+  useEffect(() => () => {
+    if (autoReplayRetryTimerRef.current !== undefined) {
+      window.clearTimeout(autoReplayRetryTimerRef.current);
+    }
+  }, []);
 
   if (snapshot.isPending)
     return (
@@ -309,6 +331,7 @@ export function OperatorConsoleDashboard() {
   return (
     <div className="nf-ops">
       <SnapshotStaleAlert
+        autoRefresh
         generatedAt={activeSnapshot.generatedAt}
         isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
         onRefresh={() => {
@@ -744,9 +767,13 @@ function ZoneFinder({
   );
 }
 
-function ZoneCard({ onClose, zone }: { onClose: () => void; zone: Zone }) {
+export function ZoneCard({ onClose, zone }: { onClose: () => void; zone: Zone }) {
   const hasObservation = hasOperationalObservation(zone);
-  const balance = hasObservation ? -(zone.operationalGap ?? operationalGapFor(zone) ?? 0) : null;
+  const balance = hasObservation ? zone.supply - zone.demand : null;
+  const conservativeDeficit = hasObservation
+    ? Math.max(0, zone.operationalGap ?? operationalGapFor(zone) ?? 0)
+    : null;
+  const medianDeficit = balance === null ? null : Math.max(0, -balance);
   return (
     <div className="nf-zone-card">
       <button
@@ -766,7 +793,7 @@ function ZoneCard({ onClose, zone }: { onClose: () => void; zone: Zone }) {
           Cầu<b>{zone.demand ?? "—"}</b>
         </span>
         <span>
-          Chênh lệch
+          Chênh lệch p50
           <b className={balance === null ? "" : balance < 0 ? "bad" : "good"}>
             {balance === null ? "—" : <>{balance > 0 ? "+" : ""}{balance}</>}
           </b>
@@ -776,6 +803,9 @@ function ZoneCard({ onClose, zone }: { onClose: () => void; zone: Zone }) {
         Diện tích: {zone.areaKm2.toLocaleString("vi-VN")} km² · Mưa:{" "}
         {zone.rainMmH.toFixed(2)} mm/h
       </p>
+      {conservativeDeficit !== null && medianDeficit !== null && conservativeDeficit !== medianDeficit && (
+        <p>Thiếu hụt thận trọng p90: {conservativeDeficit} xe (dùng để kiểm tra policy)</p>
+      )}
       <p>
         Độ tin cậy AI:{" "}
         {zone.confidence === null ? "N/A" : `${Math.round(zone.confidence)}%`}
@@ -801,6 +831,10 @@ function KpiPanel({
   stage: OperatorWorkflowStage;
 }) {
   const coverage = proposalCoverageForStage(plan, stage);
+  const modelSelectedSupply = plan?.moves.reduce((sum, move) => sum + move.quantity, 0) ?? 0;
+  const modelAvailableSupply = plan?.candidateSourceZones.reduce((sum, source) => sum + source.availableSupply, 0) ?? 0;
+  const safeDispatchable = modelSelectedSupply > 0 ? modelSelectedSupply : balance.safeDispatchable;
+  const safeCapacity = modelAvailableSupply > 0 ? modelAvailableSupply : balance.safeDispatchable;
   return (
     <div className="nf-kpi-panel">
       <div className="nf-rail-title">
@@ -824,9 +858,9 @@ function KpiPanel({
         </span>
       </section>
       <div className="nf-kpi-grid">
-        <span title={`${balance.safeDispatchable} xe có thể rút mà vẫn giữ biên an toàn trên ${balance.forecastSurplus} xe dư dự báo`}>
+        <span title={`${safeDispatchable} xe đã phân bổ trên ${safeCapacity} xe nguyên chiếc vượt toàn bộ ràng buộc nguồn`}>
           <small>NGUỒN RÚT AN TOÀN</small>
-          <b>{balance.safeDispatchable}<em> / {balance.forecastSurplus} xe dư</em></b>
+          <b>{safeDispatchable}<em> / {safeCapacity} xe khả dụng</em></b>
         </span>
         <span>
           <small>{coverage.label}</small>

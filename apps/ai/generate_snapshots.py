@@ -132,9 +132,12 @@ def resolve_rain_source(base_dir="."):
     if package_source.is_file():
         return package_source
 
-    repository_source = Path(__file__).resolve().parents[2] / "data" / "external" / "rain_hanoi_2025.csv"
-    if repository_source.is_file():
-        return repository_source
+    # Không giả định script luôn nằm đúng ba cấp dưới repository: trong image Docker file này ở
+    # /app/generate_snapshots.py, còn khi chạy source trực tiếp nó ở <repo>/apps/ai/.
+    for ancestor in Path(__file__).resolve().parents:
+        repository_source = ancestor / "data" / "external" / "rain_hanoi_2025.csv"
+        if repository_source.is_file():
+            return repository_source
     return package_source
 
 
@@ -303,14 +306,18 @@ def build_snapshot(zones, gen_cfg, pricing: PricingPolicy, split="train", base_d
     city_rain = load_real_rain_series(rain_csv, window["start_month"], window["start_day"], n_steps, step_min)
     factors = spatial_rain_factors(zones, n_steps, step_min, rain_cfg["spatial"])
 
-    # Chuẩn hóa hai điểm số nền về 0-1 (building_density trong zone_registry đã sẵn 0-1)
+    # Mật độ dân số là số liệu hành chính có thể đối chiếu. ``building_density`` không được dùng
+    # làm proxy nhu cầu nữa: trường này là số công trình OSM thô nên quận ngoại thành có nhiều
+    # footprint nhà thấp tầng (Long Biên, Gia Lâm, Sơn Tây) từng bị xếp cao hơn khu trung tâm.
+    # Activity score biểu diễn cường độ thương mại/dịch vụ ở mức thận trọng theo tier đô thị.
     pop = np.array([z["population_density"] for z in zones], dtype=float)
-    build = np.array([z["building_density"] for z in zones], dtype=float)
     pop_norm = (pop - pop.min()) / (pop.max() - pop.min())
+    activity_by_tier = baseline["activity_score_by_tier"]
+    activity = np.array([activity_by_tier[z["tier"]] for z in zones], dtype=float)
     w_d = baseline["demand_score_weights"]
     w_s = baseline["supply_score_weights"]
-    score_d = w_d["population"] * pop_norm + w_d["building"] * build
-    score_s = w_s["population"] * pop_norm + w_s["building"] * build
+    score_d = w_d["population"] * pop_norm + w_d["activity"] * activity
+    score_s = w_s["population"] * pop_norm + w_s["activity"] * activity
 
     d_lo, d_hi = baseline["base_demand_range"]
     s_lo, s_hi = baseline["base_supply_range"]
@@ -444,7 +451,7 @@ def pick_sample_windows(df, threshold, window_steps=4):
     if len(rain_off_peak):
         picked += window_from(index.get_loc(rain_off_peak["rain_sum"].idxmax()))
 
-    # 4) rain_peak nặng nhất — chỗ duy nhất thấy được cung sụt 30% và mưa lệch giữa zone.
+    # 4) rain_peak nặng nhất — cho thấy cung đổi nhẹ và mưa lệch giữa các zone.
     rain_peak = steps[(steps["rain_max"] >= threshold) & (steps["peak"] == 1)]
     if len(rain_peak):
         picked += window_from(index.get_loc(rain_peak["rain_sum"].idxmax()))
@@ -470,6 +477,40 @@ def write_sample(df, out_path, threshold):
     return len(sample), len(windows)
 
 
+def operational_quality(df, zones):
+    """Đo hai điều kiện để snapshot dùng được cho bài toán điều chuyển.
+
+    * Cầu trung bình phải tập trung hợp lý ở nhóm quận đô thị ``high`` thay vì bị số
+      footprint công trình ở ngoại thành chi phối.
+    * Phần lớn timestamp cao điểm phải có tổng xe dư cục bộ đủ bù tổng xe thiếu cục bộ.
+      Đây chỉ là điều kiện khả thi cấp thành phố; optimizer vẫn phải xét reserve, ETA và chi phí.
+    """
+    work = df[["ts_bucket", "zone_id", "demand_observed", "idle_supply", "peak_flag"]].copy()
+    work["gap"] = work["demand_observed"] - work["idle_supply"]
+    work["deficit"] = work["gap"].clip(lower=0)
+    work["surplus"] = (-work["gap"]).clip(lower=0)
+
+    city = work.groupby("ts_bucket", as_index=False).agg(
+        deficit=("deficit", "sum"),
+        surplus=("surplus", "sum"),
+        peak_flag=("peak_flag", "max"),
+    )
+    peak = city[city["peak_flag"] == 1]
+    relocatable_peak_pct = float((peak["surplus"] >= peak["deficit"]).mean())
+
+    zone_tier = {int(zone["zone_id"]): zone["tier"] for zone in zones}
+    high_count = sum(tier == "high" for tier in zone_tier.values())
+    top_zone_ids = (
+        work.groupby("zone_id")["demand_observed"].mean().nlargest(high_count).index.astype(int).tolist()
+    )
+    top_demand_all_high = all(zone_tier[zone_id] == "high" for zone_id in top_zone_ids)
+    return {
+        "relocatable_peak_pct": relocatable_peak_pct,
+        "top_demand_all_high": top_demand_all_high,
+        "top_demand_zone_ids": top_zone_ids,
+    }
+
+
 def validate(df, zones, n_steps, threshold):
     """Kiểm tra quality requirements trong A1 + các bất biến contract §4.1."""
     errors = []
@@ -491,11 +532,26 @@ def validate(df, zones, n_steps, threshold):
     bad_inv3 = df[df["enroute_supply"] != df["enroute_arrivals"].apply(len)]
     if len(bad_inv3):
         errors.append(f"INV-3 vỡ ở {len(bad_inv3)} dòng: enroute_supply != Σ enroute_arrivals[].units")
+
+    quality = operational_quality(df, zones)
+    if quality["relocatable_peak_pct"] < 0.70:
+        errors.append(
+            "Dữ liệu không khả thi cho điều chuyển: chỉ "
+            f"{quality['relocatable_peak_pct']:.1%} timestamp cao điểm có xe dư đủ bù xe thiếu (cần >= 70%)"
+        )
+    if not quality["top_demand_all_high"]:
+        errors.append(
+            "Phân bố cầu sai thực tế đô thị: nhóm zone có cầu trung bình cao nhất không trùng nhóm tier=high; "
+            f"zone đang đứng đầu: {quality['top_demand_zone_ids']}"
+        )
     if errors:
         raise ValueError("VALIDATION FAILED:\n" + "\n".join(errors))
 
     n_events, n_rp_steps = count_rain_peak_events(df, threshold)
-    print(f"✅ Validation passed: {len(df)} dòng, {df['zone_id'].nunique()} zone, không null, đủ step.")
+    print(
+        f"✅ Validation passed: {len(df)} dòng, {df['zone_id'].nunique()} zone, không null, đủ step; "
+        f"{quality['relocatable_peak_pct']:.1%} timestamp cao điểm có xe dư đủ bù xe thiếu."
+    )
     return n_events, n_rp_steps
 
 

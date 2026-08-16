@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,6 +10,7 @@ describe('PlanDrawer', () => {
   let plan: Proposal
 
   beforeEach(async () => {
+    cleanup()
     await mockOperatorAdapter.resetDemo()
     const loaded = await mockOperatorAdapter.getPlan('PLN-042')
     if (!loaded) throw new Error('Missing proposal fixture')
@@ -43,5 +44,40 @@ describe('PlanDrawer', () => {
     expect(screen.getByText('input-immutable-1')).toBeInTheDocument()
     expect(screen.getByText(plan.inputSnapshotId)).toBeInTheDocument()
     expect(screen.getByText(/Chế độ: chỉ activation/)).toBeInTheDocument()
+  })
+
+  it('shows unavailable wait-time evidence as a dash instead of zero minutes', () => {
+    plan = {
+      ...plan,
+      metricsBefore: { ...plan.metricsBefore, avgWaitProxy: 0 },
+      metrics: { ...plan.metrics, avgWaitProxy: 0 },
+    }
+
+    render(<PlanDrawer error={null} isSaving={false} onClose={vi.fn()} onRevise={vi.fn()} plan={plan} />)
+
+    const waitRow = screen.getByText('Phút chờ trung bình').closest('tr')
+    expect(waitRow).toHaveTextContent('Phút chờ trung bình——')
+    expect(waitRow).not.toHaveTextContent("0′")
+  })
+
+  it('does not present a failed empty result as free instant 100% coverage', () => {
+    plan = {
+      ...plan,
+      status: 'FailedGeneration',
+      planMode: 'ACTIVATION_ONLY',
+      moves: [],
+      targetDriverCount: 0,
+      metricsBefore: { ...plan.metricsBefore, residualGap: 0, fulfillmentRate: 100 },
+      metrics: { ...plan.metrics, residualGap: 0, fulfillmentRate: 100 },
+    }
+
+    render(<PlanDrawer error={null} isSaving={false} onClose={vi.fn()} onRevise={vi.fn()} plan={plan} />)
+
+    expect(screen.getByText(/Chế độ: không có hành động khả thi/)).toBeInTheDocument()
+    expect(screen.getByText(/Không có phương án điều phối để tính hiệu quả/)).toBeInTheDocument()
+    expect(screen.queryByText('100%')).not.toBeInTheDocument()
+    expect(screen.queryByText('0 ₫')).not.toBeInTheDocument()
+    expect(screen.queryByText("0′")).not.toBeInTheDocument()
+    expect(screen.queryByText('TÁC ĐỘNG DỰ KIẾN')).not.toBeInTheDocument()
   })
 })

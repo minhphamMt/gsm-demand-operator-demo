@@ -7,6 +7,12 @@ seed:
   train: 42
   test: 2026        # seed khác train, dùng riêng cho A5 test set (freeze)
 
+# Nguồn đối chiếu cho lần hiệu chỉnh 2026-08-15. Đây là provenance, generator không đọc các key này.
+evidence:
+  hanoi_population_density: "https://webtctk.gso.gov.vn/storage/manager/chitieu_niengiam_tk/VW4lvif-de389b96-98e7-4c92-a183-baa1c5f9807e.pdf"
+  rainfall_taxi_supply_distribution: "https://doi.org/10.1155/2020/7081628"
+  rainfall_taxi_demand_distribution: "https://doi.org/10.1371/journal.pone.0183574"
+
 time:
   step_minutes: 5
   steps_per_day: 288
@@ -29,16 +35,17 @@ demand_supply_baseline:
   # Lý do: nhân 1.8 cho demand và 0.85 cho supply đúng vào 4 giờ cao điểm tạo ra thiếu cung
   # mang tính hệ thống ở MỌI zone -> hotspot rate ở rain_peak bão hòa 0.99986 (AC #7 không đạt),
   # đồng thời hour_of_day gần như vô nghĩa với Model 1 (D7).
-  noise_std_pct: 0.15           # nhiễu ngẫu nhiên +-15% quanh baseline
+  noise_std_pct: 0.12           # nhiễu ngẫu nhiên +-12% quanh baseline, tránh gap giả do một điểm ngoại lai
 
-  # Trọng số suy ra mức nền từ zone_registry. Demand và supply dùng HAI trọng số khác nhau
-  # một cách có chủ đích: nếu cả hai cùng một điểm số thì mọi zone có cùng tỷ lệ cung/cầu,
-  # không zone nào dư xe, và Optimizer không có nguồn để rút (đúng hệ quả nêu ở D4).
-  # Demand bám mật độ tòa nhà (điểm đến: văn phòng, TTTM); supply bám mật độ dân cư (nơi tài xế đỗ chờ).
-  demand_score_weights: {population: 0.40, building: 0.60}   # ASSUMPTION-35
-  supply_score_weights: {population: 0.80, building: 0.20}   # ASSUMPTION-36
-  base_demand_range: [3, 22]    # ASSUMPTION-37 — chuyến/5 phút/zone, thấp nhất -> cao nhất
-  base_supply_range: [3, 20]    # ASSUMPTION-38
+  # Trọng số suy ra mức nền từ zone_registry. Không dùng building_density: đây là mật độ footprint
+  # công trình OSM, làm khu nhiều nhà thấp tầng (Long Biên/Gia Lâm/Sơn Tây) bị hiểu sai thành trung tâm
+  # thương mại. Mật độ dân số lấy vai trò chính; tier là proxy thận trọng cho cường độ hoạt động đô thị.
+  # Demand và supply vẫn dùng hai trọng số khác nhau để tạo mất cân bằng CỤC BỘ cho optimizer xử lý.
+  activity_score_by_tier: {high: 1.00, medium: 0.58, low: 0.22}
+  demand_score_weights: {population: 0.55, activity: 0.45}   # hiệu chỉnh 2026-08-15
+  supply_score_weights: {population: 0.75, activity: 0.25}   # xe rỗi bám nơi cư trú nhiều hơn điểm đến
+  base_demand_range: [3, 20]    # chuyến/5 phút/zone, thấp nhất -> cao nhất
+  base_supply_range: [6, 25]    # thêm dự phòng ở vùng mật độ cao để có nguồn điều chuyển gần hotspot
 
   # Đường cong 24 giờ (D7). Giá trị tương đối, code TỰ CHUẨN HÓA về trung bình = 1
   # nên sửa một giờ không làm trôi tổng lượng cả ngày.
@@ -63,11 +70,13 @@ rain:
   enabled: true
   target_rain_peak_pct: 0.30     # ~30% số ngày có sự kiện rain_peak (yêu cầu contract)
   demand_elasticity_per_mm: 0.0059   # +0.59%/mm/h theo Liu et al. (đã chốt trong contract)
-  supply_drop_at_peak_rain_pct: 0.30 # % giảm cung khi zone ở regime rain_peak (Kamga & Yazici, chốt tại checklist mục 0.3)
+  # Nghiên cứu GPS taxi cho thấy tổng cung/cầu khi mưa chỉ đổi nhẹ, thay đổi chính là phân bố không gian;
+  # vì vậy bỏ cú sốc -30% toàn zone. 5% nằm trong mức dịch chuyển quan sát 2.7-5.5% ở giờ cao điểm.
+  supply_drop_at_peak_rain_pct: 0.05
   rain_event_duration_steps_range: [6, 24]   # 1 sự kiện mưa kéo dài 30 phút - 2 giờ
   # D11 — [2,25] là con số tưởng tượng, không khớp nguồn thật. Dải quan sát được của
-  # NASA POWER 2025 trên hai cửa sổ đang dùng: 0 -> 9.19 mm/h. Key này chỉ còn được
-  # generate_rain_series() (nhánh fallback synthetic thuần) đọc, giữ lại cho đúng thực tế.
+  # NASA POWER 2025 trên hai cửa sổ đang dùng: 0 -> 9.19 mm/h ở chuỗi cấp thành phố. Sau khi nhân
+  # dải mưa không gian, một zone có thể cao hơn; key này chỉ còn được nhánh fallback synthetic đọc.
   rain_intensity_mm_h_range: [0.0, 9.2]
 
   # Cửa sổ mưa thật lấy từ data/external/rain_hanoi_2025.csv. Ngày/tháng ở đây dùng chung

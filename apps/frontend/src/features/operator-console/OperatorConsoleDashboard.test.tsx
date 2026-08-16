@@ -4,10 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { OperatorConsoleDashboard, RailActions, ScenarioBar } from '@/features/operator-console/OperatorConsoleDashboard'
+import { OperatorConsoleDashboard, RailActions, ScenarioBar, ZoneCard } from '@/features/operator-console/OperatorConsoleDashboard'
 import { proposalCoverageForStage } from '@/features/operator-console/model/proposalCoverage'
 import { mockOperatorAdapter } from '@/features/operator-data/api/mockOperatorAdapter'
 import { createAgentPlans } from '@/features/operator-data/model/mockProposalEngine'
+import type { Zone } from '@/features/operator-data'
 
 function renderDashboard() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -81,6 +82,20 @@ describe('operator console safety states', () => {
     expect(screen.getByText('CHI TIẾT KHU VỰC')).toBeInTheDocument()
     queryClient.clear()
   }, 20_000)
+
+  it('does not mix the p50 supply-demand difference with the conservative p90 deficit', () => {
+    const zone: Zone = {
+      id: 'AI-Z09', aiZoneId: 9, zoneCode: 'AI-Z09', label: 'Long Biên', tier: 'ring', areaKm2: 59.93,
+      center: [105.9, 21.04], boundary: [], dataStatus: 'live', supply: 11, demand: 22, gap: 11,
+      operationalGap: 18, severity: 'Critical', confidence: null, rainMmH: 0.38, rainForecast15: 0.4,
+      rainForecast30: 0.5, forecast15: 22, forecast30: 22,
+    }
+
+    render(<ZoneCard onClose={vi.fn()} zone={zone} />)
+
+    expect(screen.getByText('Chênh lệch p50').parentElement).toHaveTextContent('-11')
+    expect(screen.getByText('Thiếu hụt thận trọng p90: 18 xe (dùng để kiểm tra policy)')).toBeInTheDocument()
+  })
 
   it('shows expected activation coverage instead of a misleading 0% relocation value', () => {
     const source = createAgentPlans('rain-peak')[0]!
