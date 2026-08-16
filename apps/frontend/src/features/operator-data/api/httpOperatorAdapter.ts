@@ -2,24 +2,26 @@ import {
   isAuditPage,
   isBaseline,
   isCampaign,
+  isDispatchBatch,
   isDriver,
   isDriverView,
   isOffer,
   isOperationsReport,
+  isOperatorCapabilities,
+  isPersistentNotification,
   isProposal,
   isSnapshot,
+  isScenarioComparison,
   parseEntities,
   parseEntity,
 } from '@/features/operator-data/api/responseGuards'
+import { runIdempotentCommand } from '@/features/operator-data/api/commandIdempotency'
 import type { AuditFilters, DemoScenario, OperationsReportFilters, OperatorDataAdapter, Proposal } from '@/features/operator-data/model/types'
 import { latestAgentProposalForSnapshot } from '@/features/operator-data/model/proposalSelection'
 import { AppError, requestJson } from '@/shared/api/client'
 
 const body = (value: unknown) => JSON.stringify(value)
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
-type ReplayForecastZone = { zone_id: number; predicted_demand: number; predicted_supply: number }
-const isReplayForecastZone = (value: unknown): value is ReplayForecastZone => isRecord(value)
-  && typeof value.zone_id === 'number' && typeof value.predicted_demand === 'number' && typeof value.predicted_supply === 'number'
 const aiZoneNumber = (value: string) => Number(value.replace(/^AI-Z/i, ''))
 const auditSearch = (filters: AuditFilters) => {
   const search = new URLSearchParams({ page: String(filters.page), pageSize: String(filters.pageSize) })
@@ -48,6 +50,7 @@ async function getPlan(planId: string): Promise<Proposal | undefined> {
 }
 
 export const httpOperatorAdapter: OperatorDataAdapter = {
+  getCapabilities: async () => parseEntity(await requestJson('/operator/capabilities'), isOperatorCapabilities, 'capability'),
   generateAiDecision: async (snapshotId, horizonMinutes) => {
     await requestJson('/operator/ai/forecast', { method: 'POST', body: body({ snapshotId, horizonMinutes }) })
     return parseEntity(await requestJson(`/operator/snapshots/${snapshotId}?scenario=baseline`), isSnapshot, 'snapshot dự báo')
@@ -61,22 +64,14 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
   },
   runReplayStep: async (sourceAt) => {
     const result = await requestJson('/operator/ai/replay', { method: 'POST', body: body({ sourceAt }) })
-    if (!result || typeof result !== 'object' || !('snapshot' in result) || !result.snapshot || typeof result.snapshot !== 'object' || !('id' in result.snapshot) || typeof result.snapshot.id !== 'number') throw new AppError('Kết quả chạy model replay không hợp lệ.', { code: 'INVALID_RESPONSE' })
-    const snapshot = parseEntity(await requestJson(`/operator/snapshots/${result.snapshot.id}?scenario=baseline`), isSnapshot, 'snapshot replay')
-    if (!('decision' in result) || !isRecord(result.decision) || !isRecord(result.decision.forecast)) throw new AppError('Model không trả về dự báo replay.', { code: 'INVALID_RESPONSE' })
-    const forecast = result.decision.forecast
-    if (!Array.isArray(forecast.zones) || typeof forecast.forecast_ts !== 'string' || typeof forecast.model_version !== 'string') throw new AppError('Dữ liệu dự báo +5 phút không hợp lệ.', { code: 'INVALID_RESPONSE' })
-    const predictedByZone = new Map(forecast.zones.filter(isReplayForecastZone).map((value) => [value.zone_id, value]))
-    if (predictedByZone.size !== 30) throw new AppError('Model phải trả đủ dự báo cho 30 zone.', { code: 'INVALID_RESPONSE' })
-    return {
-      ...snapshot,
-      ai: { ...(snapshot.ai ?? { zoneContract: 'AI_ZONE_1_30', registeredZones: 30, liveZones: 30, forecastedZones: 30 }), horizons: [5], modelVersion: forecast.model_version, forecastMode: 'trained_model_replay', dataSource: `project_parquet_replay→ai_zone_observations:${result.snapshot.id}`, forecastAt: forecast.forecast_ts },
-      zones: snapshot.zones.map((zone) => {
-        const prediction = predictedByZone.get(zone.aiZoneId)
-        if (!prediction) throw new AppError(`Model thiếu dự báo cho ${zone.zoneCode}.`, { code: 'INVALID_RESPONSE' })
-        return { ...zone, forecast5: Number(prediction.predicted_demand), forecastSupply5: Number(prediction.predicted_supply) }
-      }),
+    if (!isRecord(result) || !isRecord(result.snapshot) || typeof result.snapshot.id !== 'number') {
+      throw new AppError('Kết quả nạp dữ liệu replay không hợp lệ.', { code: 'INVALID_RESPONSE' })
     }
+    return parseEntity(
+      await requestJson(`/operator/snapshots/${result.snapshot.id}?scenario=baseline`),
+      isSnapshot,
+      'snapshot replay',
+    )
   },
   getReplayWindow: async (sourceAt) => {
     const response = await requestJson('/operator/ai/replay-window', { method: 'POST', body: body({ sourceAt }) })
@@ -120,6 +115,7 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
     return parseEntity(await requestJson(`/operator/proposals/${planId}/revisions`, {
       method: 'POST',
       body: body({
+        expectedVersion: request.expectedVersion,
         sourcePlan: { moves, residual_gap: [] },
         targetDriverCount: request.targetDriverCount,
         campaignDurationMinutes: request.campaignDurationMinutes,
@@ -131,17 +127,23 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
       }),
     }), isProposal, 'proposal')
   },
-  approvePlan: async (planId, note) => parseEntity(await requestJson(`/operator/proposals/${planId}/approve`, {
-    method: 'POST', body: body({ note }),
-  }), isProposal, 'proposal'),
-  rejectPlan: async (planId, request) => parseEntity(await requestJson(`/operator/proposals/${planId}/reject`, {
-    method: 'POST', body: body(request),
-  }), isProposal, 'proposal'),
+  approvePlan: async (planId, expectedVersion, note) => runIdempotentCommand(
+    'proposal-approve', { planId, expectedVersion, note },
+    async (idempotencyKey) => parseEntity(await requestJson(`/operator/proposals/${planId}/approve`, {
+      method: 'POST', headers: { 'x-idempotency-key': idempotencyKey }, body: body({ expectedVersion, note }),
+    }), isProposal, 'proposal'),
+  ),
+  rejectPlan: async (planId, request) => runIdempotentCommand(
+    'proposal-reject', { planId, ...request },
+    async (idempotencyKey) => parseEntity(await requestJson(`/operator/proposals/${planId}/reject`, {
+      method: 'POST', headers: { 'x-idempotency-key': idempotencyKey }, body: body(request),
+    }), isProposal, 'proposal'),
+  ),
   startCampaign: async (planId, mode = 'human') => parseEntity(await requestJson(`/operator/proposals/${planId}/activate`, {
     method: 'POST', body: body({ responseMode: mode }),
   }), isCampaign, 'campaign'),
   cancelCampaign: async (campaignId) => parseEntity(await requestJson(`/operator/campaigns/${campaignId}/cancel`, {
-    method: 'POST', body: body({}),
+    method: 'POST', body: body({ reason: 'Operator cancelled after impact review.', disposition: 'RELEASE_OPEN_AND_COMPENSATE_ACCEPTED', policyVersion: 'policy-v1' }),
   }), isCampaign, 'campaign'),
   getDriverView: async (driverId) => {
     try {
@@ -162,4 +164,24 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
   expireOffer: async (offerId) => parseEntity(await requestJson(`/offers/${offerId}/expire`, {
     method: 'POST', body: body({}),
   }), isOffer, 'offer'),
+  listDispatch: async () => parseEntities(await requestJson('/operator/dispatch'), isDispatchBatch, 'dispatch'),
+  releaseDispatch: async (planId) => runIdempotentCommand(
+    'dispatch-release', { planId },
+    async (idempotencyKey) => parseEntity(await requestJson(`/operator/proposals/${planId}/dispatch`, {
+      method: 'POST', headers: { 'x-idempotency-key': idempotencyKey }, body: body({}),
+    }), isDispatchBatch, 'dispatch'),
+  ),
+  cancelDispatch: async (batchId, reason) => parseEntity(await requestJson(`/operator/dispatch/${batchId}/cancel`, {
+    method: 'POST', body: body({ reason }),
+  }), isDispatchBatch, 'dispatch'),
+  retryDispatchMove: async (batchId, moveId, reason) => parseEntity(await requestJson(`/operator/dispatch/${batchId}/moves/${moveId}/retry`, {
+    method: 'POST', body: body({ reason }),
+  }), isDispatchBatch, 'dispatch'),
+  compareScenarios: async (planId) => parseEntity(await requestJson('/operator/scenarios/compare', {
+    method: 'POST', body: body({ proposalId: planId }),
+  }), isScenarioComparison, 'so sÃ¡nh ká»‹ch báº£n'),
+  listNotifications: async () => parseEntities(await requestJson('/operator/notifications'), isPersistentNotification, 'thÃ´ng bÃ¡o'),
+  acknowledgeNotification: async (notificationId) => parseEntity(await requestJson(`/operator/notifications/${notificationId}/acknowledge`, {
+    method: 'POST', body: body({}),
+  }), isPersistentNotification, 'thÃ´ng bÃ¡o'),
 }

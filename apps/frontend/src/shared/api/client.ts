@@ -38,6 +38,8 @@ const statusMessage: Record<number, string> = {
   404: 'Không tìm thấy dữ liệu được yêu cầu.',
   409: 'Dữ liệu đã thay đổi hoặc thao tác đã được thực hiện trước đó.',
   422: 'Trạng thái dữ liệu hiện tại không cho phép thao tác này.',
+  429: 'Có quá nhiều yêu cầu. Vui lòng thử lại sau.',
+  503: 'Dịch vụ tạm thời không sẵn sàng. Vui lòng thử lại sau.',
 }
 
 async function accessToken() {

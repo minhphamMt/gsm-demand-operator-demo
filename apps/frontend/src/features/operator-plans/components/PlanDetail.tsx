@@ -40,7 +40,7 @@ export function PlanDetail({ planId }: { planId: string }) {
   const history = audit.data?.filter((entry) => versionIds.has(entry.planId)) ?? []
   const linkedCampaign = campaigns.data?.find((campaign) => campaign.planId === proposal.id)
   const hasOperationalCampaign = Boolean(linkedCampaign && isCampaignOperational(linkedCampaign))
-  const decisionActions = <PlanDecisionActions plan={proposal} campaignStatus={linkedCampaign?.status} hasOperationalCampaign={hasOperationalCampaign} error={decisionError} isWorking={actions.approve.isPending || actions.reject.isPending || actions.activate.isPending} onApprove={(note) => actions.approve.mutate({ planId: proposal.id, note })} onReject={(request) => actions.reject.mutate({ planId: proposal.id, request })} onActivate={() => actions.activate.mutate({ planId: proposal.id, mode: 'human' }, { onSuccess: () => navigate(routes.operator.campaigns) })} />
+  const decisionActions = <PlanDecisionActions plan={proposal} campaignStatus={linkedCampaign?.status} hasOperationalCampaign={hasOperationalCampaign} error={decisionError} isWorking={actions.approve.isPending || actions.reject.isPending || actions.activate.isPending} onApprove={(note) => actions.approve.mutate({ planId: proposal.id, expectedVersion: proposal.version, note })} onReject={(request) => actions.reject.mutate({ planId: proposal.id, request: { ...request, expectedVersion: proposal.version } })} onActivate={() => actions.activate.mutate({ planId: proposal.id, mode: 'human' }, { onSuccess: () => navigate(routes.operator.campaigns) })} />
 
   return <div className="space-y-5">
     <DataRefreshState hasError={queries.some((query) => query.isRefetchError)} isFetching={queries.some((query) => query.isFetching)} onRetry={retryAll} />

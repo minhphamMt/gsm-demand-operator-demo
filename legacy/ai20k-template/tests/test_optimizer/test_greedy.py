@@ -11,7 +11,6 @@ from dataclasses import FrozenInstanceError
 from datetime import datetime, timedelta
 
 import pytest
-
 from src.common.haversine import ZoneCoord
 from src.common.policy import Policy
 from src.contracts.hotspot import HotspotOutput

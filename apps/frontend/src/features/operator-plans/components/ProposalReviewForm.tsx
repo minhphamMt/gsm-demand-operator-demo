@@ -26,7 +26,7 @@ function displayFieldError(errors: FieldErrors, field: string) {
 }
 
 function initialRequest(plan: Proposal): RevisePlanRequest {
-  return { moveQuantities: Object.fromEntries(plan.moves.map((move) => [move.id, move.quantity])), moveSourceZoneIds: Object.fromEntries(plan.moves.map((move) => [move.id, move.sourceZoneId])), targetDriverCount: plan.targetDriverCount, campaignDurationMinutes: plan.campaignDurationMinutes, relocationBonus: plan.relocationBonus, zoneTripBonus: plan.zoneTripBonus, fareMultiplier: plan.fareMultiplier, budgetLimit: plan.budgetLimit, note: '' }
+  return { expectedVersion: plan.version, moveQuantities: Object.fromEntries(plan.moves.map((move) => [move.id, move.quantity])), moveSourceZoneIds: Object.fromEntries(plan.moves.map((move) => [move.id, move.sourceZoneId])), targetDriverCount: plan.targetDriverCount, campaignDurationMinutes: plan.campaignDurationMinutes, relocationBonus: plan.relocationBonus, zoneTripBonus: plan.zoneTripBonus, fareMultiplier: plan.fareMultiplier, budgetLimit: plan.budgetLimit, note: '' }
 }
 
 export function ProposalReviewForm({ error, isSaving, plan, onRevise }: Props) {

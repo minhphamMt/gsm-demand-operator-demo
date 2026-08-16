@@ -9,7 +9,6 @@ AC #1 (test tĩnh không nhiễm tham số) ở tests/test_architecture.py.
 import math
 
 import pytest
-
 from src.simulation.metrics import (
     SystemMetrics,
     avg_wait_proxy,

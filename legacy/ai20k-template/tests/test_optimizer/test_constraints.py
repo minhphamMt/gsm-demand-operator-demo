@@ -8,7 +8,6 @@ from dataclasses import FrozenInstanceError, replace
 from datetime import timedelta
 
 import pytest
-
 from src.common.errors import ConfigError
 from src.common.policy import load_policy
 from src.optimizer.constraints import (

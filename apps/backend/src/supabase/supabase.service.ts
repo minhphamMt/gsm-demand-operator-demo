@@ -31,6 +31,12 @@ export class SupabaseService {
       this.logger.error(JSON.stringify({ code: error.code, message: error.message, details: error.details, hint: error.hint }));
       if (error.code === 'P0002') throw new NotFoundException(error.message);
       if (error.code === '23505') throw new ConflictException(error.message);
+      if (error.code === '40001' || error.code === '55P03') {
+        throw new ConflictException({
+          code: 'PROPOSAL_VERSION_CONFLICT',
+          message: 'Proposal was changed by another operator. Refresh before trying again.',
+        });
+      }
       if (error.code === '23514' && /Proposal (cannot be revised|was already reviewed)/i.test(error.message)) {
         throw new ConflictException({
           code: 'PROPOSAL_VERSION_CONFLICT',

@@ -16,7 +16,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml
-
 from generate_drivers import (
     OFFLINE_RATIO,
     build_registry,

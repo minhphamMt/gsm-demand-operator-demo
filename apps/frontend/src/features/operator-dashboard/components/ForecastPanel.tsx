@@ -7,8 +7,8 @@ import { Card } from '@/shared/components/ui/Card'
 type ForecastPanelProps = { forecastMinutes: number; onSelect: (zoneId: string) => void; zones: readonly Zone[] }
 
 export function ForecastPanel({ forecastMinutes, onSelect, zones }: ForecastPanelProps) {
-  const rankedZones = [...zones].sort((left, right) => right.gap - left.gap).slice(0, 3)
-  const totalGap = zones.reduce((sum, zone) => sum + zone.gap, 0)
+  const rankedZones = [...zones].filter((zone) => typeof zone.gap === 'number').sort((left, right) => (right.gap ?? 0) - (left.gap ?? 0)).slice(0, 3)
+  const totalGap = zones.reduce((sum, zone) => sum + (zone.gap ?? 0), 0)
   const criticalZones = zones.filter((zone) => zone.severity === 'Critical').length
   const confidenceValues = zones.flatMap((zone) => zone.confidence === null ? [] : [zone.confidence])
   const averageConfidence = confidenceValues.length ? `${Math.round(confidenceValues.reduce((sum, confidence) => sum + confidence, 0) / confidenceValues.length)}%` : 'Chưa có'

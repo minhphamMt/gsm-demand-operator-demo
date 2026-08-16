@@ -12,7 +12,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-
 from generate_snapshots import (
     apply_nowcast,
     count_rain_peak_events,

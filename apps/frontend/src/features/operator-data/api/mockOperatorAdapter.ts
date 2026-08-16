@@ -5,7 +5,7 @@ import { isPlanInputFresh } from '@/features/operator-data/model/proposalRules'
 import { createSeededOperatorState } from '@/features/operator-data/model/seedOperatorState'
 import { eligibleDriversFor, refreshStaleProposalQueue, withLiveEligibility } from '@/features/operator-data/model/proposalWorkflowState'
 import { createZones } from '@/features/operator-data/model/zoneGeometry'
-import type { AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DriverView, Offer, OperationsReport, OperationsReportFilters, OperatorDataAdapter, Proposal, Snapshot } from '@/features/operator-data/model/types'
+import type { AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DispatchBatch, DriverView, Offer, OperationsReport, OperationsReportFilters, OperatorDataAdapter, PersistentNotification, Proposal, ScenarioComparison, Snapshot } from '@/features/operator-data/model/types'
 
 const baseZones = createZones()
 const scenarios: readonly DemoScenario[] = [
@@ -19,6 +19,8 @@ type State = { scenarioId: DemoScenarioId; nextProposalNumber: number; plans: Pr
 const initialState = (): State => createSeededOperatorState()
 const scenarioState = (scenarioId: DemoScenarioId): State => { const plans = createAgentPlans(scenarioId); const seeded = createSeededOperatorState(); const availableStatuses: readonly DemoDriver['status'][] = ['online_idle', 'offline', 'online_idle', 'offline', 'online_busy', 'offline', 'online_idle', 'offline']; return { ...seeded, scenarioId, plans, campaigns: [], offers: [], drivers: seeded.drivers.map((driver, index) => ({ ...driver, status: availableStatuses[index] ?? 'offline', acceptedOfferIds: [], rewardTotal: 0 })), audit: plans.map((plan, index) => ({ id: `AUD-00${index + 1}`, planId: plan.id, action: 'Created', actor: 'GSM-14 Agent', occurredAt: new Date().toISOString(), detail: `Agent sinh phương án ${index + 1}/3 từ snapshot ${plan.inputSnapshotId}.` })) } }
 let state = initialState()
+let dispatches: DispatchBatch[] = []
+let notifications: PersistentNotification[] = []
 const audit = (planId: string, action: AuditEntry['action'], actor: string, detail: string) => { state = { ...state, audit: [{ id: `AUD-${state.audit.length + 1}`, planId, action, actor, occurredAt: new Date().toISOString(), detail }, ...state.audit] } }
 const planFor = (id: string) => state.plans.find((plan) => plan.id === id)
 const refreshStaleProposals = () => { state = refreshStaleProposalQueue(state) }
@@ -67,19 +69,32 @@ const mockOperationsReport = (filters: OperationsReportFilters): OperationsRepor
   const campaigns = state.campaigns.filter((campaign) => (!filters.campaignId || campaign.id === filters.campaignId)
     && (!filters.from || campaign.startedAt >= filters.from)
     && (!filters.to || campaign.startedAt <= filters.to))
-  const rows = campaigns.map((campaign) => ({ id: campaign.id, status: campaign.status, startedAt: campaign.startedAt, completedAt: null, activatedDrivers: campaign.unitsGained, qualifiedTrips: campaign.qualifiedTrips, rewardQualifiedVnd: 0, rewardPaidVnd: 0, budgetUsedVnd: campaign.incentiveBudget, budgetLimitVnd: campaign.budgetLimit, rewardBudgetDeltaVnd: campaign.incentiveBudget, netCostVnd: null, auditEvents: state.audit.filter((entry) => entry.entityId === campaign.id).length }))
-  const sum = (field: 'activatedDrivers' | 'qualifiedTrips' | 'rewardQualifiedVnd' | 'rewardPaidVnd' | 'budgetUsedVnd' | 'rewardBudgetDeltaVnd' | 'auditEvents') => rows.reduce((total, campaign) => total + campaign[field], 0)
-  return { generatedAt: new Date().toISOString(), dataMode: 'SIMULATED', summary: { campaigns: rows.length, activatedDrivers: sum('activatedDrivers'), qualifiedTrips: sum('qualifiedTrips'), rewardQualifiedVnd: sum('rewardQualifiedVnd'), rewardPaidVnd: sum('rewardPaidVnd'), budgetUsedVnd: sum('budgetUsedVnd'), rewardBudgetDeltaVnd: sum('rewardBudgetDeltaVnd'), auditEvents: sum('auditEvents'), netCostVnd: null }, campaigns: rows, sources: { activatedDrivers: 'simulated campaign state', qualifiedTrips: 'simulated campaign state', rewardQualifiedVnd: 'unavailable in mock ledger', rewardPaidVnd: 'unavailable in mock ledger', budgetUsedVnd: 'simulated campaign state', auditEvents: 'simulated audit state', netCostVnd: null } }
+  const rows = campaigns.map((campaign) => ({ id: campaign.id, status: campaign.status, startedAt: campaign.startedAt, completedAt: null, activatedDrivers: campaign.unitsGained, qualifiedTrips: campaign.qualifiedTrips, rewardQualifiedVnd: 0, rewardPaidVnd: 0, budgetUsedVnd: campaign.incentiveBudget, budgetLimitVnd: campaign.budgetLimit, reservedVnd: campaign.worstCaseCommitment, committedVnd: campaign.incentiveBudget, qualifiedVnd: 0, paidVnd: 0, compensationDueVnd: 0, releasedVnd: 0, rewardBudgetDeltaVnd: campaign.incentiveBudget, netCostVnd: null, auditEvents: state.audit.filter((entry) => entry.entityId === campaign.id).length }))
+  const sum = (field: 'activatedDrivers' | 'qualifiedTrips' | 'rewardQualifiedVnd' | 'rewardPaidVnd' | 'budgetUsedVnd' | 'reservedVnd' | 'committedVnd' | 'qualifiedVnd' | 'paidVnd' | 'compensationDueVnd' | 'releasedVnd' | 'rewardBudgetDeltaVnd' | 'auditEvents') => rows.reduce((total, campaign) => total + campaign[field], 0)
+  return { generatedAt: new Date().toISOString(), dataMode: 'SIMULATED', summary: { campaigns: rows.length, activatedDrivers: sum('activatedDrivers'), qualifiedTrips: sum('qualifiedTrips'), rewardQualifiedVnd: sum('rewardQualifiedVnd'), rewardPaidVnd: sum('rewardPaidVnd'), budgetUsedVnd: sum('budgetUsedVnd'), reservedVnd: sum('reservedVnd'), committedVnd: sum('committedVnd'), qualifiedVnd: sum('qualifiedVnd'), paidVnd: sum('paidVnd'), compensationDueVnd: sum('compensationDueVnd'), releasedVnd: sum('releasedVnd'), rewardBudgetDeltaVnd: sum('rewardBudgetDeltaVnd'), auditEvents: sum('auditEvents'), netCostVnd: null }, campaigns: rows, sources: { activatedDrivers: 'simulated campaign state', qualifiedTrips: 'simulated campaign state', rewardQualifiedVnd: 'unavailable in mock ledger', rewardPaidVnd: 'unavailable in mock ledger', budgetUsedVnd: 'simulated campaign state', budgetLifecycle: 'simulated budget lifecycle', auditEvents: 'simulated audit state', netCostVnd: null } }
 }
 
 export const mockOperatorAdapter: OperatorDataAdapter = {
+  getCapabilities: () => requestLocal(() => ({
+    serverTime: new Date().toISOString(),
+    timezone: 'Asia/Ho_Chi_Minh' as const,
+    capabilities: {
+      forecastHorizons: { available: true, enabled: true, values: [5, 10, 15] },
+      proposalReview: { available: true, enabled: true },
+      dispatchRelease: { available: true, enabled: true },
+      dispatchReconciliation: { available: true, enabled: true },
+      activationRelease: { available: true, enabled: true },
+      compensationSettlement: { available: true, enabled: true },
+      scenarioComparison: { available: true, enabled: true },
+    },
+  })),
   generateAiDecision: async () => mockOperatorAdapter.getSnapshot('baseline'),
   optimizeAiDecision: async () => {
     const proposal = { ...clone(state.plans[0]!), inputSnapshotId: '17:00' }
     state = { ...state, plans: [proposal, ...state.plans.slice(1)] }
     return clone(proposal)
   },
-  runReplayStep: async () => mockOperatorAdapter.getSnapshot('baseline'),
+  runReplayStep: async (sourceAt) => ({ ...await mockOperatorAdapter.getSnapshot('baseline'), sourceAt }),
   getReplayWindow: async (sourceAt) => [{ sourceAt, meanRainMmH: baseZones.reduce((sum, zone) => sum + zone.rainMmH, 0) / baseZones.length }],
   getSnapshot: (comparison, demoScenarioId = state.scenarioId, replayIndex = 0) => requestLocal(() => {
     const scenario = scenarios.find((item) => item.id === demoScenarioId) ?? scenarios[0]!
@@ -91,6 +106,17 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
       scenario: comparison,
       demoScenarioId,
       regime: scenario.regime,
+      ai: {
+        zoneContract: 'AI_ZONE_1_30', registeredZones: 30, liveZones: 30, forecastedZones: 30,
+        horizons: [5, 10, 15], modelVersion: 'mock-forecast-v1', forecastMode: 'simulated',
+        dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), forecastRunId: `mock-${replayIndex}`,
+        forecastStatus: 'COMPLETED',
+        forecastRuns: ([5, 10, 15] as const).map((horizonMinutes) => ({
+          id: `mock-${replayIndex}-${horizonMinutes}`, horizonMinutes, status: 'COMPLETED' as const,
+          modelVersion: 'mock-forecast-v1', featureVersion: 'mock-feature-v1', policyVersion: 'mock-policy-v1', inputHash: `mock-input-${replayIndex}-${horizonMinutes}`,
+          forecastMode: 'simulated', dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), completedAt: new Date().toISOString(), zoneCount: 30,
+        })),
+      },
       ...simulation,
     } satisfies Snapshot)
   }),
@@ -103,17 +129,18 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
   revisePlan: (planId, request) => requestLocal(() => {
     const plan = planFor(planId)
     const isReviewable = plan?.status === 'UnderReview' || plan?.status === 'Revised'
-    if (!plan || !isReviewable || !request.note.trim() || request.fareMultiplier > 1.2 || Object.values(request.moveQuantities).some((quantity) => quantity < 0)) throw new Error('Nội dung chỉnh sửa không hợp lệ.')
+    if (!plan || !isReviewable || request.expectedVersion !== plan.version || !request.note.trim() || request.fareMultiplier > 1.2 || Object.values(request.moveQuantities).some((quantity) => quantity < 0)) throw new Error('Nội dung chỉnh sửa không hợp lệ hoặc đã cũ.')
     const revisedId = `PLN-${String(state.nextProposalNumber).padStart(3, '0')}`
     const revised = withLiveEligibility(reviseAgentPlan(plan, request, revisedId), state.drivers)
     state = { ...state, nextProposalNumber: state.nextProposalNumber + 1, plans: [revised, ...state.plans.map((item) => item.id === planId ? { ...item, status: 'Stale' as const } : item)] }
     audit(revised.id, 'Revised', 'Điều phối viên', `Phiên bản ${revised.version} kế thừa ${plan.id}: ${request.note}`)
     return clone(revised)
   }),
-  approvePlan: (planId, note = '') => requestLocal(() => {
+  approvePlan: (planId, expectedVersion, note = '') => requestLocal(() => {
     const plan = planFor(planId)
     const isReviewable = plan?.status === 'UnderReview' || plan?.status === 'Revised'
     if (!plan || !isReviewable || !isPlanInputFresh(plan.inputFreshUntil) || !plan.policyChecks.every((check) => check.passed)) throw new Error('Không thể phê duyệt: snapshot cũ hoặc còn policy chưa đạt.')
+    if (expectedVersion !== plan.version) throw new Error('Proposal version changed before approval.')
     const approved = { ...plan, status: 'Approved' as const }
     state = { ...state, plans: state.plans.map((item) => item.id === planId ? approved : item) }
     audit(planId, 'Approved', 'Điều phối viên', note.trim() || 'Đã kiểm tra snapshot, policy, tác động và ngân sách.')
@@ -123,6 +150,7 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     const plan = planFor(planId)
     const isReviewable = plan?.status === 'UnderReview' || plan?.status === 'Revised'
     if (!plan || !isReviewable || !request.note.trim()) throw new Error('Cần lý do từ chối.')
+    if (request.expectedVersion !== plan.version) throw new Error('Proposal version changed before rejection.')
     const rejected = { ...plan, status: 'Rejected' as const }
     state = { ...state, plans: state.plans.map((item) => item.id === planId ? rejected : item) }
     audit(planId, 'Rejected', 'Điều phối viên', `[${request.reasonCode}] ${request.note}`)
@@ -181,4 +209,84 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
   listDrivers: () => requestLocal(() => clone(state.drivers)), setDriverStatus: (driverId, status) => requestLocal(() => { const driver = state.drivers.find((item) => item.id === driverId); if (!driver) throw new Error('Không tìm thấy tài xế.'); const updated = { ...driver, status }; state = { ...state, drivers: state.drivers.map((item) => item.id === driverId ? updated : item) }; return clone(updated) }),
   respondToOffer: (offerId, response) => requestLocal(() => clone(respond(offerId, response, 'human'))),
   expireOffer: (offerId) => requestLocal(() => { const offer = state.offers.find((item) => item.id === offerId); if (!offer || offer.status !== 'Open') throw new Error('Offer không thể hết hạn.'); const expired = { ...offer, status: 'Expired' as const }; state = { ...state, offers: state.offers.map((item) => item.id === offerId ? expired : item) }; refreshCampaign(offer.campaignId); audit(state.campaigns.find((item) => item.id === offer.campaignId)?.planId ?? '', 'OfferExpired', 'Hệ thống', `Offer ${offer.id} hết hạn.`); return clone(expired) }),
+  listDispatch: () => requestLocal(() => clone(dispatches)),
+  releaseDispatch: (planId) => requestLocal(() => {
+    const plan = planFor(planId)
+    if (!plan || plan.status !== 'Approved') throw new Error('Phương án chưa được duyệt.')
+    const existing = dispatches.find((batch) => batch.proposalId === planId)
+    if (existing) return clone(existing)
+    const batch: DispatchBatch = {
+      id: `DSP-${dispatches.length + 1}`,
+      proposalId: planId,
+      proposalVersion: plan.version,
+      approvedContentHash: plan.approvedContentHash ?? `mock-${plan.id}-${plan.version}`,
+      status: 'QUEUED',
+      releasedAt: new Date().toISOString(),
+      moves: plan.moves.map((move) => ({ id: `DSP-MOVE-${move.id}`, sourceMoveKey: move.id, sourceZoneId: Number(move.sourceZoneId.replace(/^AI-Z/, '')), targetZoneId: Number(move.targetZoneId.replace(/^AI-Z/, '')), plannedUnits: move.quantity, acknowledgedUnits: 0, arrivedUnits: 0, availableUnits: 0, failedUnits: 0, state: 'PLANNED', routeSource: 'mock-model', etaMinutes: move.etaMinutes, distanceKm: move.distanceKm })),
+      reconciliations: [],
+    }
+    dispatches = [batch, ...dispatches]
+    return clone(batch)
+  }),
+  cancelDispatch: (batchId, reason) => requestLocal(() => {
+    const current = dispatches.find((batch) => batch.id === batchId)
+    if (!current) throw new Error('Không tìm thấy batch điều chuyển.')
+    const updated: DispatchBatch = { ...current, status: 'CANCELLED', moves: current.moves.map((move) => move.state === 'AVAILABLE' ? move : { ...move, state: 'CANCELLED' }) }
+    dispatches = dispatches.map((batch) => batch.id === batchId ? updated : batch)
+    audit(current.proposalId, 'DemoReset', 'Điều phối viên', `Dừng batch ${batchId}: ${reason}`)
+    return clone(updated)
+  }),
+  retryDispatchMove: (batchId, moveId, reason) => requestLocal(() => {
+    const current = dispatches.find((batch) => batch.id === batchId)
+    if (!current) throw new Error('KhÃ´ng tÃ¬m tháº¥y batch Ä‘iá»u chuyá»ƒn.')
+    const move = current.moves.find((candidate) => candidate.id === moveId)
+    if (!move || move.state !== 'FAILED') throw new Error('Chá»‰ lÆ°á»£t Ä‘iá»u chuyá»ƒn tháº¥t báº¡i má»›i cÃ³ thá»ƒ thá»­ láº¡i.')
+    const updated: DispatchBatch = { ...current, status: 'DISPATCHING', moves: current.moves.map((candidate) => candidate.id === moveId ? { ...candidate, state: 'SENT' } : candidate) }
+    dispatches = dispatches.map((batch) => batch.id === batchId ? updated : batch)
+    audit(current.proposalId, 'DispatchRetryRequested', 'Äiá»u phá»‘i viÃªn', `Thá»­ láº¡i ${moveId}: ${reason}`)
+    return clone(updated)
+  }),
+  compareScenarios: (planId) => requestLocal(() => {
+    const plan = planFor(planId)
+    if (!plan) throw new Error('Không tìm thấy phương án.')
+    return clone({
+      id: `SCN-${plan.id}`,
+      commonInputHash: `mock-${plan.inputSnapshotId}-${plan.forecastRunId ?? 'forecast'}`,
+      snapshotId: plan.inputSnapshotId,
+      forecastRunId: plan.forecastRunId ?? 'mock-forecast',
+      modelVersion: plan.generatorVersion,
+      policyVersion: 'policy-v1',
+      scenarios: [
+        { type: 'NO_ACTION' as const, estimatedMetrics: plan.metricsBefore, observedMetrics: null, uncertainty: { source: 'mock' }, responseSource: 'forecast_no_action' },
+        { type: 'RELOCATION' as const, estimatedMetrics: plan.metricsAfterRelocation ?? plan.metrics, observedMetrics: null, uncertainty: { source: 'mock' }, responseSource: 'optimizer_estimate' },
+        { type: 'ACTIVATION' as const, estimatedMetrics: plan.metricsAfterActivation ?? plan.metrics, observedMetrics: null, uncertainty: { source: 'mock' }, responseSource: 'policy_assumption' },
+        { type: 'HYBRID' as const, estimatedMetrics: plan.metricsAfterActivation ?? plan.metrics, observedMetrics: null, uncertainty: { source: 'mock' }, responseSource: 'optimizer_plus_policy_assumption' },
+      ],
+      forecastEvaluation: {
+        status: 'OBSERVED' as const,
+        targetAt: new Date().toISOString(),
+        evaluatedZones: 30,
+        demandMae: 1.4,
+        supplyMae: 0.8,
+        demandMape: 8.7,
+        demandIntervalCoverage: 86.7,
+        supplyIntervalCoverage: 90,
+        forecastFulfillmentRate: 82.3,
+        observedFulfillmentRate: 80.9,
+        fulfillmentRateError: 1.4,
+        forecastResidualGap: 42,
+        observedResidualGap: 46,
+      },
+      hasObservedRevenue: false as const,
+      revenueNotice: 'Chưa có ledger doanh thu quan sát.',
+    } satisfies ScenarioComparison)
+  }),
+  listNotifications: () => requestLocal(() => clone(notifications)),
+  acknowledgeNotification: (notificationId) => requestLocal(() => {
+    const current = notifications.find((notification) => notification.id === notificationId)
+    if (!current) throw new Error('Không tìm thấy thông báo.')
+    const updated: PersistentNotification = { ...current, status: 'ACKNOWLEDGED' }
+    notifications = notifications.map((notification) => notification.id === notificationId ? updated : notification)
+    return clone(updated)
+  }),
 }

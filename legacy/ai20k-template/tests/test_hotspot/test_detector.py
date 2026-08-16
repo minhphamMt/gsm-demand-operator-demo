@@ -13,7 +13,6 @@ import inspect
 from datetime import timedelta
 
 import pytest
-
 from src.common.regime import Regime
 from src.contracts.forecast import ZoneForecast
 from src.contracts.hotspot import Hotspot, HotspotOutput

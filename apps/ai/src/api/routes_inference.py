@@ -22,6 +22,7 @@ from src.forecasting.lgbm_quantile import ModelKey, forecast_at, load_models, ve
 from src.forecasting.live_snapshot_baseline import forecast_from_live_zones
 from src.hotspot.detector import gap_of, meets_condition, severity_of
 from src.optimizer.greedy import solve
+from src.simulation.metrics import system_metrics
 
 router = APIRouter(prefix="/api/v1", tags=["inference"])
 
@@ -286,13 +287,42 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
     _validate_replay_provenance(request)
     forecast, forecast_mode, forecast_warnings = _forecast(request)
     hotspot_output = _detect_without_hidden_state(forecast, request, policy)
+    policy_hotspot_ids = {hotspot.zone_id for hotspot in hotspot_output.hotspots}
+    balancing_targets = tuple(
+        Hotspot(
+            zone_id=zone.zone_id,
+            is_hotspot=True,
+            gap=zone.predicted_demand - zone.predicted_supply,
+            severity_score=severity_of(zone.predicted_demand - zone.predicted_supply, zone.predicted_demand),
+            idle_supply_current=next(item.idle_supply for item in request.zones if item.zone_id == zone.zone_id),
+        )
+        for zone in forecast.zones
+        if zone.zone_id not in policy_hotspot_ids and zone.predicted_demand - zone.predicted_supply >= 0.5
+    )
+    optimizer_output = HotspotOutput(
+        forecast_ts=hotspot_output.forecast_ts,
+        horizon_min=hotspot_output.horizon_min,
+        hotspots=(*hotspot_output.hotspots, *balancing_targets),
+        surplus_zones=hotspot_output.surplus_zones,
+        conservative_gap_mode=hotspot_output.conservative_gap_mode,
+    )
     rain = {zone.zone_id: zone.rain_mm_h for zone in request.zones}
     result = solve(
-        hotspot_output,
+        optimizer_output,
         t=request.t,
         rain_mm_h=rain,
         policy=policy,
         zone_coords=get_zone_coords(settings.zone_registry_path),
+    )
+    supply_after = {zone.zone_id: zone.predicted_supply for zone in forecast.zones}
+    for move in result.moves:
+        supply_after[move.from_zone] -= move.units_to_move
+        supply_after[move.to_zone] += move.units_to_move
+    metrics_before = system_metrics(
+        (zone.predicted_demand, zone.predicted_supply) for zone in forecast.zones
+    )
+    metrics_after_relocation = system_metrics(
+        (zone.predicted_demand, supply_after[zone.zone_id]) for zone in forecast.zones
     )
     activation = recommend_activation(
         result.residual_gap,
@@ -344,10 +374,29 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         },
         "forecast": forecast.model_dump(mode="json"),
         "hotspots": hotspot_output.model_dump(mode="json"),
+        "simulation": {
+            "metrics_before": metrics_before.__dict__,
+            "metrics_after_relocation": metrics_after_relocation.__dict__,
+            "basis": "forecast_p50_after_all_moves_arrive",
+        },
         "plan": {
             "moves": [move.model_dump(mode="json") for move in result.moves],
             "residual_gap": [gap.model_dump(mode="json") for gap in result.residual_gap],
             "plan_totals": result.plan_totals.model_dump(mode="json"),
+            "relocation_targets": [
+                {
+                    "zone_id": target.zone_id,
+                    "gap": target.gap,
+                    "required_units": max(0, math.floor(target.gap + 0.5)),
+                    "is_policy_hotspot": target.zone_id in policy_hotspot_ids,
+                }
+                for target in optimizer_output.hotspots
+                if target.gap > 0
+            ],
+            "source_capacities": [
+                {"zone_id": zone_id, "movable_units": units}
+                for zone_id, units in result.source_capacities
+            ],
             "warnings": warnings,
         },
     }

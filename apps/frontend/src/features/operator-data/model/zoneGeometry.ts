@@ -54,7 +54,7 @@ function severityForGap(gap: number): Zone['severity'] {
   return 'Low'
 }
 
-type ZoneMapProperties = Pick<Zone, 'id' | 'label' | 'gap' | 'severity' | 'supply' | 'demand' | 'dataStatus' | 'areaKm2' | 'rainMmH'> & { operationalGap: number }
+type ZoneMapProperties = Pick<Zone, 'id' | 'label' | 'gap' | 'severity' | 'supply' | 'demand' | 'dataStatus' | 'areaKm2' | 'rainMmH'> & { operationalGap: number | null }
 
 const mapProperties = (zone: Zone): ZoneMapProperties => ({
   id: zone.id, label: zone.label, gap: zone.gap, severity: zone.severity, supply: zone.supply,

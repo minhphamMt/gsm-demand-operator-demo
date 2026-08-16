@@ -27,16 +27,10 @@ export const stageAtLeast = (stage: OperatorWorkflowStage, expected: OperatorWor
 export const stageHasPlan = (stage: OperatorWorkflowStage) =>
   !["observe", "forecast"].includes(stage);
 
-/**
- * Replay advances in real five-minute buckets, while the operational model is
- * reviewed at the explicitly selected 15/30-minute horizon. Keeping those two
- * clocks separate also prevents a five-minute proposal write against databases
- * that have not yet applied the optional horizon-5 persistence migration.
- */
+/** Keep optimization bound to the exact forecast visible to the operator. */
 export const planningHorizonFor = (
-  displayedHorizon: 5 | 15 | 30,
-  selectedHorizon: 15 | 30,
-): 15 | 30 => displayedHorizon === 5 ? selectedHorizon : displayedHorizon;
+  displayedHorizon: 5 | 10 | 15,
+): 5 | 10 | 15 => displayedHorizon;
 
 export const resolveWorkflowStage = (
   localStage: OperatorWorkflowStage,
@@ -45,6 +39,9 @@ export const resolveWorkflowStage = (
 ): OperatorWorkflowStage => {
   if (hasOperationalCampaign) return "campaign";
   if (localStage === "campaign") return "observe";
+  if (localStage === "no_solution" && planStatus === "FailedGeneration") {
+    return "no_solution";
+  }
   if (stageHasPlan(localStage) && planStatus === undefined) return "observe";
   if (
     stageHasPlan(localStage) &&

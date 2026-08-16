@@ -16,9 +16,9 @@ from typing import Any
 import pytest
 import yaml
 from pydantic import ValidationError
-
 from src.common.errors import ConfigError
 from src.common.policy import REQUIRED_RULE_KEYS, get_policy, load_policy
+
 from src.config import PROJECT_ROOT
 
 REAL_POLICY_PATH = PROJECT_ROOT / "config" / "policy.yaml"

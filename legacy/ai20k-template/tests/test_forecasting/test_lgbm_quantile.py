@@ -20,7 +20,6 @@ from pathlib import Path
 import lightgbm as lgb
 import pandas as pd
 import pytest
-
 from src.contracts import ZONE_COUNT
 from src.forecasting.baseline_hist_avg import QUANTILES, TARGETS, prediction_column
 from src.forecasting.features import FEATURE_COLUMNS, HORIZON_MINUTES, INTERACTION_FEATURES

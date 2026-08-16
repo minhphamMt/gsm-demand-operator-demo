@@ -7,14 +7,14 @@ describe('mock operator adapter', () => {
     await mockOperatorAdapter.resetDemo()
     const plan = await mockOperatorAdapter.getPlan('PLN-042')
     if (!plan) throw new Error('Missing proposal fixture')
-    const revised = await mockOperatorAdapter.revisePlan('PLN-042', { moveQuantities: Object.fromEntries(plan.moves.map((move) => [move.id, move.id === 'MOV-01' ? 0 : move.quantity])), moveSourceZoneIds: Object.fromEntries(plan.moves.map((move) => [move.id, move.sourceZoneId])), targetDriverCount: plan.targetDriverCount, campaignDurationMinutes: plan.campaignDurationMinutes, relocationBonus: plan.relocationBonus, zoneTripBonus: plan.zoneTripBonus, fareMultiplier: plan.fareMultiplier, budgetLimit: plan.budgetLimit, note: 'Giảm điều chuyển từ Cầu Giấy' })
+    const revised = await mockOperatorAdapter.revisePlan('PLN-042', { expectedVersion: plan.version, moveQuantities: Object.fromEntries(plan.moves.map((move) => [move.id, move.id === 'MOV-01' ? 0 : move.quantity])), moveSourceZoneIds: Object.fromEntries(plan.moves.map((move) => [move.id, move.sourceZoneId])), targetDriverCount: plan.targetDriverCount, campaignDurationMinutes: plan.campaignDurationMinutes, relocationBonus: plan.relocationBonus, zoneTripBonus: plan.zoneTripBonus, fareMultiplier: plan.fareMultiplier, budgetLimit: plan.budgetLimit, note: 'Giảm điều chuyển từ Cầu Giấy' })
     expect(revised.moves.some((move) => move.id === 'MOV-01')).toBe(false)
     expect(revised.version).toBe(2)
 
     expect(revised.id).not.toBe('PLN-042')
     expect((await mockOperatorAdapter.getPlan('PLN-042'))?.status).toBe('Stale')
 
-    const approved = await mockOperatorAdapter.approvePlan(revised.id)
+    const approved = await mockOperatorAdapter.approvePlan(revised.id, revised.version)
     expect(approved.status).toBe('Approved')
 
     const campaign = await mockOperatorAdapter.startCampaign(revised.id)
@@ -33,6 +33,7 @@ describe('mock operator adapter', () => {
     const original = await mockOperatorAdapter.getPlan('PLN-042')
     if (!original) throw new Error('Missing proposal fixture')
     const revised = await mockOperatorAdapter.revisePlan(original.id, {
+      expectedVersion: original.version,
       moveQuantities: Object.fromEntries(original.moves.map((move) => [move.id, move.quantity])),
       moveSourceZoneIds: Object.fromEntries(original.moves.map((move) => [move.id, move.sourceZoneId])),
       targetDriverCount: 1,
@@ -43,7 +44,7 @@ describe('mock operator adapter', () => {
       budgetLimit: original.budgetLimit,
       note: 'Kiểm thử đạt mục tiêu',
     })
-    const plan = await mockOperatorAdapter.approvePlan(revised.id)
+    const plan = await mockOperatorAdapter.approvePlan(revised.id, revised.version)
     const campaign = await mockOperatorAdapter.startCampaign(plan.id, 'human')
     const offers = await mockOperatorAdapter.listOffers(campaign.id)
 

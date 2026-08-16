@@ -1,4 +1,4 @@
-import { BadRequestException, HttpStatus, Logger, type ArgumentsHost } from '@nestjs/common';
+import { BadRequestException, HttpStatus, Logger, ServiceUnavailableException, type ArgumentsHost } from '@nestjs/common';
 
 import { ApiExceptionFilter } from './api-exception.filter';
 
@@ -60,5 +60,18 @@ describe('ApiExceptionFilter', () => {
       requestId: 'request-test-1',
     });
     expect(JSON.stringify(response.json.mock.calls)).not.toContain('database password leaked');
+  });
+
+  it('returns a stable retryable envelope for service degradation', () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const response = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    new ApiExceptionFilter().catch(new ServiceUnavailableException('database unavailable'), hostFor(response));
+
+    expect(response.status).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
+    expect(response.json).toHaveBeenCalledWith({
+      code: 'SERVICE_UNAVAILABLE',
+      message: 'Dịch vụ tạm thời không sẵn sàng. Vui lòng thử lại sau.',
+      requestId: 'request-test-1',
+    });
   });
 });
