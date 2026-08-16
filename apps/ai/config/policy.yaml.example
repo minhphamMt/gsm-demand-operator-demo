@@ -1,0 +1,265 @@
+# policy.yaml.example
+# Muc dich:
+# - Mau de BA/Data research va de xuat gia tri cho policy.yaml thuc te.
+# - KHONG dung file nay lam nguon gia tri cuoi cung cho code/runtime.
+# - Moi gia tri ben duoi dang la placeholder hoac de xuat ban dau, can duoc xac minh.
+#
+# Cach lam viec de gui BA:
+# 1. BA dien "value" cho tung key.
+# 2. Ghi "owner", "status", "rationale", "research_note".
+# 3. Neu chua co so lieu thuc, giu status = "needs_research".
+# 4. Khi chot xong moi tao file config/policy.yaml thuc te de code doc.
+#
+# Nguon doi chieu:
+# - docs/SPEC-GSM14-NovaFour-Unified.md
+# - docs/Data-Checklist-Chot-Data.md
+# - docs/Data-Contract-Data-AI.md
+
+meta:
+  document_name: "NovaFour policy research template"
+  version: "draft"
+  last_updated: "2026-08-08"
+  purpose: "BA/Data research before freezing policy.yaml"
+  note: "Do not use directly in runtime"
+
+rules:
+  min_supply_per_zone:
+    value: null
+    unit: "vehicles"
+    used_by:
+      - "Hotspot detection"
+      - "Relocation optimizer"
+      - "Simulator acceptance checks"
+    description: "So xe toi thieu can giu lai trong moi zone de khong rut can zone nguon."
+    research_question: "Moi zone nen co it nhat bao nhieu xe ranh de tranh thieu cung cuc bo?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Can doi chieu voi kich thuoc zone, demand nen, va cach van hanh thuc te."
+
+  hotspot_gap_ratio_threshold:
+    value: 0.30
+    unit: "ratio"
+    used_by:
+      - "Hotspot detection"
+      - "Ground-truth hotspot generation"
+    description: "Nguong gap / demand de danh dau hotspot."
+    research_question: "Ty le thieu cung bao nhieu thi du lon de coi la hotspot?"
+    owner: "BA/Data + AI"
+    status: "needs_review"
+    rationale: "Dang theo SPEC hien tai."
+    research_note: "Can chot cung mot cong thuc cho A4 ground truth va Model 2."
+
+  max_supply_move_pct:
+    value: null
+    unit: "ratio"
+    used_by:
+      - "Relocation optimizer"
+    description: "Ti le toi da cung hien co duoc phep rut khoi zone nguon trong 1 plan."
+    research_question: "Mot zone co the bi rut toi da bao nhieu % idle supply ma van an toan?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Can di cung min_supply_per_zone, tranh chi chot 1 key don le."
+
+  budget_cap:
+    value: null
+    unit: "VND per plan"
+    used_by:
+      - "Relocation optimizer"
+      - "Plan validation"
+    description: "Tran ngan sach cho relocation, tach rieng voi incentive budget."
+    research_question: "Moi plan dieu chuyen duoc phep ton toi da bao nhieu chi phi?"
+    owner: "BA/Data + PM"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Khong bu tru voi incentive_budget_cap."
+
+  max_distance:
+    value: null
+    unit: "km"
+    used_by:
+      - "Relocation optimizer"
+      - "Move validation"
+    description: "Khoang cach toi da cho phep khi dieu xe giua hai zone."
+    research_question: "Bao xa thi mot move tro nen khong con hop ly ve deadhead va ETA?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Can nhat quan voi avg_vehicle_speed_kmh va deadhead_cost_per_km."
+
+  cooldown_minutes:
+    value: null
+    unit: "minutes"
+    used_by:
+      - "Relocation optimizer"
+      - "Surplus zone gating"
+    description: "Thoi gian khoa tam thoi mot zone nguon sau khi vua bi rut xe."
+    research_question: "Sau khi dieu xe di, bao lau moi nen cho zone do duoc rut tiep?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Can de tranh flicker va keo xe qua lai lien tuc."
+
+  deadhead_cost_per_km:
+    value: null
+    unit: "VND per km"
+    used_by:
+      - "Relocation optimizer"
+      - "Plan cost estimation"
+    description: "Chi phi uoc tinh cho 1 km chay rong."
+    research_question: "Can lay moc chi phi chay rong theo xang/dien, hao mon, co hoi?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Khong can dung 1 so 'that', nhung phai nhat quan de so sanh plan."
+
+shared:
+  avg_vehicle_speed_kmh:
+    value: null
+    unit: "km/h"
+    used_by:
+      - "Synthetic generator"
+      - "Simulator"
+      - "Relocation optimizer"
+      - "Activation engine"
+    description: "Toc do trung binh dung chung de tinh ETA va chuyen enroute -> idle."
+    research_question: "Nen dung toc do noi do trung binh nao cho gio cao diem?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Phai la mot gia tri duy nhat dung chung cho toan he thong."
+
+activation:
+  incentive_budget_cap:
+    value: null
+    unit: "VND per plan"
+    used_by:
+      - "Activation engine"
+      - "Offer campaign validation"
+    description: "Tran ngan sach rieng cho incentive, doc lap voi relocation budget."
+    research_question: "Moi plan duoc phep cam ket toi da bao nhieu tien thuong?"
+    owner: "BA/Data + PM"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Can kiem tra theo cam ket xau nhat, khong theo ky vong accept rate."
+
+  incentive_base:
+    value: null
+    unit: "VND"
+    used_by:
+      - "Activation engine"
+    description: "Muc thuong nen cho moi offer."
+    research_question: "Neu khong co yeu to khoang cach, toi thieu nen moi tai xe bang bao nhieu?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Can phu hop voi context demo, khong can gia tri van hanh that."
+
+  incentive_per_km:
+    value: null
+    unit: "VND per km"
+    used_by:
+      - "Activation engine"
+    description: "Phan thuong cong them theo khoang cach den zone dich."
+    research_question: "Moi km xa hon nen cong them bao nhieu de tai xe van can nhac?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Can di chung voi incentive_base va incentive_max_per_offer."
+
+  incentive_max_per_offer:
+    value: null
+    unit: "VND"
+    used_by:
+      - "Activation engine"
+      - "Offer validation"
+    description: "Tran thuong toi da cho 1 offer."
+    research_question: "Muc thuong nao la tran hop ly de tranh offer qua 'ao'?"
+    owner: "BA/Data + PM"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Can check voi incentive_budget_cap de tranh campaign het ngan sach qua som."
+
+  activation_radius_km:
+    value: null
+    unit: "km"
+    used_by:
+      - "Activation engine"
+      - "Candidate search"
+    description: "Ban kinh tim tai xe ung vien quanh zone thieu."
+    research_question: "Nen tim tai xe trong ban kinh bao nhieu km?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Qua nho thi thieu ung vien, qua lon thi ETA xau va thuong cao."
+
+  offer_ttl_minutes:
+    value: null
+    unit: "minutes"
+    used_by:
+      - "Activation engine"
+      - "Driver app"
+    description: "Thoi han ton tai cua 1 offer truoc khi het han."
+    research_question: "Tai xe can bao lau de ra quyet dinh ma van kip tac dong den he thong?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Phai can bang giua trai nghiem tai xe va nhu cau phan hoi nhanh."
+
+  max_offers_per_driver_per_hour:
+    value: null
+    unit: "offers per hour"
+    used_by:
+      - "Activation engine"
+      - "Spam protection"
+    description: "So offer toi da moi tai xe nhan trong 1 gio."
+    research_question: "Nguong nao du de tranh spam tai xe trong demo?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Lien quan truc tiep den nguyen tac tu nguyen cua Driver App."
+
+  overbooking_factor:
+    value: null
+    unit: "ratio"
+    used_by:
+      - "Activation engine"
+    description: "He so gui du offer so voi so xe dang can, vi khong phai ai cung nhan."
+    research_question: "Neu can 10 xe thi nen gui khoang bao nhieu offer?"
+    owner: "BA/Data + AI"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Phai di chung voi assumed_accept_rate."
+
+  assumed_accept_rate:
+    value: null
+    unit: "ratio"
+    used_by:
+      - "Activation planning"
+      - "Sensitivity analysis"
+    description: "Ti le nhan offer gia dinh dung de uoc tinh truoc khi co ket qua that."
+    research_question: "Nen dung 3 muc sensitivity nao, vi du 0.3 / 0.5 / 0.7?"
+    owner: "BA/Data + PM"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Bat buoc ghi ro la gia dinh, khong phai du lieu thuc nghiem."
+
+  min_idle_before_activation:
+    value: null
+    unit: "vehicles"
+    used_by:
+      - "Activation engine"
+    description: "Khong gui offer cho tai xe online_idle neu rut di se lam zone nguon qua mong."
+    research_question: "Zone nguon phai con it nhat bao nhieu idle vehicles moi duoc huy dong?"
+    owner: "BA/Data"
+    status: "needs_research"
+    rationale: ""
+    research_note: "Nen nhat quan voi min_supply_per_zone, co the bang hoac nghiem hon."
+
+research_checklist:
+  - "Moi key co 1 owner ro rang."
+  - "Moi value co rationale ngan gon."
+  - "Cac key ngan sach va incentive da duoc PM review."
+  - "Cac key hotspot / simulator da duoc AI review de khop metric."
+  - "Neu chua co du lieu that, ghi ro 'working assumption'."

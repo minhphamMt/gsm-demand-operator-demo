@@ -1,0 +1,5 @@
+export { AuthProvider } from '@/features/auth/AuthProvider'
+export { LoginPage } from '@/features/auth/components/LoginPage'
+export { RoleGate, RootRedirect } from '@/features/auth/components/RoleGate'
+export { useAuth } from '@/features/auth/useAuth'
+export type { AppRole, AuthIdentity } from '@/features/auth/model/types'

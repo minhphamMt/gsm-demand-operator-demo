@@ -1,0 +1,59 @@
+meta:
+  document_name: "Pricing policy draft (Khach<->Driver, Doanh nghiep<->Driver)"
+  version: "draft-v1"
+  status: "ASSUMPTION - chua duoc PM/BA duyet chinh thuc"
+  purpose: "De xuat cong thuc tinh gia tam de chay MVP mock, neo vao so lieu thi truong that (Grab/Be/Gojek). KHONG dung cho bao cao/demo chinh thuc neu chua co xac nhan tu leader/PM."
+
+# =====================================================================
+# 1. GIA KHACH <-> DRIVER (dynamic/surge pricing)
+# =====================================================================
+customer_driver_pricing:
+  base_fare_first_2km:
+    value: 27000
+    unit: "VND"
+    status: "assumption"
+    rationale: "Trung binh khoang gia mo cua GrabCar 4 cho tai Ha Noi/HCM tim duoc (25,000-29,000 VND cho 2km dau), nhieu nguon cong khai khop nhau."
+
+  fare_per_km_after:
+    value: 9000
+    unit: "VND/km"
+    status: "assumption"
+    rationale: "Trung binh khoang gia moi km sau 2km dau cua GrabCar (8,000-10,000 VND/km theo nhieu nguon cong khai)."
+
+  surge_multiplier_formula:
+    formula: "price_index = 1.0 + min(1.0, gap_ratio) * 0.5, chan trong [1.0, 2.0]"
+    gap_ratio_definition: "gap_ratio = max(0, demand_observed - idle_supply) / demand_observed"
+    unit: "he so nhan (x1.0 - x2.0)"
+    status: "assumption"
+    rationale: "He so 0.5 tuong duong muc phu thu gio cao diem thi truong that (~15-20% theo nguon GrabCar), nhan len khi thieu cung nghiem trong (gap_ratio cao). Da tich hop vao generate_snapshots.py, thay the price_index=1.0 co dinh truoc day."
+    implemented_in: "generate_snapshots.py (cot price_index trong snapshot)"
+    limitation: "CHUA validate bang du lieu chap nhan gia that (chua co nguoi dung that). He so 0.5 va cap 2.0 la gia dinh, khong phai so nghien cuu."
+
+  final_fare_formula:
+    formula: "final_fare = (base_fare_first_2km + fare_per_km_after * max(0, distance_km - 2)) * price_index"
+    status: "assumption"
+
+# =====================================================================
+# 2. PHI DOANH NGHIEP <-> DRIVER (commission)
+# =====================================================================
+business_driver_commission:
+  commission_rate_car:
+    value: 0.25
+    unit: "ratio (25%)"
+    status: "assumption"
+    rationale: "Muc hoa hong pho bien cho xe oto (4 cho) tai thi truong VN, trich dan thong nhat tu nhieu nguon cong khai ve Grab/Gojek (~25% cho oto, ~20-31% cho xe may tuy hang/thoi diem)."
+    note: "Chua gom VAT/thue TNCN rieng cua tai xe - so nay la ty le nen tang giu lai truoc thue, dung cho MVP demo."
+
+  driver_payout_formula:
+    formula: "driver_payout = final_fare * (1 - commission_rate_car)"
+    platform_revenue_formula: "platform_revenue = final_fare * commission_rate_car"
+    status: "assumption"
+
+# =====================================================================
+# GHI CHU QUAN TRONG
+# =====================================================================
+important_notes:
+  - "Toan bo gia tri trong file nay la ASSUMPTION neo vao benchmark thi truong that (Grab/Be/Gojek cong khai), KHONG phai chien luoc gia chinh thuc cua du an."
+  - "price_index da duoc kich hoat trong generate_snapshots.py (thay vi hang so 1.0 truoc day) - can bao leader biet cot nay gio la GIA TRI DONG, khong con la placeholder."
+  - "commission_rate_car (25%) CHUA duoc tich hop vao code nao ca - chi la so de xuat, can leader/PM xac nhan truoc khi dung cho Model tinh doanh thu/loi nhuan."
+  - "Neu du an co chien luoc gia khac (vi du: gia thap hon thi truong de canh tranh, hoac hoa hong khac 25%), can PM cung cap so that va thay the truc tiep trong file nay - cau truc formula giu nguyen."

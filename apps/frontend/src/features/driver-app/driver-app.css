@@ -1,0 +1,66 @@
+.driver-app-stage {
+  min-height: 100vh;
+  background: #e9eef0;
+  font-family: "Be Vietnam Pro", Inter, system-ui, sans-serif;
+}
+
+.phone-shell-stage {
+  position: relative;
+  display: flex;
+  width: min(100%, 1060px);
+  min-height: 868px;
+  align-items: center;
+  justify-content: center;
+}
+
+.demo-login-credentials {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 227px);
+  width: 300px;
+  transform: translateY(-50%);
+}
+
+@media (max-width: 1080px) {
+  .phone-shell-stage {
+    width: 100%;
+    min-height: auto;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .demo-login-credentials {
+    position: static;
+    width: min(390px, 100%);
+    transform: none;
+  }
+}
+
+.mapboxgl-ctrl-top-right {
+  top: 56px;
+  right: 4px;
+  z-index: 5;
+}
+
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl {
+  margin: 0;
+  opacity: 0.78;
+  transform: scale(0.82);
+  transform-origin: top right;
+}
+
+@keyframes pulseRing {
+  0% { transform: scale(1); opacity: 0.55; }
+  70% { transform: scale(2.4); opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

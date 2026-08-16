@@ -1,0 +1,130 @@
+{
+  "task": "T1",
+  "data_range": {
+    "train_start": "2026-08-14",
+    "train_end": "2026-09-24",
+    "test_start": "2026-09-25",
+    "test_end": "2026-10-01",
+    "step_minutes": 5,
+    "zones": 30
+  },
+  "key_columns": [
+    "zone_id",
+    "ts_bucket"
+  ],
+  "feature_columns": [
+    "zone_id",
+    "hour_of_day",
+    "bucket_in_hour",
+    "day_of_week",
+    "peak_flag",
+    "holiday_flag",
+    "demand_observed_lag_0",
+    "demand_observed_lag_1",
+    "demand_observed_lag_2",
+    "demand_observed_lag_3",
+    "demand_observed_lag_4",
+    "demand_observed_lag_5",
+    "demand_observed_lag_6",
+    "idle_supply_lag_0",
+    "idle_supply_lag_1",
+    "idle_supply_lag_2",
+    "idle_supply_lag_3",
+    "idle_supply_lag_4",
+    "idle_supply_lag_5",
+    "idle_supply_lag_6",
+    "demand_roll_mean_30",
+    "demand_roll_std_30",
+    "supply_roll_mean_30",
+    "supply_roll_std_30",
+    "rain_mm_h",
+    "rain_lag_1",
+    "rain_lag_2",
+    "rain_lag_3",
+    "rain_lag_4",
+    "rain_lag_5",
+    "rain_lag_6",
+    "rain_forecast_15",
+    "rain_forecast_30",
+    "rain_x_peak",
+    "rain_fc15_x_peak",
+    "rain_fc30_x_peak"
+  ],
+  "target_columns": [
+    "target_demand_15",
+    "target_demand_30",
+    "target_supply_15",
+    "target_supply_30"
+  ],
+  "splits": [
+    {
+      "split": "train",
+      "source_snapshot": "data/snapshots/snapshot_train.parquet",
+      "snapshot_rows": 362880,
+      "feature_rows": 362700,
+      "label_rows": 362700,
+      "joined_rows": 362520,
+      "n_features": 36,
+      "ts_min": "2026-08-14T00:30:00+07:00",
+      "ts_max": "2026-09-24T23:25:00+07:00",
+      "n_zones": 30,
+      "regime_counts": {
+        "regime_15": {
+          "normal": 228179,
+          "rain": 73861,
+          "peak": 44819,
+          "rain_peak": 15661
+        },
+        "regime_30": {
+          "normal": 228179,
+          "rain": 73861,
+          "peak": 44819,
+          "rain_peak": 15661
+        }
+      },
+      "n_zero_target": {
+        "target_demand_15": 488,
+        "target_demand_30": 488,
+        "target_supply_15": 5,
+        "target_supply_30": 5
+      },
+      "feature_path": "data/features/features_train.parquet",
+      "label_path": "data/labels/labels_train.parquet"
+    },
+    {
+      "split": "test",
+      "source_snapshot": "data/snapshots/snapshot_test.parquet",
+      "snapshot_rows": 60480,
+      "feature_rows": 60300,
+      "label_rows": 60300,
+      "joined_rows": 60120,
+      "n_features": 36,
+      "ts_min": "2026-09-25T00:30:00+07:00",
+      "ts_max": "2026-10-01T23:25:00+07:00",
+      "n_zones": 30,
+      "regime_counts": {
+        "regime_15": {
+          "rain": 30912,
+          "normal": 19128,
+          "rain_peak": 6736,
+          "peak": 3344
+        },
+        "regime_30": {
+          "rain": 30912,
+          "normal": 19128,
+          "rain_peak": 6736,
+          "peak": 3344
+        }
+      },
+      "n_zero_target": {
+        "target_demand_15": 295,
+        "target_demand_30": 295,
+        "target_supply_15": 0,
+        "target_supply_30": 0
+      },
+      "feature_path": "data/features/features_test.parquet",
+      "label_path": "data/labels/labels_test.parquet"
+    }
+  ],
+  "built_at": "2026-08-09T14:37:52+07:00"
+}
