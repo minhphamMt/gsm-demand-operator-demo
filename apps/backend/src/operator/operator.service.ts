@@ -497,7 +497,11 @@ export class OperatorService {
       });
     }
     await assertNoActiveExecution(this.db, id);
-    await this.assertProposalSnapshotCurrent(proposal, id);
+    // Snapshot freshness is checked at approval time. Once approved, the
+    // immutable content hash/version is the release authority until the
+    // proposal window expires. Requiring the input snapshot to remain the
+    // newest here creates a race between the review and release gates every
+    // time the five-minute replay ingests its next snapshot.
     if (!proposal.window_end_at || new Date(proposal.window_end_at).getTime() <= Date.now()) {
       throw new ConflictException({
         code: 'STALE_PROPOSAL',
