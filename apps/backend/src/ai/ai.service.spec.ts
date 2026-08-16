@@ -25,17 +25,17 @@ describe('AiService persistence', () => {
     expect(isReplaySnapshotReusable('invalid', now)).toBe(false);
   });
 
-  it('persists the exact five-minute replay forecast without creating a proposal', async () => {
+  it('loads an exact replay observation without running a forecast', async () => {
     const service = new AiService({} as never);
     const sourceAt = '2026-08-11T21:30:00Z';
     const dataset = { dataset: 'project', source_at: sourceAt, regime: 'rain_peak', zones: [] };
     jest.spyOn(service as never, 'request').mockResolvedValue(dataset as never);
     jest.spyOn(service as never, 'ingestExact').mockResolvedValue({ id: 42 } as never);
-    const generate = jest.spyOn(service, 'generate').mockResolvedValue({ forecast_mode: 'trained_model_replay' } as never);
+    const generate = jest.spyOn(service, 'generate');
 
-    await service.runReplay(sourceAt);
+    await expect(service.runReplay(sourceAt)).resolves.toEqual({ snapshot: { id: 42 } });
 
-    expect(generate).toHaveBeenCalledWith(5, 42, false, true);
+    expect(generate).not.toHaveBeenCalled();
   });
 
   it('supersedes completed forecasts from older snapshots after ingesting a new replay snapshot', async () => {
@@ -67,8 +67,6 @@ describe('AiService persistence', () => {
       dataset: 'test', source_at: '2026-08-15T00:00:00.000Z', regime: 'normal',
       zones: [{ zone_id: 1, demand_observed: 10, idle_supply: 8, enroute_supply: 0, rain_mm_h: 0, rain_forecast_15: 0, rain_forecast_30: 0, peak_flag: 0, holiday_flag: 0 }],
     } as never);
-    jest.spyOn(service, 'generate').mockResolvedValue({ forecast_mode: 'trained_model_replay' } as never);
-
     await service.runReplay('2026-08-15T00:00:00.000Z');
 
     expect(forecastUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'SUPERSEDED' }));

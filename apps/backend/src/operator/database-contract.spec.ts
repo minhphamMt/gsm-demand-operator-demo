@@ -15,6 +15,13 @@ describe('operator database contracts', () => {
     expect(sql.match(/horizon_min in \(5, 15, 30\)/g)).toHaveLength(2);
   });
 
+  it('adds the product 10-minute horizon to persisted forecasts', () => {
+    const sql = migration('20260816133000_align_forecast_horizons_5_10_15.sql');
+
+    expect(sql).toContain('forecast_runs_horizon_min_check');
+    expect(sql.match(/horizon_min in \(5, 10, 15, 30\)/g)).toHaveLength(3);
+  });
+
   it('detects relocation moves with SQL JSON expansion, not unsupported JSONPath functions', () => {
     const sql = migration('20260812215000_relocation_only_review.sql');
 

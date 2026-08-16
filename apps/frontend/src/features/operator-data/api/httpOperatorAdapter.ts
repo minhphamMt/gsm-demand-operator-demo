@@ -22,25 +22,6 @@ import { AppError, requestJson } from '@/shared/api/client'
 
 const body = (value: unknown) => JSON.stringify(value)
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
-type ReplayForecastZone = {
-  zone_id: number
-  predicted_demand: number
-  predicted_supply: number
-  demand_p10: number
-  demand_p90: number
-  supply_p10: number
-  supply_p90: number
-  confidence: number | null
-}
-const isReplayForecastZone = (value: unknown): value is ReplayForecastZone => isRecord(value)
-  && typeof value.zone_id === 'number'
-  && typeof value.predicted_demand === 'number'
-  && typeof value.predicted_supply === 'number'
-  && typeof value.demand_p10 === 'number'
-  && typeof value.demand_p90 === 'number'
-  && typeof value.supply_p10 === 'number'
-  && typeof value.supply_p90 === 'number'
-  && (value.confidence === null || typeof value.confidence === 'number')
 const aiZoneNumber = (value: string) => Number(value.replace(/^AI-Z/i, ''))
 const auditSearch = (filters: AuditFilters) => {
   const search = new URLSearchParams({ page: String(filters.page), pageSize: String(filters.pageSize) })
@@ -83,30 +64,14 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
   },
   runReplayStep: async (sourceAt) => {
     const result = await requestJson('/operator/ai/replay', { method: 'POST', body: body({ sourceAt }) })
-    if (!result || typeof result !== 'object' || !('snapshot' in result) || !result.snapshot || typeof result.snapshot !== 'object' || !('id' in result.snapshot) || typeof result.snapshot.id !== 'number') throw new AppError('Kết quả chạy model replay không hợp lệ.', { code: 'INVALID_RESPONSE' })
-    const snapshot = parseEntity(await requestJson(`/operator/snapshots/${result.snapshot.id}?scenario=baseline`), isSnapshot, 'snapshot replay')
-    if (!('decision' in result) || !isRecord(result.decision) || !isRecord(result.decision.forecast)) throw new AppError('Model không trả về dự báo replay.', { code: 'INVALID_RESPONSE' })
-    const forecast = result.decision.forecast
-    if (!Array.isArray(forecast.zones) || typeof forecast.forecast_ts !== 'string' || typeof forecast.model_version !== 'string') throw new AppError('Dữ liệu dự báo +5 phút không hợp lệ.', { code: 'INVALID_RESPONSE' })
-    const predictedByZone = new Map(forecast.zones.filter(isReplayForecastZone).map((value) => [value.zone_id, value]))
-    if (predictedByZone.size !== 30) throw new AppError('Model phải trả đủ dự báo cho 30 zone.', { code: 'INVALID_RESPONSE' })
-    return {
-      ...snapshot,
-      ai: { ...(snapshot.ai ?? { zoneContract: 'AI_ZONE_1_30', registeredZones: 30, liveZones: 30, forecastedZones: 30 }), horizons: [5], modelVersion: forecast.model_version, forecastMode: 'trained_model_replay', dataSource: `project_parquet_replay→ai_zone_observations:${result.snapshot.id}`, forecastAt: forecast.forecast_ts },
-      zones: snapshot.zones.map((zone) => {
-        const prediction = predictedByZone.get(zone.aiZoneId)
-        if (!prediction) throw new AppError(`Model thiếu dự báo cho ${zone.zoneCode}.`, { code: 'INVALID_RESPONSE' })
-        return {
-          ...zone,
-          confidence: prediction.confidence === null ? null : prediction.confidence * 100,
-          confidence5: prediction.confidence === null ? null : prediction.confidence * 100,
-          demandRange5: [prediction.demand_p10, prediction.demand_p90] as const,
-          forecast5: prediction.predicted_demand,
-          forecastSupply5: prediction.predicted_supply,
-          supplyRange5: [prediction.supply_p10, prediction.supply_p90] as const,
-        }
-      }),
+    if (!isRecord(result) || !isRecord(result.snapshot) || typeof result.snapshot.id !== 'number') {
+      throw new AppError('Kết quả nạp dữ liệu replay không hợp lệ.', { code: 'INVALID_RESPONSE' })
     }
+    return parseEntity(
+      await requestJson(`/operator/snapshots/${result.snapshot.id}?scenario=baseline`),
+      isSnapshot,
+      'snapshot replay',
+    )
   },
   getReplayWindow: async (sourceAt) => {
     const response = await requestJson('/operator/ai/replay-window', { method: 'POST', body: body({ sourceAt }) })

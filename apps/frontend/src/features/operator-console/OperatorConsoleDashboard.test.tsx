@@ -30,14 +30,14 @@ describe('operator console safety states', () => {
 
   it('renders all forecast horizons declared by the server capability', () => {
     const changeHorizon = vi.fn()
-    render(<ScenarioBar fleet={214} forecastMinutes={5} generatedAt="2026-08-14T08:55:00Z" horizons={[5, 15, 30]} modelVersion="lgbm" onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" zoneCount={30} />)
+    render(<ScenarioBar fleet={214} forecastMinutes={5} generatedAt="2026-08-14T08:55:00Z" horizons={[5, 10, 15]} modelVersion="lgbm" onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" zoneCount={30} />)
 
     expect(screen.getByRole('radio', { name: '5 phút' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '10 phút' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '15 phút' })).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: '30 phút' })).toBeInTheDocument()
   })
 
-  it('runs the exact model horizon selected by the operator', async () => {
+  it('keeps the selected horizon stable and runs only after explicit confirmation', async () => {
     const baseline = await mockOperatorAdapter.getSnapshot('baseline')
     if (!baseline.ai) throw new Error('Mock snapshot must include AI forecast metadata')
     const fiveMinuteOnly = {
@@ -49,11 +49,13 @@ describe('operator console safety states', () => {
       },
     }
     vi.spyOn(mockOperatorAdapter, 'getSnapshot').mockResolvedValue(fiveMinuteOnly)
-    vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockResolvedValue(fiveMinuteOnly)
+    vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...fiveMinuteOnly, sourceAt }))
     const generate = vi.spyOn(mockOperatorAdapter, 'generateAiDecision')
     const queryClient = renderDashboard()
 
     await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
+    expect(generate).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Chạy dự báo cung–cầu' }))
     await waitFor(() => expect(generate).toHaveBeenCalledWith(expect.any(Number), 15))
 
     queryClient.clear()

@@ -13,13 +13,13 @@ describe('useCurrentReplayAnchor', () => {
     vi.setSystemTime(new Date('2026-08-15T09:48:00.000Z'))
 
     const { result } = renderHook(() => useCurrentReplayAnchor('2026-08-15T09:48:00.000Z', false))
-    expect(result.current).toBe('2026-09-29T17:45:00+07:00')
+    expect(result.current).toBe('2026-09-25T08:45:00+07:00')
 
     act(() => {
       vi.advanceTimersByTime(2 * 60_000 + 100)
     })
 
-    expect(result.current).toBe('2026-09-29T17:50:00+07:00')
+    expect(result.current).toBe('2026-09-25T08:50:00+07:00')
   })
 
   it('waits for capability state before falling back to the browser clock', () => {
@@ -33,6 +33,6 @@ describe('useCurrentReplayAnchor', () => {
     expect(result.current).toBeUndefined()
 
     rerender({ isUnavailable: true })
-    expect(result.current).toBe('2026-09-29T17:45:00+07:00')
+    expect(result.current).toBe('2026-09-25T08:45:00+07:00')
   })
 })

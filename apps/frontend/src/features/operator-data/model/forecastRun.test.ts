@@ -6,12 +6,12 @@ const base = { zoneContract: 'AI_ZONE_1_30' as const, registeredZones: 30, liveZ
 
 describe('hasExactForecastRun', () => {
   it('shows every server-supported horizon before each run has been generated', () => {
-    expect(supportedForecastHorizons([30, 5, 15, 30], { ...base, horizons: [5] }))
-      .toEqual([5, 15, 30])
+    expect(supportedForecastHorizons([10, 5, 15, 10], { ...base, horizons: [5] }))
+      .toEqual([5, 10, 15])
   })
 
   it('uses only server-declared supported horizons and removes duplicates', () => {
-    expect(availableForecastHorizons({ ...base, horizons: [30, 5, 30, 99] })).toEqual([30, 5])
+    expect(availableForecastHorizons({ ...base, horizons: [10, 5, 10, 99] })).toEqual([10, 5])
   })
 
   it('uses the matching immutable run for each horizon and rejects a partial newer run', () => {
@@ -32,6 +32,6 @@ describe('hasExactForecastRun', () => {
     expect(hasExactForecastRun({ ...base, forecastStatus: 'COMPLETED' }, 5)).toBe(true)
     expect(hasExactForecastRun({ ...base, forecastStatus: 'RUNNING' }, 5)).toBe(false)
     expect(hasExactForecastRun({ ...base, forecastStatus: 'COMPLETED', forecastedZones: 29 }, 5)).toBe(false)
-    expect(hasExactForecastRun({ ...base, forecastStatus: 'COMPLETED' }, 30)).toBe(false)
+    expect(hasExactForecastRun({ ...base, forecastStatus: 'COMPLETED' }, 10)).toBe(false)
   })
 })

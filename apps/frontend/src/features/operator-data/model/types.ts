@@ -7,9 +7,9 @@ export type DemoScenarioId = 'normal' | 'rain-peak' | 'holiday'
 export type ResponseMode = 'human' | 'simulated' | 'mixed'
 export type DriverStatus = 'offline' | 'online_idle' | 'online_busy' | 'en_route' | 'activated' | 'on_trip'
 export type OfferStatus = 'Open' | 'Accepted' | 'Declined' | 'Expired' | 'Cancelled'
-export type ForecastHorizon = 5 | 15 | 30
+export type ForecastHorizon = 5 | 10 | 15
 
-export type Zone = { id: string; aiZoneId: number; zoneCode: string; label: string; tier: string; areaKm2: number; center: [longitude: number, latitude: number]; boundary: [longitude: number, latitude: number][]; dataStatus: 'live' | 'missing'; supply: number | null; demand: number | null; gap: number | null; operationalGap?: number; severity: Severity | string; confidence: number | null; confidence5?: number | null; confidence15?: number | null; confidence30?: number | null; rainMmH: number; rainForecast15: number; rainForecast30: number; forecast5?: number; forecast15: number; forecast30: number; forecastSupply5?: number; forecastSupply15?: number; forecastSupply30?: number; demandRange5?: readonly [number, number] | null; demandRange15?: readonly [number, number] | null; demandRange30?: readonly [number, number] | null; supplyRange5?: readonly [number, number] | null; supplyRange15?: readonly [number, number] | null; supplyRange30?: readonly [number, number] | null }
+export type Zone = { id: string; aiZoneId: number; zoneCode: string; label: string; tier: string; areaKm2: number; center: [longitude: number, latitude: number]; boundary: [longitude: number, latitude: number][]; dataStatus: 'live' | 'missing'; supply: number | null; demand: number | null; gap: number | null; operationalGap?: number; severity: Severity | string; confidence: number | null; confidence5?: number | null; confidence10?: number | null; confidence15?: number | null; confidence30?: number | null; rainMmH: number; rainForecast15: number; rainForecast30: number; forecast5?: number; forecast10?: number; forecast15: number; forecast30: number; forecastSupply5?: number; forecastSupply10?: number; forecastSupply15?: number; forecastSupply30?: number; demandRange5?: readonly [number, number] | null; demandRange10?: readonly [number, number] | null; demandRange15?: readonly [number, number] | null; demandRange30?: readonly [number, number] | null; supplyRange5?: readonly [number, number] | null; supplyRange10?: readonly [number, number] | null; supplyRange15?: readonly [number, number] | null; supplyRange30?: readonly [number, number] | null }
 export type Hotspot = { zoneId: string; rank: number; reason: string; etaMinutes: number; isPersistent: boolean; forecastRunId?: string; severity?: Severity; policyVersion?: string; reasonCodes?: readonly string[]; threshold?: number; contributingFeatures?: { demand: number; supply: number; gap: number } }
 export type ForecastRunStatus = 'COMPLETED' | 'FALLBACK' | 'FAILED' | 'RUNNING' | 'SUPERSEDED'
 export type ForecastRun = { id: string; horizonMinutes: ForecastHorizon; status: ForecastRunStatus | null; modelVersion: string | null; featureVersion: string | null; policyVersion: string | null; inputHash: string | null; forecastMode: string | null; dataSource: string | null; forecastAt: string | null; completedAt: string | null; zoneCount: number }
@@ -154,7 +154,22 @@ export type OperatorCapabilities = {
 export type DispatchMove = { id: string; sourceMoveKey: string; sourceZoneId: number; targetZoneId: number; plannedUnits: number; acknowledgedUnits: number; arrivedUnits: number; availableUnits: number; failedUnits: number; state: 'PLANNED' | 'SENT' | 'ACKNOWLEDGED' | 'EN_ROUTE' | 'ARRIVED' | 'AVAILABLE' | 'FAILED' | 'CANCELLED'; routeSource?: string | null; etaMinutes: number; distanceKm: number }
 export type Reconciliation = { id: string; revision: number; plannedUnits: number; acknowledgedUnits: number; arrivedUnits: number; availableUnits: number; failedUnits: number; actualContribution: number; residualGap: number | null; isSnapshotFresh: boolean; createdAt: string }
 export type DispatchBatch = { id: string; proposalId: string; proposalVersion: number; approvedContentHash: string; status: string; releasedAt: string; requestId?: string | null; moves: readonly DispatchMove[]; reconciliations: readonly Reconciliation[] }
-export type ScenarioComparison = { id: string; commonInputHash: string; snapshotId: string; forecastRunId: string; modelVersion: string; policyVersion: string; scenarios: readonly { type: 'NO_ACTION' | 'RELOCATION' | 'ACTIVATION' | 'HYBRID'; estimatedMetrics: Record<string, unknown>; observedMetrics: Record<string, unknown> | null; uncertainty: Record<string, unknown>; responseSource: string }[]; hasObservedRevenue: false; revenueNotice: string }
+export type ForecastEvaluation = {
+  status: 'PENDING_GROUND_TRUTH' | 'OBSERVED'
+  targetAt: string | null
+  evaluatedZones: number
+  demandMae?: number
+  supplyMae?: number
+  demandMape?: number
+  demandIntervalCoverage?: number
+  supplyIntervalCoverage?: number
+  forecastFulfillmentRate?: number
+  observedFulfillmentRate?: number
+  fulfillmentRateError?: number
+  forecastResidualGap?: number
+  observedResidualGap?: number
+}
+export type ScenarioComparison = { id: string; commonInputHash: string; snapshotId: string; forecastRunId: string; modelVersion: string; policyVersion: string; scenarios: readonly { type: 'NO_ACTION' | 'RELOCATION' | 'ACTIVATION' | 'HYBRID'; estimatedMetrics: Record<string, unknown>; observedMetrics: Record<string, unknown> | null; uncertainty: Record<string, unknown>; responseSource: string }[]; forecastEvaluation?: ForecastEvaluation; hasObservedRevenue: false; revenueNotice: string }
 export type PersistentNotification = { id: string; ownerId: string | null; severity: 'INFO' | 'WARNING' | 'CRITICAL'; category: string; title: string; message: string; entityType: string | null; entityId: string | null; requestId: string | null; status: 'UNREAD' | 'READ' | 'ACKNOWLEDGED' | 'RESOLVED'; escalateAt: string | null; createdAt: string }
 
 export type OperatorDataAdapter = {

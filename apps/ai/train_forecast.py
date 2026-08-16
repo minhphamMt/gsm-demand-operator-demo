@@ -8,7 +8,7 @@ Chạy: python train_forecast.py
   data/splits.yaml                        (cửa sổ train + 3 fold walk-forward)
 
 Ghi:
-  data/models/lgbm_*.txt                  18 booster (h5/h15/h30)
+  data/models/lgbm_*.txt                  18 booster (h5/h10/h15)
   data/models/model_manifest.json         model_version + seed + danh sách feature
   eval/results/model1_forecast_report.json   ma trận 16 ô + backtest + ablation
 
@@ -314,11 +314,14 @@ def write_versioned_outputs(report: dict, model_manifest: dict) -> tuple[Path, P
     run_eval_dir = run_dir / "eval"
     versioned_artifacts = {}
 
-    for source in MODEL_DIR.glob("lgbm_*.txt"):
+    # Only archive artifacts produced by this run. A directory glob can silently
+    # carry obsolete horizons (for example h30 after switching to h10) forward.
+    for artifact_name, artifact_path in model_manifest["artifacts"].items():
+        source = Path(artifact_path)
         run_model_dir.mkdir(parents=True, exist_ok=True)
         target = run_model_dir / source.name
         copy2(source, target)
-        versioned_artifacts[source.stem] = target.as_posix()
+        versioned_artifacts[artifact_name] = target.as_posix()
 
     report["versioned_artifacts"] = versioned_artifacts
     model_manifest["versioned_artifacts"] = versioned_artifacts
@@ -361,7 +364,7 @@ if __name__ == "__main__":
     base_scored = attach(test, base_predictions)
     base_matrix = score_matrix(base_scored)
 
-    # --- Model 1 thật: 18 booster cho ba horizon 5/15/30 ---
+    # --- Model 1 thật: 18 booster cho ba horizon 5/10/15 ---
     print("\nTrain full quantile LightGBM models", flush=True)
     models = lgbm.train_models(train, progress=True)
     paths = lgbm.save_models(models, MODEL_DIR)

@@ -1,8 +1,8 @@
 // Cửa sổ rain_peak đã được kiểm trên bundle model hiện hành: cả 12 bucket đều có ít nhất
 // một phương án điều chuyển trong bán kính vận hành. Phút vẫn bám đồng hồ thật để snapshot
 // tự tiến mỗi 5 phút; đây không phải một snapshot cố định.
-const replayDatasetDay = '2026-09-29'
-const replayOperationalHour = 17
+const replayDatasetDay = '2026-09-25'
+const replayOperationalHour = 8
 
 /**
  * The model replay uses a frozen, checksummed dataset. Keep the live five-minute

@@ -141,14 +141,15 @@ def test_exact_stored_replay_bucket_runs_trained_five_minute_model() -> None:
     assert snapshot.json()["source_at"] == source_at
     assert len(snapshot.json()["zones"]) == 30
     assert window.status_code == 200
-    assert len(window.json()["steps"]) == 19
+    assert len(window.json()["steps"]) == 25
+    assert window.json()["steps"][-1]["source_at"] == source_at
     assert all("mean_rain_mm_h" in step for step in window.json()["steps"])
     assert decision.status_code == 200
     assert decision.json()["forecast_mode"] == "trained_model_replay"
     assert decision.json()["forecast"]["horizon_min"] == 5
 
 
-def test_replay_window_keeps_nineteen_stored_steps_at_dataset_boundary() -> None:
+def test_replay_window_never_reads_future_steps_at_dataset_boundary() -> None:
     with TestClient(app) as client:
         status = client.get("/api/v1/datasets/snapshots/status").json()
         source_at = status["first_inference_source_at"]
@@ -156,7 +157,7 @@ def test_replay_window_keeps_nineteen_stored_steps_at_dataset_boundary() -> None
 
     assert response.status_code == 200
     steps = response.json()["steps"]
-    assert len(steps) == 19
+    assert len(steps) == 1
     assert steps[0]["source_at"] == source_at
     assert all("mean_rain_mm_h" in step for step in steps)
 
@@ -230,7 +231,7 @@ def test_model_bundle_manifest_verifies_all_eighteen_artifacts() -> None:
 
     assert bundle["verified"] is True
     assert bundle["artifacts"] == 18
-    assert bundle["horizons"] == [5, 15, 30]
+    assert bundle["horizons"] == [5, 10, 15]
     training_data = bundle["training_data"]
     assert isinstance(training_data, dict)
     assert training_data["source_kind"] == "hybrid_synthetic"
