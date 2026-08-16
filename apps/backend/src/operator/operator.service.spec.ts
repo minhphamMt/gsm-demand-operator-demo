@@ -12,6 +12,7 @@ class ReadQuery implements PromiseLike<{ data: Row[]; error: null }> {
   in() { return this; }
   lt() { return this; }
   eq() { return this; }
+  neq() { return this; }
   gte() { return this; }
   lte() { return this; }
   order(column: string, options: { ascending: boolean } = { ascending: true }) {
@@ -192,6 +193,59 @@ describe('OperatorService snapshot selection', () => {
     await expect(new OperatorService(db as never).reviewProposal('proposal-1', 'APPROVED', { expectedVersion: 1, note: 'approved' }, 'actor-1', 'request-1'))
       .rejects.toMatchObject({ response: expect.objectContaining({ code: 'STALE_PROPOSAL' }) });
     expect(db.client.from).not.toHaveBeenCalledWith('operational_audit_logs');
+  });
+
+  it('activates an approved proposal within its window after a newer snapshot is ingested', async () => {
+    const proposal = new ReadQuery([{
+      id: 'proposal-1',
+      input_snapshot_id: 4,
+      status: 'APPROVED',
+      policy_status: 'PASSED',
+      window_end_at: '2099-01-01T00:00:00.000Z',
+      bonus_amount: 50_000,
+      estimated_cost: 100_000,
+      target_driver_count: 2,
+      simulation_details: {
+        metrics_after_relocation: { unmet_demand: 4 },
+        metrics_after_activation_expected: { unmet_demand: 2 },
+      },
+      source_plan: { residual_gap: [{ gap_remaining: 4 }] },
+    }]);
+    let campaignReads = 0;
+    const rpc = jest.fn().mockResolvedValue({ data: 'campaign-1', error: null });
+    const db = {
+      client: {
+        from: jest.fn((table: string) => {
+          if (table === 'proposals') return proposal;
+          if (table === 'campaigns') {
+            campaignReads += 1;
+            if (campaignReads < 3) return new ReadQuery([]);
+            return new ReadQuery([{
+              id: 'campaign-1', proposal_id: 'proposal-1', status: 'ACTIVE',
+              target_zone_ids: [1], target_driver_count: 2, budget_used: 0,
+              budget_limit: 100_000, bonus_amount: 50_000,
+              start_at: '2026-08-16T13:45:00.000Z', end_at: '2099-01-01T00:00:00.000Z',
+            }]);
+          }
+          if (['dispatch_batches', 'driver_offers', 'campaign_participations', 'trips'].includes(table)) {
+            return new ReadQuery([]);
+          }
+          if (table === 'supply_demand_snapshots') {
+            throw new Error('Activation must not revalidate the latest snapshot after approval');
+          }
+          throw new Error(`Unexpected table ${table}`);
+        }),
+        rpc,
+      },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    };
+
+    await expect(new OperatorService(db as never).activateProposal(
+      'proposal-1', { responseMode: 'human' }, 'actor-1', 'request-1',
+    )).resolves.toMatchObject({ id: 'campaign-1', planId: 'proposal-1', status: 'Active' });
+    expect(rpc).toHaveBeenCalledWith('activate_proposal', expect.objectContaining({
+      p_proposal_id: 'proposal-1', p_actor_id: 'actor-1', p_request_id: 'request-1',
+    }));
   });
 
   it('rejects a revision submitted from an older proposal version before calling the RPC', async () => {
