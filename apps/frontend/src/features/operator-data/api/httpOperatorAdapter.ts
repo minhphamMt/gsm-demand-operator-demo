@@ -56,11 +56,18 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
     return parseEntity(await requestJson(`/operator/snapshots/${snapshotId}?scenario=baseline`), isSnapshot, 'snapshot dự báo')
   },
   optimizeAiDecision: async (snapshotId, horizonMinutes) => {
-    await requestJson('/operator/ai/optimize', { method: 'POST', body: body({ snapshotId, horizonMinutes }) })
+    const result = await requestJson('/operator/ai/optimize', { method: 'POST', body: body({ snapshotId, horizonMinutes }) })
+    const decision = isRecord(result) && isRecord(result.decision) ? result.decision : undefined
+    if (decision?.planning_status === 'not_required') {
+      return {
+        planningStatus: 'not_required',
+        reasonCode: typeof decision.reason_code === 'string' ? decision.reason_code : 'NO_ACTION_REQUIRED',
+      }
+    }
     const proposals = parseEntities(await requestJson('/operator/proposals'), isProposal, 'proposals')
     const proposal = latestAgentProposalForSnapshot(proposals, String(snapshotId))
     if (!proposal) throw new AppError('Model không trả về phương án cho đúng snapshot đang xem.', { code: 'AI_PROPOSAL_SNAPSHOT_MISMATCH' })
-    return proposal
+    return { planningStatus: 'proposal_created', proposal }
   },
   runReplayStep: async (sourceAt) => {
     const result = await requestJson('/operator/ai/replay', { method: 'POST', body: body({ sourceAt }) })

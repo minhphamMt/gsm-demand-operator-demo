@@ -12,15 +12,14 @@ Ba điểm dễ hiểu sai:
    hai, điều §5.14.1 cấm thẳng. Tầng pipeline ghép SolveResult + metrics thành plan.
 2. Không tìm được nghiệm là **kết quả hợp lệ**, không phải lỗi: plan rỗng + `residual_gap` =
    toàn bộ gap + cảnh báo `NO_SOLUTION`, HTTP 200 (§5.9, AGENT_WORKFLOW §3.1 dòng 1).
-3. Zone đang là hotspot KHÔNG được làm nguồn, kể cả khi nó có mặt trong `surplus_zones` —
-   chuyện xảy ra thật ở `rain_peak` vì gap tính bằng `demand_p90` còn surplus tính bằng p50
-   (§4.3). Rút xe khỏi một zone đang thiếu xe là đúng thứ §5.4 cấm ("không rút xe khiến zone
-   nguồn tự trở thành hotspot mới") ở dạng nặng nhất.
+3. Zone là hotspot chính sách KHÔNG được làm nguồn. Một target tư vấn theo risk p90 vẫn có
+   thể là nguồn p50 cho target khác nếu còn sức chứa an toàn; caller truyền rõ tập zone được
+   bảo vệ qua `protected_source_zone_ids`. Không bao giờ tạo move từ một zone về chính nó.
 """
 
 import logging
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -102,6 +101,7 @@ def solve(
     rain_mm_h: Mapping[int, float],
     policy: Policy,
     zone_coords: Mapping[int, ZoneCoord],
+    protected_source_zone_ids: Collection[int] | None = None,
 ) -> SolveResult:
     """Một step Model 3: `HotspotOutput` §4.3 → danh sách move + `residual_gap` §4.4.
 
@@ -114,7 +114,12 @@ def solve(
     """
     limits = limits_from_policy(policy)
     idle_by_zone = {zone.zone_id: zone.idle_supply_current for zone in hotspot_output.surplus_zones}
-    capacity = _source_capacity(hotspot_output, t=t, limits=limits)
+    capacity = _source_capacity(
+        hotspot_output,
+        t=t,
+        limits=limits,
+        protected_source_zone_ids=protected_source_zone_ids,
+    )
     targets = _ordered_targets(hotspot_output.hotspots, priority_zones=limits.priority_zones)
 
     remaining: dict[int, float] = {hotspot.zone_id: hotspot.gap for hotspot in targets}
@@ -208,20 +213,25 @@ def _source_capacity(
     *,
     t: datetime,
     limits: OptimizerLimits,
+    protected_source_zone_ids: Collection[int] | None = None,
 ) -> dict[int, int]:
-    """Số xe mỗi zone nguồn được rút, sau khi loại cooldown và zone đang là hotspot.
+    """Số xe mỗi zone nguồn được rút, sau khi loại cooldown và zone được bảo vệ.
 
     Sức chứa tính MỘT LẦN rồi trừ dần: một zone nguồn có thể phục vụ nhiều hotspot, và nếu
     mỗi lần lại tính lại từ `idle_supply_current` gốc thì ràng buộc `max_supply_move_pct` và
     `min_supply_per_zone` chỉ đúng cho từng move chứ không đúng cho tổng — đó là cách A6/A7
     bị vi phạm mà từng move nhìn vẫn hợp lệ.
     """
-    hotspot_ids = {hotspot.zone_id for hotspot in hotspot_output.hotspots}
+    protected_ids = (
+        {hotspot.zone_id for hotspot in hotspot_output.hotspots}
+        if protected_source_zone_ids is None
+        else set(protected_source_zone_ids)
+    )
     capacity: dict[int, int] = {}
 
     for zone in hotspot_output.surplus_zones:
-        if zone.zone_id in hotspot_ids:
-            logger.debug("Zone %d vừa là hotspot vừa có surplus (§4.3) — không dùng làm nguồn", zone.zone_id)
+        if zone.zone_id in protected_ids:
+            logger.debug("Zone %d là hotspot chính sách được bảo vệ — không dùng làm nguồn", zone.zone_id)
             continue
         if not is_source_available(zone.cooldown_until_ts, t=t):
             logger.debug("Zone %d còn cooldown đến %s — loại khỏi nguồn", zone.zone_id, zone.cooldown_until_ts)
@@ -274,6 +284,8 @@ def _candidates_for(
     """
     candidates: list[_Candidate] = []
     for source_id in sources:
+        if source_id == hotspot.zone_id:
+            continue
         distance_km = distance_between(zone_coords, source_id, hotspot.zone_id)
         if not within_max_distance(distance_km, max_distance=limits.max_distance):
             continue

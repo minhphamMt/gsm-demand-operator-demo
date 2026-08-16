@@ -78,6 +78,10 @@ export type Proposal = {
   inputFreshUntil: string
 }
 
+export type OptimizationResult =
+  | { planningStatus: 'proposal_created'; proposal: Proposal }
+  | { planningStatus: 'not_required'; reasonCode: string }
+
 export type RevisePlanRequest = {
   expectedVersion: number
   moveQuantities: Readonly<Record<string, number>>
@@ -175,7 +179,7 @@ export type PersistentNotification = { id: string; ownerId: string | null; sever
 export type OperatorDataAdapter = {
   getCapabilities: () => Promise<OperatorCapabilities>
   generateAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon) => Promise<Snapshot>
-  optimizeAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon) => Promise<Proposal>
+  optimizeAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon) => Promise<OptimizationResult>
   runReplayStep: (sourceAt: string) => Promise<Snapshot>
   getReplayWindow: (sourceAt: string) => Promise<readonly ReplayTimelineStep[]>
   getSnapshot: (scenario: Scenario, demoScenarioId?: DemoScenarioId, replayIndex?: number) => Promise<Snapshot>

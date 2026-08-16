@@ -21,6 +21,7 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
   const hasDirectMoves = plan.moves.length > 0
   const hasActivation = plan.targetDriverCount > 0
   const hasOperationalAction = hasDirectMoves || hasActivation
+  const isRiskAdvisory = plan.warnings.some((warning) => warning.id === 'RISK_ADVISORY_PROPOSAL')
   const canEdit = plan.status === 'UnderReview' || plan.status === 'Revised'
   const preview = previewPlanRevision(plan, quantities)
   const directVehicles = preview.assigned
@@ -58,7 +59,7 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
   return <section aria-label="Chi tiết phương án" className="nf-plan-drawer">
     <header>
       <div>
-        <small>BẢNG CHI TIẾT · {hasDirectMoves ? `${preview.activeMoves} LƯỢT CHUYỂN` : 'KHÔNG CÓ LỜI GIẢI ĐIỀU CHUYỂN'}</small>
+        <small>BẢNG CHI TIẾT · {isRiskAdvisory ? 'KHUYẾN NGHỊ RISK P90' : hasDirectMoves ? `${preview.activeMoves} LƯỢT CHUYỂN` : 'KHÔNG CÓ LỜI GIẢI ĐIỀU CHUYỂN'}</small>
         <strong>{plan.status === 'Approved' ? 'Đã phê duyệt' : `Phương án đề xuất · v${plan.version}`}</strong>
         <p>Chế độ: {planModeLabel} · {plan.status === 'Approved' ? 'chưa có lệnh nào được phát. Thực hiện là một thao tác riêng.' : hasOperationalAction ? 'điều chỉnh số xe, lưu phiên bản mới rồi phê duyệt.' : 'kết quả này chỉ được lưu để truy vết, không thể phê duyệt.'}</p>
       </div>
@@ -78,6 +79,7 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
       <span><small>CAM KẾT TỐI ĐA</small><b>{hasOperationalAction ? formatCurrency(maximumCommittedCost) : '—'}</b></span>
     </div>
     <div className="nf-plan-scroll nf-scroll">
+      {isRiskAdvisory && <p className="nf-risk-advisory-note"><b>Phương án cảnh báo sớm:</b> các zone mục tiêu chưa đạt ngưỡng hotspot chính sách. Model dùng thiếu hụt risk p90 để đề xuất; điều phối viên có thể chỉnh số xe, lưu revision rồi mới quyết định phê duyệt.</p>}
       {hasOperationalAction && <><h3>TÁC ĐỘNG DỰ KIẾN</h3>
       <table className="table">
         <thead><tr><th>Chỉ số</th><th>Không hành động</th><th>Sau điều chuyển</th>{hasActivation && <th>Sau activation (kỳ vọng)</th>}</tr></thead>

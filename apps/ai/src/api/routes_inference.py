@@ -17,14 +17,18 @@ from src.config import get_settings
 from src.contracts import ContractModel, StepAlignedDatetime, ZoneId, ensure_full_zone_coverage
 from src.contracts.forecast import Forecast, HorizonMin
 from src.contracts.hotspot import Hotspot, HotspotOutput, SurplusZone
+from src.contracts.plan import PlanTotals
 from src.datasets.snapshot_replay import dataset_status, next_snapshot, replay_features, snapshot_at, snapshot_window
 from src.forecasting.lgbm_quantile import ModelKey, forecast_at, load_models, verify_model_bundle
 from src.forecasting.live_snapshot_baseline import forecast_from_live_zones
 from src.hotspot.detector import gap_inputs, gap_of, meets_condition, severity_of
-from src.optimizer.greedy import solve
+from src.optimizer.greedy import SolveResult, solve
 from src.simulation.metrics import system_metrics
 
 router = APIRouter(prefix="/api/v1", tags=["inference"])
+
+NO_POLICY_HOTSPOT = "NO_POLICY_HOTSPOT"
+RISK_ADVISORY_PROPOSAL = "RISK_ADVISORY_PROPOSAL"
 
 
 class DatasetSnapshotRequest(ContractModel):
@@ -309,32 +313,6 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         )
         for zone in forecast.zones
     }
-    risk_targets = tuple(
-        Hotspot(
-            zone_id=zone.zone_id,
-            is_hotspot=True,
-            gap=planning_gap_by_zone[zone.zone_id],
-            severity_score=severity_of(planning_gap_by_zone[zone.zone_id], zone.predicted_demand),
-            idle_supply_current=next(item.idle_supply for item in request.zones if item.zone_id == zone.zone_id),
-        )
-        for zone in forecast.zones
-        if zone.zone_id not in policy_hotspot_ids and planning_gap_by_zone[zone.zone_id] >= 0.5
-    )
-    optimizer_output = HotspotOutput(
-        forecast_ts=hotspot_output.forecast_ts,
-        horizon_min=hotspot_output.horizon_min,
-        hotspots=(*hotspot_output.hotspots, *risk_targets),
-        surplus_zones=hotspot_output.surplus_zones,
-        conservative_gap_mode=hotspot_output.conservative_gap_mode,
-    )
-    rain = {zone.zone_id: zone.rain_mm_h for zone in request.zones}
-    result = solve(
-        optimizer_output,
-        t=request.t,
-        rain_mm_h=rain,
-        policy=policy,
-        zone_coords=get_zone_coords(settings.zone_registry_path),
-    )
     planning_inputs = {
         zone.zone_id: gap_inputs(
             zone,
@@ -343,6 +321,59 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         )
         for zone in forecast.zones
     }
+    idle_supply_by_zone = {zone.zone_id: zone.idle_supply for zone in request.zones}
+    risk_zones = tuple(
+        {
+            "zone_id": zone.zone_id,
+            "gap": planning_gap_by_zone[zone.zone_id],
+            "required_units": max(0, math.floor(planning_gap_by_zone[zone.zone_id] + 0.5)),
+            "risk_basis": hotspot_output.conservative_gap_mode or "p50",
+        }
+        for zone in forecast.zones
+        if zone.zone_id not in policy_hotspot_ids and planning_gap_by_zone[zone.zone_id] > 0
+    )
+    risk_targets = tuple(
+        Hotspot(
+            zone_id=int(zone["zone_id"]),
+            is_hotspot=False,
+            gap=float(zone["gap"]),
+            severity_score=severity_of(
+                float(zone["gap"]),
+                planning_inputs[int(zone["zone_id"])][0],
+            ),
+            idle_supply_current=idle_supply_by_zone[int(zone["zone_id"])],
+        )
+        for zone in risk_zones
+        if int(zone["required_units"]) > 0
+    )
+    planning_targets = (*hotspot_output.hotspots, *risk_targets)
+    planning_output = hotspot_output.model_copy(update={"hotspots": planning_targets})
+    rain = {zone.zone_id: zone.rain_mm_h for zone in request.zones}
+    if planning_targets:
+        result = solve(
+            planning_output,
+            t=request.t,
+            rain_mm_h=rain,
+            policy=policy,
+            zone_coords=get_zone_coords(settings.zone_registry_path),
+            protected_source_zone_ids=policy_hotspot_ids,
+        )
+        planning_status = "optimizer_evaluated"
+        reason_code = None if hotspot_output.hotspots else RISK_ADVISORY_PROPOSAL
+    else:
+        # Không có cả hotspot chính sách lẫn risk đủ một đơn vị xe để lập phương án.
+        result = SolveResult(
+            moves=(),
+            residual_gap=(),
+            plan_totals=PlanTotals(
+                total_units=0,
+                total_cost=0,
+                total_deadhead_km=0,
+                budget_cap=policy.rules.budget_cap,
+            ),
+        )
+        planning_status = "not_required"
+        reason_code = NO_POLICY_HOTSPOT
     supply_after = {zone_id: supply for zone_id, (_, supply) in planning_inputs.items()}
     for move in result.moves:
         supply_after[move.from_zone] -= move.units_to_move
@@ -360,7 +391,15 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         overbooking_factor=policy.rules.overbooking_factor,
         assumed_accept_rate=policy.rules.assumed_accept_rate,
     )
-    warnings = [*forecast_warnings, *result.warnings, {
+    planning_basis_warnings = ([{
+        "code": RISK_ADVISORY_PROPOSAL,
+        "severity": "info",
+        "message": "Không có hotspot chính sách; phương án này là khuyến nghị sớm từ risk p90 và cần điều phối viên xem xét, chỉnh sửa, phê duyệt.",
+    }] if reason_code == RISK_ADVISORY_PROPOSAL else [{
+        "code": NO_POLICY_HOTSPOT,
+        "message": "Không có hotspot chính sách hoặc risk đủ một đơn vị xe; không sinh phương án.",
+    }] if reason_code == NO_POLICY_HOTSPOT else [])
+    warnings = [*forecast_warnings, *result.warnings, *planning_basis_warnings, {
         "code": "HYSTERESIS_STATE_UNAVAILABLE",
         "message": "Request đơn không có lịch sử hysteresis; hotspot dùng điều kiện thô.",
     }]
@@ -368,6 +407,9 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         "snapshot_id": request.snapshot_id,
         "data_source": request.data_source,
         "forecast_mode": forecast_mode,
+        "planning_status": planning_status,
+        "reason_code": reason_code,
+        "risk_zones": list(risk_zones),
         "data_provenance": {
             "observation_source": request.data_source,
             "forecast_feature_source": (
@@ -424,7 +466,7 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
                     "is_policy_hotspot": target.zone_id in policy_hotspot_ids,
                     "target_basis": hotspot_output.conservative_gap_mode or "p50",
                 }
-                for target in optimizer_output.hotspots
+                for target in planning_targets
                 if target.gap > 0
             ],
             "source_capacities": [

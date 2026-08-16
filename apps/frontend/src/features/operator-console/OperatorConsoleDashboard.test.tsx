@@ -81,22 +81,27 @@ describe('operator console safety states', () => {
     expect(await screen.findByText('Chưa cấu hình Mapbox', {}, { timeout: 15_000 })).toBeInTheDocument()
     const zoneButton = await screen.findByRole('button', { name: /Ba Đình/ })
     await userEvent.click(zoneButton)
-    expect(screen.getByText('CHI TIẾT KHU VỰC')).toBeInTheDocument()
+    expect(screen.getByText(/DỮ LIỆU GHI NHẬN/, { selector: '.nf-zone-card > small' })).toBeInTheDocument()
     queryClient.clear()
   }, 20_000)
 
-  it('does not mix the p50 supply-demand difference with the conservative p90 deficit', () => {
-    const zone: Zone = {
-      id: 'AI-Z09', aiZoneId: 9, zoneCode: 'AI-Z09', label: 'Long Biên', tier: 'ring', areaKm2: 59.93,
-      center: [105.9, 21.04], boundary: [], dataStatus: 'live', supply: 11, demand: 22, gap: 11,
-      operationalGap: 18, severity: 'Critical', confidence: null, rainMmH: 0.38, rainForecast15: 0.4,
-      rainForecast30: 0.5, forecast15: 22, forecast30: 22,
+  it('shows observed supply and demand separately from the p50 and p90 forecast', () => {
+    const observed: Zone = {
+      id: 'AI-Z02', aiZoneId: 2, zoneCode: 'AI-Z02', label: 'Hoàn Kiếm', tier: 'core', areaKm2: 5.29,
+      center: [105.85, 21.03], boundary: [], dataStatus: 'live', supply: 33, demand: 32, gap: 0,
+      severity: 'Low', confidence: null, rainMmH: 0.35, rainForecast15: 0.4,
+      rainForecast30: 0.5, forecast15: 32, forecast30: 32,
     }
+    const forecast = { ...observed, supply: 33, demand: 32, operationalGap: 5, confidence: 87 }
 
-    render(<ZoneCard onClose={vi.fn()} zone={zone} />)
+    render(<ZoneCard forecastTime="22:45" forecastZone={forecast} observationTime="22:40" onClose={vi.fn()} zone={observed} />)
 
-    expect(screen.getByText('Chênh lệch p50').parentElement).toHaveTextContent('-11')
-    expect(screen.getByText('Thiếu hụt thận trọng p90: 18 xe (dùng để kiểm tra policy)')).toBeInTheDocument()
+    expect(screen.getByText('Cung ghi nhận').parentElement).toHaveTextContent('33')
+    expect(screen.getByText('Cầu ghi nhận').parentElement).toHaveTextContent('32')
+    expect(screen.getByText('Chênh lệch ghi nhận').parentElement).toHaveTextContent('+1')
+    expect(screen.getByText('p50: cung 33 · cầu 32 · chênh lệch +1')).toBeInTheDocument()
+    expect(screen.getByText('Rủi ro p90: thiếu 5 xe')).toBeInTheDocument()
+    expect(screen.getByText('Màu bản đồ ở chế độ dự báo lấy theo rủi ro p90.')).toBeInTheDocument()
   })
 
   it('shows expected activation coverage instead of a misleading 0% relocation value', () => {
@@ -213,6 +218,35 @@ describe('operator console safety states', () => {
     expect(openExecution).toHaveBeenCalledOnce()
     expect(screen.queryByRole('button', { name: 'Tính phương án điều chuyển' })).not.toBeInTheDocument()
     expect(optimize).not.toHaveBeenCalled()
+  })
+
+  it('shows a completed no-action result when policy finds no hotspot', async () => {
+    const action = vi.fn()
+    render(<RailActions
+      campaign={undefined}
+      forecastReady
+      isGenerating={false}
+      isOptimizing={false}
+      isScanning={false}
+      onActivate={action}
+      onApprove={action}
+      onGenerate={action}
+      onOpenCampaign={action}
+      onOpenPlan={action}
+      onOptimize={action}
+      onPrepareActivation={action}
+      onReject={action}
+      optimizationStopReason="NO_POLICY_HOTSPOT"
+      plan={undefined}
+      stage="not_required"
+    />)
+
+    expect(screen.getByText('Không cần điều chuyển')).toBeInTheDocument()
+    expect(screen.getByText('NO_POLICY_HOTSPOT')).toBeInTheDocument()
+    expect(screen.getByText(/không có proposal, lệnh điều chuyển hoặc campaign/i)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Xem lại kết quả dự báo' }))
+    expect(action).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'Tính phương án điều chuyển' })).not.toBeInTheDocument()
   })
 
   it('keeps a stale snapshot view-only and blocks model actions with a reason', () => {

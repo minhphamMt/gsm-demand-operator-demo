@@ -84,6 +84,7 @@ export function OperatorConsoleDashboard() {
     sourceAt: string;
   } | null>(null);
   const [workflowStage, setWorkflowStage] = useState<OperatorWorkflowStage>("observe");
+  const [optimizationStopReason, setOptimizationStopReason] = useState<string>();
   const [autoReplayRetry, setAutoReplayRetry] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
@@ -118,6 +119,7 @@ export function OperatorConsoleDashboard() {
         }
         setReplaySnapshot(nextSnapshot);
         setForecastRun(null);
+        setOptimizationStopReason(undefined);
         setWorkflowStage("observe");
         setMapSource("observed");
       },
@@ -170,11 +172,16 @@ export function OperatorConsoleDashboard() {
   );
   const linkedDispatch = dispatches.data?.find((item) => item.proposalId === latestPlan?.id);
   const dispatch = execution?.dispatch ?? linkedDispatch;
+  const keepJustCompletedDispatch = Boolean(
+    linkedDispatch
+    && !isDispatchExecutionActive(linkedDispatch)
+    && ["executing", "executed"].includes(workflowStage),
+  );
   // A terminal campaign belongs on the history page only. Its approved proposal
   // must not reappear as an actionable move or be released for a second time.
   const hasTerminalExecution = !execution && (
     (linkedCampaign !== undefined && campaign === undefined)
-    || (linkedDispatch !== undefined && !isDispatchExecutionActive(linkedDispatch))
+    || (linkedDispatch !== undefined && !isDispatchExecutionActive(linkedDispatch) && !keepJustCompletedDispatch)
   );
   const plan = hasTerminalExecution ? undefined : latestPlan;
   const dispatchStage = dispatch && isDispatchExecutionActive(dispatch)
@@ -193,6 +200,10 @@ export function OperatorConsoleDashboard() {
     ? observedAtForReplaySource(replaySourceAt, replayAnchorAt, serverNow)
     : replaySourceAt;
   const observedZones = activeSnapshot.zones;
+  const recordedZones = observedZones.map((zone) => {
+    const { operationalGap: _forecastRisk, ...recordedZone } = zone;
+    return recordedZone;
+  });
   const missingZoneCount = observedZones.filter((zone) => !hasOperationalObservation(zone)).length;
   const dataComplete = missingZoneCount === 0
     && (activeSnapshot.ai === undefined || activeSnapshot.ai.liveZones >= activeSnapshot.ai.registeredZones);
@@ -217,16 +228,19 @@ export function OperatorConsoleDashboard() {
           displayedHorizon,
           activeSnapshot.regime === "rain_peak",
         )
-      : observedZones;
+      : recordedZones;
   const replayTime = formatTimeLabel(displaySourceAt);
   const forecastTime = addMinutesLabel(displaySourceAt, displayedHorizon);
-  const selectedZone = zones.find((zone) => zone.id === selectedZoneId);
+  const selectedZone = recordedZones.find((zone) => zone.id === selectedZoneId);
+  const selectedForecastZone = mapSource === "forecast"
+    ? zones.find((zone) => zone.id === selectedZoneId)
+    : undefined;
   const balance = fleetBalanceSummary(zones);
   const hotspots = zones.filter(hasOperationalObservation).filter((zone) => {
     const gap = zone.operationalGap ?? operationalGapFor(zone) ?? 0;
     return zone.supply < 3 || (zone.demand > 0 && gap / zone.demand >= 0.3);
   }).length;
-  const visibleZones = [...zones]
+  const visibleZones = [...recordedZones]
     .filter((zone) =>
       zone.label
         .toLocaleLowerCase("vi")
@@ -246,6 +260,7 @@ export function OperatorConsoleDashboard() {
       onSuccess: (nextSnapshot) => {
         setReplaySnapshot(nextSnapshot);
         setForecastRun(null);
+        setOptimizationStopReason(undefined);
         setWorkflowStage("observe");
         setMapSource("observed");
       },
@@ -262,6 +277,7 @@ export function OperatorConsoleDashboard() {
         setReplaySnapshot(forecastSnapshot);
         setForecastMinutes(horizon);
         setForecastRun({ horizon, sourceAt: forecastSourceAt });
+        setOptimizationStopReason(undefined);
         setWorkflowStage("forecast");
         setMapSource("forecast");
         setDrawerOpen(true);
@@ -271,6 +287,7 @@ export function OperatorConsoleDashboard() {
   const changeHorizon = (value: ForecastHorizon) => {
     setForecastMinutes(value);
     setMapSource("observed");
+    setOptimizationStopReason(undefined);
     setWorkflowStage("observe");
     setDrawerOpen(false);
   };
@@ -282,8 +299,15 @@ export function OperatorConsoleDashboard() {
     const snapshotId = Number.isInteger(parsedSnapshotId) ? parsedSnapshotId : 0;
     actions.optimizeAiDecision.mutate(
       { snapshotId, horizonMinutes: planningHorizonFor(displayedHorizon) },
-      { onSuccess: (proposal) => {
-        setWorkflowStage(proposal.moves.length ? "plan" : "no_solution");
+      { onSuccess: (result) => {
+        if (result.planningStatus === "not_required") {
+          setOptimizationStopReason(result.reasonCode);
+          setWorkflowStage("not_required");
+          setDrawerOpen(true);
+          return;
+        }
+        setOptimizationStopReason(undefined);
+        setWorkflowStage(result.proposal.moves.length ? "plan" : "no_solution");
         setDrawerOpen(true);
       } },
     );
@@ -402,6 +426,7 @@ export function OperatorConsoleDashboard() {
           />
           <ZoneFinder
             isOpen={finderOpen}
+            observationTime={replayTime}
             onOpenChange={setFinderOpen}
             onSearch={setSearch}
             onSelect={setSelectedZoneId}
@@ -411,6 +436,9 @@ export function OperatorConsoleDashboard() {
           />
           {selectedZone && (
             <ZoneCard
+              forecastTime={mapSource === "forecast" ? forecastTime : undefined}
+              forecastZone={selectedForecastZone}
+              observationTime={replayTime}
               onClose={() => setSelectedZoneId(undefined)}
               zone={selectedZone}
             />
@@ -425,7 +453,7 @@ export function OperatorConsoleDashboard() {
           />
           {actions.runReplayStep.isError && <div className="nf-replay-error" role="alert">{actions.runReplayStep.error.message}</div>}
           {!dataComplete && <div className="nf-replay-error" role="alert">Snapshot thiếu dữ liệu ở {missingZoneCount} zone. Không thể chạy dự báo hoặc tạo phương án cho đến khi nguồn dữ liệu đầy đủ.</div>}
-          {drawerOpen && activeStage === "forecast" && <ForecastDrawer
+          {drawerOpen && ["forecast", "not_required"].includes(activeStage) && <ForecastDrawer
             dataSource={forecastRunForHorizon(activeSnapshot.ai, displayedHorizon)?.dataSource ?? activeSnapshot.ai?.dataSource}
             forecastMode={forecastRunForHorizon(activeSnapshot.ai, displayedHorizon)?.forecastMode ?? activeSnapshot.ai?.forecastMode}
             forecastTime={forecastTime}
@@ -483,6 +511,7 @@ export function OperatorConsoleDashboard() {
             isForecasting={actions.generateAiDecision.isPending}
             isOptimizing={actions.optimizeAiDecision.isPending}
             isScanning={actions.runReplayStep.isPending}
+            optimizationStopReason={optimizationStopReason}
             plan={planReady ? plan : undefined}
             onOpenPlan={() => setDrawerOpen(true)}
             onOpenExecution={() => navigate(routes.operator.execution)}
@@ -497,6 +526,8 @@ export function OperatorConsoleDashboard() {
             isGenerating={actions.generateAiDecision.isPending}
             isOptimizing={actions.optimizeAiDecision.isPending}
             isScanning={actions.runReplayStep.isPending}
+            optimizationError={actions.optimizeAiDecision.error?.message}
+            optimizationStopReason={optimizationStopReason}
             isLiveEdge={isLiveEdge}
             dispatchEnabled={capabilities.data?.capabilities.dispatchRelease.enabled ?? false}
             isDispatching={actions.releaseDispatch.isPending}
@@ -633,7 +664,7 @@ function MapControls({
             onChange={() => onLayerChange("gap")}
             type="radio"
           />
-          Chênh lệch
+          {mapSource === "forecast" ? "Rủi ro p90" : "Chênh lệch ghi nhận"}
         </label>
         <label className="seg-opt">
           <input
@@ -642,7 +673,7 @@ function MapControls({
             onChange={() => onLayerChange("demand")}
             type="radio"
           />
-          Nhu cầu
+          {mapSource === "forecast" ? "Nhu cầu p50" : "Nhu cầu ghi nhận"}
         </label>
         <label className="seg-opt">
           <input
@@ -651,7 +682,7 @@ function MapControls({
             onChange={() => onLayerChange("supply")}
             type="radio"
           />
-          Cung xe
+          {mapSource === "forecast" ? "Cung p50" : "Cung ghi nhận"}
         </label>
       </div>
       <div className="seg" role="group" aria-label="Khung nhìn">
@@ -701,6 +732,7 @@ function MapControls({
 
 function ZoneFinder({
   isOpen,
+  observationTime,
   onOpenChange,
   onSearch,
   onSelect,
@@ -709,6 +741,7 @@ function ZoneFinder({
   zones,
 }: {
   isOpen: boolean;
+  observationTime: string;
   onOpenChange: (value: boolean) => void;
   onSearch: (value: string) => void;
   onSelect: (id: string) => void;
@@ -733,6 +766,7 @@ function ZoneFinder({
       </header>
       {isOpen && (
         <>
+          <small className="nf-zone-finder-basis">Cung, cầu và chênh lệch ghi nhận lúc {observationTime}</small>
           <label>
             <Search size={14} />
             <input
@@ -744,9 +778,7 @@ function ZoneFinder({
           </label>
           <div className="nf-scroll">
             {zones.map((zone) => {
-              const balance = hasOperationalObservation(zone)
-                ? -(zone.operationalGap ?? operationalGapFor(zone) ?? 0)
-                : null;
+              const balance = hasOperationalObservation(zone) ? zone.supply - zone.demand : null;
               const tier =
                 zone.aiZoneId <= 7
                   ? "lõi"
@@ -777,13 +809,31 @@ function ZoneFinder({
   );
 }
 
-export function ZoneCard({ onClose, zone }: { onClose: () => void; zone: Zone }) {
+export function ZoneCard({
+  forecastTime,
+  forecastZone,
+  observationTime,
+  onClose,
+  zone,
+}: {
+  forecastTime?: string | undefined;
+  forecastZone?: Zone | undefined;
+  observationTime?: string | undefined;
+  onClose: () => void;
+  zone: Zone;
+}) {
   const hasObservation = hasOperationalObservation(zone);
   const balance = hasObservation ? zone.supply - zone.demand : null;
-  const conservativeDeficit = hasObservation
-    ? Math.max(0, zone.operationalGap ?? operationalGapFor(zone) ?? 0)
+  const forecastObservation = forecastZone && hasOperationalObservation(forecastZone)
+    ? forecastZone
     : null;
-  const medianDeficit = balance === null ? null : Math.max(0, -balance);
+  const forecastBalance = forecastObservation
+    ? forecastObservation.supply - forecastObservation.demand
+    : null;
+  const conservativeDeficit = forecastObservation
+    ? Math.max(0, forecastObservation.operationalGap ?? operationalGapFor(forecastObservation) ?? 0)
+    : null;
+  const confidence = forecastObservation?.confidence ?? zone.confidence;
   return (
     <div className="nf-zone-card">
       <button
@@ -793,17 +843,17 @@ export function ZoneCard({ onClose, zone }: { onClose: () => void; zone: Zone })
       >
         <X size={14} />
       </button>
-      <small>CHI TIẾT KHU VỰC</small>
+      <small>DỮ LIỆU GHI NHẬN{observationTime ? ` · ${observationTime}` : ""}</small>
       <strong>{zone.label}</strong>
       <div>
         <span>
-          Cung<b>{zone.supply ?? "—"}</b>
+          Cung ghi nhận<b>{zone.supply ?? "—"}</b>
         </span>
         <span>
-          Cầu<b>{zone.demand ?? "—"}</b>
+          Cầu ghi nhận<b>{zone.demand ?? "—"}</b>
         </span>
         <span>
-          Chênh lệch p50
+          Chênh lệch ghi nhận
           <b className={balance === null ? "" : balance < 0 ? "bad" : "good"}>
             {balance === null ? "—" : <>{balance > 0 ? "+" : ""}{balance}</>}
           </b>
@@ -813,12 +863,15 @@ export function ZoneCard({ onClose, zone }: { onClose: () => void; zone: Zone })
         Diện tích: {zone.areaKm2.toLocaleString("vi-VN")} km² · Mưa:{" "}
         {zone.rainMmH.toFixed(2)} mm/h
       </p>
-      {conservativeDeficit !== null && medianDeficit !== null && conservativeDeficit !== medianDeficit && (
-        <p>Thiếu hụt thận trọng p90: {conservativeDeficit} xe (dùng để kiểm tra policy)</p>
-      )}
+      {forecastObservation && <div className="nf-zone-forecast">
+        <small>DỰ BÁO{forecastTime ? ` · ${forecastTime}` : ""}</small>
+        <span>p50: cung {forecastObservation.supply} · cầu {forecastObservation.demand} · chênh lệch {forecastBalance !== null && forecastBalance > 0 ? "+" : ""}{forecastBalance}</span>
+        <b className={conservativeDeficit !== null && conservativeDeficit >= 3 ? "is-risk" : ""}>Rủi ro p90: {conservativeDeficit !== null && conservativeDeficit > 0 ? `thiếu ${conservativeDeficit} xe` : "không thiếu"}</b>
+        <em>Màu bản đồ ở chế độ dự báo lấy theo rủi ro p90.</em>
+      </div>}
       <p>
         Độ tin cậy AI:{" "}
-        {zone.confidence === null ? "N/A" : `${Math.round(zone.confidence)}%`}
+        {confidence === null ? "N/A" : `${Math.round(confidence)}%`}
       </p>
       {!hasObservation && <p>Chưa có quan sát cung–cầu thực tế; zone này không được dùng để tính phương án điều phối.</p>}
     </div>
@@ -903,6 +956,7 @@ function Pipeline({
   isForecasting,
   isOptimizing,
   isScanning,
+  optimizationStopReason,
   onOpenExecution,
   onOpenPlan,
   plan,
@@ -916,6 +970,7 @@ function Pipeline({
   isForecasting: boolean;
   isOptimizing: boolean;
   isScanning: boolean;
+  optimizationStopReason?: string | undefined;
   onOpenExecution: () => void;
   onOpenPlan: () => void;
   plan: Proposal | undefined;
@@ -923,6 +978,7 @@ function Pipeline({
   stage: OperatorWorkflowStage;
 }) {
   const hasPlan = Boolean(plan);
+  const planningNotRequired = stage === "not_required";
   const approved = stageAtLeast(stage, "approved");
   const active = Boolean(campaign);
   const activationReady = stageAtLeast(stage, "activation_draft");
@@ -961,7 +1017,9 @@ function Pipeline({
       state: (isOptimizing ? "running" : forecastReady ? "done" : "idle") as PipelineState,
       command: "imbalance.detect(±3/−4 xe)",
       result: forecastReady
-        ? "Đã phân loại vùng thiếu, dư và cân bằng"
+        ? planningNotRequired
+          ? "0 hotspot chính sách; vùng thiếu p90 chỉ được giữ ở mức cảnh báo"
+          : "Đã phân loại vùng thiếu, dư và cân bằng"
         : "Cần kết quả dự báo mới",
     },
     {
@@ -976,6 +1034,8 @@ function Pipeline({
       label: "Tạo phương án điều phối",
       state: (isOptimizing
         ? "running"
+        : planningNotRequired
+          ? "skipped"
         : hasPlan
         ? "done"
         : forecastReady
@@ -986,6 +1046,8 @@ function Pipeline({
         ? plan?.moves.length
           ? `${plan.moves.length} lượt điều chuyển trực tiếp từ kết quả model`
           : "Không có nguồn dư an toàn; cần chuyển sang activation"
+        : planningNotRequired
+          ? `Dừng đúng chính sách: không tạo proposal (${optimizationStopReason ?? "NO_ACTION_REQUIRED"})`
         : forecastReady
           ? "Sẵn sàng ghép cặp nguồn–đích"
           : "Cần hotspot và nguồn dư",
@@ -994,6 +1056,8 @@ function Pipeline({
       label: "Chờ phê duyệt của điều phối viên",
       state: (relocationSkipped
         ? "skipped"
+        : planningNotRequired
+          ? "skipped"
         : hasPlan && !approved
         ? "waiting"
         : approved
@@ -1002,11 +1066,15 @@ function Pipeline({
       command: "approval.gate(human_required=true)",
       result: hasPlan
         ? "Agent dừng để chờ quyết định của bạn"
+        : planningNotRequired
+          ? "Không có phương án nên không cần phê duyệt"
         : "Chưa có phương án để duyệt",
     },
     {
       label: "Phát lệnh & theo dõi thực hiện",
-      state: (relocationSkipped
+      state: (planningNotRequired
+        ? "skipped"
+        : relocationSkipped
         ? "skipped"
         : dispatchState?.isQueued
           ? "queued"
@@ -1018,7 +1086,7 @@ function Pipeline({
               ? "done"
               : "idle") as PipelineState,
       command: "dispatch.execute()",
-      result: relocationSkipped ? "Không có lệnh điều chuyển cần phát" : dispatchState?.isOverdue
+      result: planningNotRequired ? "Không phát lệnh vì không có hotspot chính sách" : relocationSkipped ? "Không có lệnh điều chuyển cần phát" : dispatchState?.isOverdue
         ? "Đã quá ETA; kiểm tra telemetry hoặc dừng phương án"
         : dispatchState?.isQueued
           ? "Đã lưu lệnh; chờ hệ thống thực thi tiếp nhận"
@@ -1028,35 +1096,37 @@ function Pipeline({
     },
     {
       label: "Tính lại thiếu hụt tồn dư",
-      state: (relocationSkipped ? "skipped" : relocationDone ? "done" : "idle") as PipelineState,
+      state: (planningNotRequired || relocationSkipped ? "skipped" : relocationDone ? "done" : "idle") as PipelineState,
       command: "gap.recompute()",
-      result: relocationSkipped ? "Giữ nguyên tồn dư từ model" : relocationDone ? "Đã tính lại thiếu hụt sau điều chuyển" : "Cần kết quả thực hiện",
+      result: planningNotRequired ? "Không có điều chuyển để tính lại" : relocationSkipped ? "Giữ nguyên tồn dư từ model" : relocationDone ? "Đã tính lại thiếu hụt sau điều chuyển" : "Cần kết quả thực hiện",
     },
     {
       label: "Đánh giá nhu cầu activation",
-      state: (activationReady ? "done" : relocationDone ? "waiting" : "idle") as PipelineState,
+      state: (planningNotRequired ? "skipped" : activationReady ? "done" : relocationDone ? "waiting" : "idle") as PipelineState,
       command: "activation.evaluate()",
-      result: activationReady ? "Đã tạo bản nháp activation từ tồn dư" : relocationDone ? "Sẵn sàng tính phương án activation" : "Chờ bước tính lại",
+      result: planningNotRequired ? "Không mở activation khi chưa có hotspot chính sách" : activationReady ? "Đã tạo bản nháp activation từ tồn dư" : relocationDone ? "Sẵn sàng tính phương án activation" : "Chờ bước tính lại",
     },
     {
       label: "Theo dõi phản hồi tài xế",
-      state: (active ? "running" : "idle") as PipelineState,
+      state: (planningNotRequired ? "skipped" : active ? "running" : "idle") as PipelineState,
       command: "offer.track()",
-      result: active
+      result: planningNotRequired
+        ? "Không có campaign cần theo dõi"
+        : active
         ? "Đang đồng bộ phản hồi"
         : "Chỉ chạy khi campaign hoạt động",
     },
     {
       label: "So sánh kịch bản",
-      state: (active ? "done" : "idle") as PipelineState,
+      state: (planningNotRequired ? "skipped" : active ? "done" : "idle") as PipelineState,
       command: "scenario.compare()",
-      result: hasPlan ? "Đã có dữ liệu đối chiếu" : "Cần phương án đã tính",
+      result: planningNotRequired ? "Không có phương án hành động để đối chiếu" : hasPlan ? "Đã có dữ liệu đối chiếu" : "Cần phương án đã tính",
     },
     {
       label: "Ghi nhật ký kiểm toán",
-      state: (hasPlan ? "done" : "idle") as PipelineState,
+      state: (planningNotRequired ? "done" : hasPlan ? "done" : "idle") as PipelineState,
       command: "audit.append()",
-      result: hasPlan ? "Đã ghi dấu vết quyết định" : "Chưa có mốc để ghi",
+      result: planningNotRequired ? "Đã lưu kết quả không cần hành động" : hasPlan ? "Đã ghi dấu vết quyết định" : "Chưa có mốc để ghi",
     },
   ] as const;
   const completed = steps.filter((step) => step.state === "done" || step.state === "skipped").length;
@@ -1071,6 +1141,8 @@ function Pipeline({
       ? "DỮ LIỆU CŨ"
       : active
         ? "THEO DÕI"
+        : planningNotRequired
+          ? "HOÀN TẤT"
         : hasPlan
           ? "CHỜ BẠN"
           : forecastReady
@@ -1178,6 +1250,8 @@ export function RailActions({
   isScanning,
   isLiveEdge = true,
   missingZoneCount = 0,
+  optimizationError,
+  optimizationStopReason,
   onActivate,
   onApprove,
   onDispatch,
@@ -1204,6 +1278,8 @@ export function RailActions({
   isScanning: boolean;
   isLiveEdge?: boolean;
   missingZoneCount?: number;
+  optimizationError?: string | undefined;
+  optimizationStopReason?: string | undefined;
   onActivate: () => void;
   onApprove: () => void;
   onDispatch?: () => void;
@@ -1268,6 +1344,21 @@ export function RailActions({
         <small>Chỉ được tính và áp dụng phương án tiếp theo sau khi dispatch hoặc campaign hiện tại hoàn thành, thất bại hoặc được hủy.</small>
       </div>
     );
+  if (stage === "not_required")
+    return (
+      <div className="nf-rail-actions">
+        <div className="nf-no-action-result" role="status" aria-live="polite">
+          <Check size={18} />
+          <span>
+            <b>Không cần điều chuyển</b>
+            <small>Không có hotspot nào đạt điều kiện chính sách. Các vùng thiếu ở p90 vẫn là cảnh báo rủi ro, nhưng chưa được dùng để tự tạo phương án.</small>
+            <code>{optimizationStopReason ?? "NO_ACTION_REQUIRED"}</code>
+          </span>
+        </div>
+        <button className="btn btn-secondary" onClick={onOpenPlan} type="button">Xem lại kết quả dự báo</button>
+        <small>Không có proposal, lệnh điều chuyển hoặc campaign nào được tạo.</small>
+      </div>
+    );
   if (!plan)
     return (
       <div className="nf-rail-actions">
@@ -1280,6 +1371,7 @@ export function RailActions({
           {isOptimizing ? "Model đang tính phương án…" : "Tính phương án điều chuyển"}
         </button>
         <small>Model ghép nguồn dư với vùng thiếu theo ETA và các ràng buộc vận hành.</small>
+        {optimizationError && <p className="nf-optimization-error" role="alert">Không thể tính phương án: {optimizationError}</p>}
       </div>
     );
   if (stage === "no_solution")

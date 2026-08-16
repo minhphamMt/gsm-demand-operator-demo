@@ -28,6 +28,10 @@ describe('resolveWorkflowStage', () => {
     expect(resolveWorkflowStage('no_solution', false, 'FailedGeneration')).toBe('no_solution')
   })
 
+  it('keeps a policy stop visible even though no proposal was created', () => {
+    expect(resolveWorkflowStage('not_required', false)).toBe('not_required')
+  })
+
   it.each(['Rejected', 'Stale', 'FailedGeneration'])(
     'does not expose moves or approval actions for a %s plan',
     (status) => expect(resolveWorkflowStage('plan', false, status)).toBe('observe'),

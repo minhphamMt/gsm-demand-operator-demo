@@ -92,7 +92,7 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
   optimizeAiDecision: async () => {
     const proposal = { ...clone(state.plans[0]!), inputSnapshotId: '17:00' }
     state = { ...state, plans: [proposal, ...state.plans.slice(1)] }
-    return clone(proposal)
+    return { planningStatus: 'proposal_created', proposal: clone(proposal) }
   },
   runReplayStep: async (sourceAt) => ({ ...await mockOperatorAdapter.getSnapshot('baseline'), sourceAt }),
   getReplayWindow: async (sourceAt) => [{ sourceAt, meanRainMmH: baseZones.reduce((sum, zone) => sum + zone.rainMmH, 0) / baseZones.length }],

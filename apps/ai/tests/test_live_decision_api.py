@@ -9,6 +9,7 @@ from src.datasets.snapshot_replay import replay_features
 from src.forecasting.lgbm_quantile import verify_model_bundle
 from src.forecasting.live_snapshot_baseline import forecast_from_live_zones
 from src.main import app
+from src.optimizer.greedy import solve as solve_plan
 
 
 def _zone(zone_id: int) -> dict[str, int | float]:
@@ -149,7 +150,7 @@ def test_exact_stored_replay_bucket_runs_trained_five_minute_model() -> None:
     assert decision.json()["forecast"]["horizon_min"] == 5
 
 
-def test_curated_demo_buckets_produce_relocation_for_every_horizon() -> None:
+def test_curated_demo_buckets_create_editable_advisory_plans_from_forecast_risk() -> None:
     source_times = (
         "2026-09-25T08:30:00+07:00",
         "2026-09-25T08:35:00+07:00",
@@ -179,11 +180,17 @@ def test_curated_demo_buckets_produce_relocation_for_every_horizon() -> None:
         direct_units = sum(move["units_to_move"] for move in body["plan"]["moves"])
         assert body["hotspots"]["conservative_gap_mode"] == "p90_p50"
         assert body["simulation"]["basis"] == "forecast_p90_p50_after_all_moves_arrive"
-        assert len(targets) >= 8
+        assert body["hotspots"]["hotspots"] == []
+        assert targets
+        assert all(target["is_policy_hotspot"] is False for target in targets)
         assert all(target["target_basis"] == "p90_p50" for target in targets)
-        assert direct_units == 2
-        assert body["activation_recommendation"]["total_requested_offers"] > direct_units
-        assert body["activation_recommendation"]["total_expected_units_gained"] > direct_units
+        assert len(body["risk_zones"]) >= 8
+        assert all(zone["risk_basis"] == "p90_p50" for zone in body["risk_zones"])
+        assert direct_units > 0
+        assert all(move["from_zone"] != move["to_zone"] for move in body["plan"]["moves"])
+        assert body["activation_recommendation"]["total_requested_offers"] > 0
+        assert body["planning_status"] == "optimizer_evaluated"
+        assert body["reason_code"] == "RISK_ADVISORY_PROPOSAL"
 
 
 def test_local_rain_cell_keeps_p90_planning_when_citywide_regime_is_peak() -> None:
@@ -205,8 +212,35 @@ def test_local_rain_cell_keeps_p90_planning_when_citywide_regime_is_peak() -> No
     assert any(zone["rain_mm_h"] >= 0.5 for zone in zones)
     assert body["hotspots"]["conservative_gap_mode"] == "p90_p50"
     assert body["simulation"]["metrics_before"]["unmet_demand"] > 40
-    assert sum(move["units_to_move"] for move in body["plan"]["moves"]) == 2
-    assert body["activation_recommendation"]["total_requested_offers"] == 50
+    assert sum(move["units_to_move"] for move in body["plan"]["moves"]) > 0
+    assert body["activation_recommendation"]["total_requested_offers"] > 0
+    assert body["planning_status"] == "optimizer_evaluated"
+    assert body["reason_code"] == "RISK_ADVISORY_PROPOSAL"
+
+
+def test_non_policy_risk_zones_are_advisory_targets_without_source_protection() -> None:
+    payload = _request()
+    for zone in payload["zones"]:
+        zone["demand_observed"] = 10
+        zone["idle_supply"] = 9
+
+    with TestClient(app) as client, patch("src.api.routes_inference.solve", wraps=solve_plan) as optimizer:
+        response = client.post("/api/v1/decisions", json=payload)
+
+    assert response.status_code == 200
+    optimizer.assert_called_once()
+    planning_output = optimizer.call_args.args[0]
+    assert len(planning_output.hotspots) == 30
+    assert all(target.is_hotspot is False for target in planning_output.hotspots)
+    assert optimizer.call_args.kwargs["protected_source_zone_ids"] == set()
+    body = response.json()
+    assert body["hotspots"]["hotspots"] == []
+    assert len(body["risk_zones"]) == 30
+    assert body["plan"]["moves"] == []
+    assert len(body["plan"]["relocation_targets"]) == 30
+    assert len(body["plan"]["residual_gap"]) == 30
+    assert body["activation_recommendation"]["total_requested_offers"] > 0
+    assert any(warning["code"] == "RISK_ADVISORY_PROPOSAL" for warning in body["plan"]["warnings"])
 
 
 def test_replay_window_never_reads_future_steps_at_dataset_boundary() -> None:

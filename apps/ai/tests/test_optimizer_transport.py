@@ -119,3 +119,23 @@ def test_fractional_forecast_gap_rounds_to_the_nearest_vehicle() -> None:
     assert result.moves[0].to_zone == 3
     assert result.residual_gap[0].zone_id == 5
     assert result.residual_gap[0].gap_remaining == pytest.approx(0.2)
+
+
+def test_risk_target_can_supply_another_target_but_never_itself() -> None:
+    problem = output(
+        hotspots=[hotspot(2, 2.0, 0.9), hotspot(4, 2.0, 0.8)],
+        sources=[source(1, 2.0), source(2, 2.0)],
+    )
+
+    result = solve(
+        problem,
+        t=T0,
+        rain_mm_h=dict.fromkeys(range(1, 31), 0.0),
+        policy=policy(max_distance=3.1, budget_cap=500_000),
+        zone_coords=line_coords(),
+        protected_source_zone_ids=set(),
+    )
+
+    assert result.plan_totals.total_units == 4
+    assert any(move.from_zone == 2 and move.to_zone == 4 for move in result.moves)
+    assert all(move.from_zone != move.to_zone for move in result.moves)

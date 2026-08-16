@@ -18,6 +18,9 @@ type AiForecastZone = {
 type AiDecision = {
   data_source: string;
   forecast_mode: string;
+  planning_status?: 'not_required' | 'optimizer_evaluated';
+  reason_code?: string | null;
+  risk_zones?: Array<{ zone_id: number; gap: number; required_units: number; risk_basis: string }>;
   activation_policy: { incentive_amount: number; incentive_budget_cap: number; overbooking_factor: number; assumed_accept_rate: number; offer_ttl_minutes?: number };
   activation_recommendation: {
     target_zones: Array<{ zone_id: number; gap_remaining: number; requested_offers: number; expected_units_gained: number; expected_gap_remaining: number }>;
@@ -173,14 +176,15 @@ export class AiService {
           message: 'Replay input requires the trained model; fallback output was rejected.',
         });
       }
-      const optimizerRunId = persistProposal
+      const shouldPersistPlan = persistProposal && decision.planning_status !== 'not_required';
+      const optimizerRunId = shouldPersistPlan
         ? await this.persistOptimizerRun(forecastRunId, String(modelInput.id), decision, Date.now() - inferenceStartedAt)
         : undefined;
-      if (persistForecast && persistProposal) {
+      if (persistForecast && shouldPersistPlan) {
         await this.persistDecision(snapshot, decision, String(modelInput.id), forecastRunId, optimizerRunId);
       } else {
         if (persistForecast) await this.persistForecast(snapshot, decision, forecastRunId);
-        if (persistProposal) await this.persistProposal(snapshot, decision, String(modelInput.id), forecastRunId, optimizerRunId);
+        if (shouldPersistPlan) await this.persistProposal(snapshot, decision, String(modelInput.id), forecastRunId, optimizerRunId);
       }
       await this.completeForecastRun(forecastRunId, decision);
       const { error: completeError } = await this.db.client.from('model_inputs').update({
@@ -428,6 +432,7 @@ export class AiService {
 
   private async persistProposal(snapshot: DbRow, decision: AiDecision, modelInputId?: string, forecastRunId?: string, optimizerRunId?: string) {
     const activation = decision.activation_recommendation;
+    const isRiskAdvisory = decision.reason_code === 'RISK_ADVISORY_PROPOSAL';
     const actionableTargetZoneIds = [...new Set([
       ...decision.plan.moves.map((move) => Number(move.to_zone)).filter((zoneId) => Number.isInteger(zoneId)),
       ...activation.target_zones.map((target) => target.zone_id),
@@ -502,7 +507,7 @@ export class AiService {
     const sourceSupply = new Map((decision.hotspots.surplus_zones ?? [])
       .map((source) => [source.zone_id, source.idle_supply_current] as const));
     const withdrawnBySource = new Map<number, number>();
-    const persistedMoves = decision.plan.moves.map((move) => {
+    const persistedMoves = decision.plan.moves.map((move, index) => {
       const sourceZoneId = Number(move.from_zone);
       const quantity = Number(move.units_to_move ?? move.drivers ?? 0);
       const withdrawn = (withdrawnBySource.get(sourceZoneId) ?? 0) + quantity;
@@ -510,6 +515,7 @@ export class AiService {
       const idleSupply = sourceSupply.get(sourceZoneId);
       return {
         ...move,
+        id: String(move.id ?? `MV-${String(index + 1).padStart(2, '0')}`),
         ...(idleSupply === undefined ? {} : { source_supply_after: Math.max(0, idleSupply - withdrawn) }),
       };
     });
@@ -538,7 +544,9 @@ export class AiService {
       fare_multiplier: 1,
       estimated_cost: estimatedIncentiveCost,
       simulation_details: {
-        title: `AI điều phối ${decision.forecast.horizon_min} phút`,
+        title: isRiskAdvisory
+          ? `Khuyến nghị sớm theo risk p90 · ${decision.forecast.horizon_min} phút`
+          : `AI điều phối ${decision.forecast.horizon_min} phút`,
         scenario_id: decision.forecast.regime.replace('_', '-'),
         warnings: proposalWarnings,
         metrics_before: {
@@ -568,12 +576,13 @@ export class AiService {
         activation_recommendation: activation,
         simulation_basis: decision.simulation?.basis ?? null,
         plan_mode: planMode,
+        planning_basis: isRiskAdvisory ? 'RISK_P90_ADVISORY' : 'POLICY_HOTSPOT',
         requested_offer_count: requestedOfferCount,
         expected_accepted_driver_count: targetDriverCount,
         eligible_offer_capacity: eligibleOfferCapacity,
         eligible_driver_count: eligibleOfferCapacity,
       },
-      explanation: `Dự báo ${decision.forecast.model_version} từ ${decision.data_source} của snapshot ${snapshot.id}; ${decision.plan.moves.length} lệnh điều chuyển.`,
+      explanation: `${isRiskAdvisory ? 'Khuyến nghị sớm từ risk p90' : 'Phương án từ hotspot chính sách'}; dự báo ${decision.forecast.model_version} từ ${decision.data_source} của snapshot ${snapshot.id}; ${decision.plan.moves.length} lệnh điều chuyển.`,
       window_start_at: snapshot.captured_at,
       window_end_at: decision.forecast.forecast_ts,
     }).select('id').single();

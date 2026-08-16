@@ -46,6 +46,24 @@ describe('PlanDrawer', () => {
     expect(screen.getByText(/Chế độ: chỉ activation/)).toBeInTheDocument()
   })
 
+  it('labels a risk-p90 advisory plan and keeps it editable', () => {
+    plan = {
+      ...plan,
+      warnings: [{
+        id: 'RISK_ADVISORY_PROPOSAL',
+        severity: 'info',
+        title: 'RISK_ADVISORY_PROPOSAL',
+        detail: 'Khuyến nghị sớm từ risk p90.',
+      }],
+    }
+
+    render(<PlanDrawer error={null} isSaving={false} onClose={vi.fn()} onRevise={vi.fn()} plan={plan} />)
+
+    expect(screen.getByText(/BẢNG CHI TIẾT · KHUYẾN NGHỊ RISK P90/)).toBeInTheDocument()
+    expect(screen.getByText(/các zone mục tiêu chưa đạt ngưỡng hotspot chính sách/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lưu điều chỉnh' })).toBeInTheDocument()
+  })
+
   it('shows unavailable wait-time evidence as a dash instead of zero minutes', () => {
     plan = {
       ...plan,
