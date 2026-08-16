@@ -5,8 +5,8 @@ import { planningHorizonFor, resolveWorkflowStage } from '@/features/operator-co
 describe('planningHorizonFor', () => {
   it('optimizes against the exact forecast visible to the operator', () => {
     expect(planningHorizonFor(5)).toBe(5)
+    expect(planningHorizonFor(10)).toBe(10)
     expect(planningHorizonFor(15)).toBe(15)
-    expect(planningHorizonFor(30)).toBe(30)
   })
 })
 
@@ -26,6 +26,10 @@ describe('resolveWorkflowStage', () => {
 
   it('keeps the no-solution result visible when generation completed without a safe action', () => {
     expect(resolveWorkflowStage('no_solution', false, 'FailedGeneration')).toBe('no_solution')
+  })
+
+  it('keeps a policy stop visible even though no proposal was created', () => {
+    expect(resolveWorkflowStage('not_required', false)).toBe('not_required')
   })
 
   it.each(['Rejected', 'Stale', 'FailedGeneration'])(

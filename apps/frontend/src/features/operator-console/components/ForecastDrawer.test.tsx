@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { type ForecastRun, type Hotspot, type Zone } from '@/features/operator-data'
@@ -30,9 +30,33 @@ describe('ForecastDrawer', () => {
   it('renders per-zone p10/p50/p90 and immutable ForecastRun provenance', () => {
     render(<ForecastDrawer dataSource="db" forecastMode="trained" forecastRun={run} forecastTime="08:05" horizon={5} hotspots={[hotspot]} modelVersion="lgbm" onClose={vi.fn()} onZoneSelect={vi.fn()} sourceTime="08:00" zones={[zone]} />)
 
-    expect(screen.getByText('p10 11 · p50 15 · p90 20')).toBeInTheDocument()
+    expect(screen.getByText('Cầu dự báo: p10 11 · p50 15 · p90 20')).toBeInTheDocument()
     expect(screen.getByText('run-5')).toBeInTheDocument()
     expect(screen.getByText('COMPLETED · 30/30 zone')).toBeInTheDocument()
-    expect(screen.getByText('Hotspot High: gap 6 xe ≥ ngưỡng 6 xe · HIGH_DEMAND_GAP')).toBeInTheDocument()
+    expect(screen.getByText('Hotspot chính sách High: gap 6 xe ≥ ngưỡng 6 xe · HIGH_DEMAND_GAP')).toBeInTheDocument()
+  })
+
+  it('separates the p50 operating balance from the p90 risk buffer', () => {
+    const surplus = { ...zone, id: 'AI-Z02', aiZoneId: 2, zoneCode: 'AI-Z02', label: 'Hoàn Kiếm', demand: 5, supply: 11, operationalGap: -2 }
+    render(<ForecastDrawer forecastTime="08:05" horizon={5} hotspots={[hotspot]} onClose={vi.fn()} onZoneSelect={vi.fn()} sourceTime="08:00" zones={[zone, surplus]} />)
+
+    expect(screen.getByText('THIẾU HỤT TRUNG VỊ P50').parentElement).toHaveTextContent('5 xe')
+    expect(screen.getByText('THIẾU HỤT THẬN TRỌNG P90').parentElement).toHaveTextContent('5 xe')
+    expect(screen.getByText('NGUỒN DƯ TRUNG VỊ P50').parentElement).toHaveTextContent('6 xe')
+    expect(screen.getByText('1 zone · trước các ràng buộc điều chuyển')).toBeInTheDocument()
+  })
+
+  it('reconciles displayed and grouped p90 deficits with the p90 total', () => {
+    const visible = { ...zone, demand: 10, supply: 9, gap: 1, operationalGap: 6 }
+    const groupedTwo = { ...zone, id: 'AI-Z02', aiZoneId: 2, zoneCode: 'AI-Z02', label: 'Hoàn Kiếm', demand: 10, supply: 11, gap: -1, operationalGap: 2 }
+    const groupedOne = { ...zone, id: 'AI-Z03', aiZoneId: 3, zoneCode: 'AI-Z03', label: 'Tây Hồ', demand: 10, supply: 12, gap: -2, operationalGap: 1 }
+    render(<ForecastDrawer forecastTime="08:05" horizon={5} hotspots={[]} onClose={vi.fn()} onZoneSelect={vi.fn()} sourceTime="08:00" zones={[visible, groupedTwo, groupedOne]} />)
+
+    const reconciliation = screen.getByLabelText('Đối chiếu tổng thiếu hụt p90')
+    expect(within(reconciliation).getByText('1 vùng đang hiển thị', { exact: false }).parentElement).toHaveTextContent('6 xe')
+    expect(within(reconciliation).getByText('2 vùng được gom', { exact: false }).parentElement).toHaveTextContent('3 xe')
+    expect(within(reconciliation).getByText('Tổng thiếu hụt', { exact: false }).parentElement).toHaveTextContent('9 xe')
+    expect(screen.getByText('Danh sách dưới đây dùng kịch bản p90, không phải các thành phần của tổng thiếu hụt p50.')).toBeInTheDocument()
+    expect(screen.getByText('2 vùng còn lại').parentElement?.parentElement).toHaveTextContent('−3 xe')
   })
 })

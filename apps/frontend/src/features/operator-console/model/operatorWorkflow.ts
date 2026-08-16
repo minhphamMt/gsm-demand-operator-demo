@@ -1,6 +1,7 @@
 export type OperatorWorkflowStage =
   | "observe"
   | "forecast"
+  | "not_required"
   | "plan"
   | "no_solution"
   | "approved"
@@ -12,6 +13,7 @@ export type OperatorWorkflowStage =
 const stageOrder: Record<OperatorWorkflowStage, number> = {
   observe: 0,
   forecast: 1,
+  not_required: 2,
   plan: 2,
   no_solution: 2,
   approved: 3,
@@ -25,12 +27,12 @@ export const stageAtLeast = (stage: OperatorWorkflowStage, expected: OperatorWor
   stageOrder[stage] >= stageOrder[expected];
 
 export const stageHasPlan = (stage: OperatorWorkflowStage) =>
-  !["observe", "forecast"].includes(stage);
+  !["observe", "forecast", "not_required"].includes(stage);
 
 /** Keep optimization bound to the exact forecast visible to the operator. */
 export const planningHorizonFor = (
-  displayedHorizon: 5 | 15 | 30,
-): 5 | 15 | 30 => displayedHorizon;
+  displayedHorizon: 5 | 10 | 15,
+): 5 | 10 | 15 => displayedHorizon;
 
 export const resolveWorkflowStage = (
   localStage: OperatorWorkflowStage,
@@ -39,6 +41,7 @@ export const resolveWorkflowStage = (
 ): OperatorWorkflowStage => {
   if (hasOperationalCampaign) return "campaign";
   if (localStage === "campaign") return "observe";
+  if (localStage === "not_required") return "not_required";
   if (localStage === "no_solution" && planStatus === "FailedGeneration") {
     return "no_solution";
   }

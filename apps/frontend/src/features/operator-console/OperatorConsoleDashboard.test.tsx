@@ -30,14 +30,14 @@ describe('operator console safety states', () => {
 
   it('renders all forecast horizons declared by the server capability', () => {
     const changeHorizon = vi.fn()
-    render(<ScenarioBar fleet={214} forecastMinutes={5} generatedAt="2026-08-14T08:55:00Z" horizons={[5, 15, 30]} modelVersion="lgbm" onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" zoneCount={30} />)
+    render(<ScenarioBar fleet={214} forecastMinutes={5} generatedAt="2026-08-14T08:55:00Z" horizons={[5, 10, 15]} modelVersion="lgbm" onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" zoneCount={30} />)
 
     expect(screen.getByRole('radio', { name: '5 phút' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '10 phút' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '15 phút' })).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: '30 phút' })).toBeInTheDocument()
   })
 
-  it('runs the exact model horizon selected by the operator', async () => {
+  it('keeps the selected horizon stable and runs only after explicit confirmation', async () => {
     const baseline = await mockOperatorAdapter.getSnapshot('baseline')
     if (!baseline.ai) throw new Error('Mock snapshot must include AI forecast metadata')
     const fiveMinuteOnly = {
@@ -49,11 +49,13 @@ describe('operator console safety states', () => {
       },
     }
     vi.spyOn(mockOperatorAdapter, 'getSnapshot').mockResolvedValue(fiveMinuteOnly)
-    vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockResolvedValue(fiveMinuteOnly)
+    vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...fiveMinuteOnly, sourceAt }))
     const generate = vi.spyOn(mockOperatorAdapter, 'generateAiDecision')
     const queryClient = renderDashboard()
 
     await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
+    expect(generate).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Chạy dự báo cung–cầu' }))
     await waitFor(() => expect(generate).toHaveBeenCalledWith(expect.any(Number), 15))
 
     queryClient.clear()
@@ -79,22 +81,27 @@ describe('operator console safety states', () => {
     expect(await screen.findByText('Chưa cấu hình Mapbox', {}, { timeout: 15_000 })).toBeInTheDocument()
     const zoneButton = await screen.findByRole('button', { name: /Ba Đình/ })
     await userEvent.click(zoneButton)
-    expect(screen.getByText('CHI TIẾT KHU VỰC')).toBeInTheDocument()
+    expect(screen.getByText(/DỮ LIỆU GHI NHẬN/, { selector: '.nf-zone-card > small' })).toBeInTheDocument()
     queryClient.clear()
   }, 20_000)
 
-  it('does not mix the p50 supply-demand difference with the conservative p90 deficit', () => {
-    const zone: Zone = {
-      id: 'AI-Z09', aiZoneId: 9, zoneCode: 'AI-Z09', label: 'Long Biên', tier: 'ring', areaKm2: 59.93,
-      center: [105.9, 21.04], boundary: [], dataStatus: 'live', supply: 11, demand: 22, gap: 11,
-      operationalGap: 18, severity: 'Critical', confidence: null, rainMmH: 0.38, rainForecast15: 0.4,
-      rainForecast30: 0.5, forecast15: 22, forecast30: 22,
+  it('shows observed supply and demand separately from the p50 and p90 forecast', () => {
+    const observed: Zone = {
+      id: 'AI-Z02', aiZoneId: 2, zoneCode: 'AI-Z02', label: 'Hoàn Kiếm', tier: 'core', areaKm2: 5.29,
+      center: [105.85, 21.03], boundary: [], dataStatus: 'live', supply: 33, demand: 32, gap: 0,
+      severity: 'Low', confidence: null, rainMmH: 0.35, rainForecast15: 0.4,
+      rainForecast30: 0.5, forecast15: 32, forecast30: 32,
     }
+    const forecast = { ...observed, supply: 33, demand: 32, operationalGap: 5, confidence: 87 }
 
-    render(<ZoneCard onClose={vi.fn()} zone={zone} />)
+    render(<ZoneCard forecastTime="22:45" forecastZone={forecast} observationTime="22:40" onClose={vi.fn()} zone={observed} />)
 
-    expect(screen.getByText('Chênh lệch p50').parentElement).toHaveTextContent('-11')
-    expect(screen.getByText('Thiếu hụt thận trọng p90: 18 xe (dùng để kiểm tra policy)')).toBeInTheDocument()
+    expect(screen.getByText('Cung ghi nhận').parentElement).toHaveTextContent('33')
+    expect(screen.getByText('Cầu ghi nhận').parentElement).toHaveTextContent('32')
+    expect(screen.getByText('Chênh lệch ghi nhận').parentElement).toHaveTextContent('+1')
+    expect(screen.getByText('p50: cung 33 · cầu 32 · chênh lệch +1')).toBeInTheDocument()
+    expect(screen.getByText('Rủi ro p90: thiếu 5 xe')).toBeInTheDocument()
+    expect(screen.getByText('Màu bản đồ ở chế độ dự báo lấy theo rủi ro p90.')).toBeInTheDocument()
   })
 
   it('shows expected activation coverage instead of a misleading 0% relocation value', () => {
@@ -107,7 +114,7 @@ describe('operator console safety states', () => {
     }
 
     expect(proposalCoverageForStage(plan, 'plan')).toEqual({
-      label: 'MỨC PHỦ ĐIỀU CHUYỂN',
+      label: 'MỨC PHỦ MỤC TIÊU',
       percent: 0,
     })
     expect(proposalCoverageForStage(plan, 'activation_draft')).toEqual({
@@ -140,6 +147,22 @@ describe('operator console safety states', () => {
 
     expect(screen.getByRole('button', { name: 'Chưa kết nối phát lệnh điều chuyển' })).toBeDisabled()
     expect(screen.getByText(/không tự đánh dấu hoàn tất/i)).toBeInTheDocument()
+  })
+
+  it('shows expected hybrid coverage from the plan stage', () => {
+    const source = createAgentPlans('rain-peak')[0]!
+    const plan = {
+      ...source,
+      planMode: 'HYBRID' as const,
+      metricsBefore: { ...source.metricsBefore, residualGap: 43 },
+      metrics: { ...source.metrics, residualGap: 41 },
+      metricsAfterActivation: { ...source.metrics, residualGap: 15.8 },
+    }
+
+    expect(proposalCoverageForStage(plan, 'plan')).toEqual({
+      label: 'MỨC PHỦ KỲ VỌNG',
+      percent: 63,
+    })
   })
 
   it('blocks model actions while a source zone has no observation', () => {
@@ -195,6 +218,35 @@ describe('operator console safety states', () => {
     expect(openExecution).toHaveBeenCalledOnce()
     expect(screen.queryByRole('button', { name: 'Tính phương án điều chuyển' })).not.toBeInTheDocument()
     expect(optimize).not.toHaveBeenCalled()
+  })
+
+  it('shows a completed no-action result when policy finds no hotspot', async () => {
+    const action = vi.fn()
+    render(<RailActions
+      campaign={undefined}
+      forecastReady
+      isGenerating={false}
+      isOptimizing={false}
+      isScanning={false}
+      onActivate={action}
+      onApprove={action}
+      onGenerate={action}
+      onOpenCampaign={action}
+      onOpenPlan={action}
+      onOptimize={action}
+      onPrepareActivation={action}
+      onReject={action}
+      optimizationStopReason="NO_POLICY_HOTSPOT"
+      plan={undefined}
+      stage="not_required"
+    />)
+
+    expect(screen.getByText('Không cần điều chuyển')).toBeInTheDocument()
+    expect(screen.getByText('NO_POLICY_HOTSPOT')).toBeInTheDocument()
+    expect(screen.getByText(/không có proposal, lệnh điều chuyển hoặc campaign/i)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Xem lại kết quả dự báo' }))
+    expect(action).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'Tính phương án điều chuyển' })).not.toBeInTheDocument()
   })
 
   it('keeps a stale snapshot view-only and blocks model actions with a reason', () => {

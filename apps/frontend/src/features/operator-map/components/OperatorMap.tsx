@@ -5,12 +5,13 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { zoneCentersToFeatureCollection, zonesToFeatureCollection } from '@/features/operator-data'
 import type { Move, Zone } from '@/features/operator-data'
-import { buildFlowCollections, mapLayerThresholds, mapTheme, zoneDotRadius, zoneFillColor, zoneStrokeColor, zonesForMapView } from '@/features/operator-map/model/operatorMapGeometry'
+import { buildFlowCollections, mapLegendFor, mapTheme, zoneDotRadius, zoneFillColor, zoneStrokeColor, zonesForMapView } from '@/features/operator-map/model/operatorMapGeometry'
 import type { FlowState } from '@/features/operator-map/model/operatorMapGeometry'
 import { env } from '@/shared/config/env'
 
 const hanoiCenter: [longitude: number, latitude: number] = [105.8342, 21.0278]
-const rainThreshold = 0.3
+// Keep the map aligned with the policy/regime threshold used by the AI service.
+const rainThreshold = 0.5
 const mapLoadTimeoutMs = 15_000
 type MapStatus = 'idle' | 'ready' | 'error'
 export type MapFailureKind = 'network' | 'timeout' | 'token-style' | 'unknown'
@@ -317,7 +318,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
           {view === 'core' ? `Vùng lõi · ${visibleZoneCount}/${zones.length} zone` : `Toàn thành phố · ${zones.length} zone`} · {rainingZones} zone đang mưa · trung bình {meanRain.toFixed(2)} mm/h
         </small>
       </div>
-      <MapLegend layer={layer} />
+      <MapLegend forecastMinutes={forecastMinutes} layer={layer} />
       {mapStatus === 'idle' && <div className="pointer-events-none absolute inset-0 grid place-items-center bg-sky-50/80 text-sm text-muted">Đang tải bản đồ…</div>}
       {mapStatus === 'error' && <div className="absolute inset-x-4 top-4 z-10 flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><span>{mapFailureCopy(mapFailure ?? 'unknown')}</span><button className="btn btn-secondary shrink-0" onClick={() => { setMapFailure(null); setMapStatus('idle'); setRetryAttempt((value) => value + 1) }} type="button">Thử lại bản đồ</button></div>}
     </div>
@@ -362,35 +363,8 @@ function fitMapForView(map: mapboxgl.Map, zones: readonly Zone[], view: Operator
   fitMapToZones(map, visibleZones, duration, view === 'core' ? 12 : 10.7)
 }
 
-function MapLegend({ layer }: { layer: OperatorMapLayer }) {
-  const legend =
-    layer === 'demand'
-      ? {
-          title: 'CHÚ GIẢI NHU CẦU',
-          items: [
-            ['#f9ded8', `Thấp < ${mapLayerThresholds.demand.medium} xe`],
-            ['#f4ada0', `Vừa ${mapLayerThresholds.demand.medium}–${mapLayerThresholds.demand.high - 1} xe`],
-            ['#e0503c', `Cao ≥ ${mapLayerThresholds.demand.high} xe`],
-          ],
-        }
-      : layer === 'supply'
-        ? {
-          title: 'CHÚ GIẢI CUNG XE',
-            items: [
-              ['#d9f4f1', `Ít < ${mapLayerThresholds.supply.medium} xe`],
-              ['#72d8d1', `Vừa ${mapLayerThresholds.supply.medium}–${mapLayerThresholds.supply.high - 1} xe`],
-              ['#0c6e69', `Nhiều ≥ ${mapLayerThresholds.supply.high} xe`],
-            ],
-          }
-        : {
-            title: 'CHÚ GIẢI CHÊNH LỆCH',
-            items: [
-              [mapTheme.deficitHigh, 'Thiếu ≥ 8 xe'],
-              [mapTheme.deficitLow, 'Thiếu 3–7 xe'],
-              [mapTheme.surplus, 'Dư ≥ 4 xe'],
-              [mapTheme.balanced, 'Cân bằng −3…+2'],
-            ],
-          }
+function MapLegend({ forecastMinutes, layer }: { forecastMinutes: number; layer: OperatorMapLayer }) {
+  const legend = mapLegendFor(layer, forecastMinutes)
   return (
     <div className="nf-live-map-legend">
       <strong>{legend.title}</strong>
@@ -405,7 +379,7 @@ function MapLegend({ layer }: { layer: OperatorMapLayer }) {
         Vùng mờ: khu vực đại diện AI, không phải ranh giới hành chính
       </p>
       <p>
-        <b className="nf-legend-rain">☁</b>Icon mưa: zone ≥ 0,3 mm/h
+        <b className="nf-legend-rain">☁</b>Icon mưa: zone ≥ 0,5 mm/h
       </p>
     </div>
   )

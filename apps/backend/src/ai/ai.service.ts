@@ -18,6 +18,9 @@ type AiForecastZone = {
 type AiDecision = {
   data_source: string;
   forecast_mode: string;
+  planning_status?: 'not_required' | 'optimizer_evaluated';
+  reason_code?: string | null;
+  risk_zones?: Array<{ zone_id: number; gap: number; required_units: number; risk_basis: string }>;
   activation_policy: { incentive_amount: number; incentive_budget_cap: number; overbooking_factor: number; assumed_accept_rate: number; offer_ttl_minutes?: number };
   activation_recommendation: {
     target_zones: Array<{ zone_id: number; gap_remaining: number; requested_offers: number; expected_units_gained: number; expected_gap_remaining: number }>;
@@ -39,7 +42,7 @@ type AiDecision = {
     metrics_after_relocation: { unmet_demand: number; avg_wait_proxy: number; est_cancel_rate: number; total_demand: number };
     basis: string;
   };
-  plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; source_capacities?: Array<{ zone_id: number; movable_units: number }>; relocation_targets?: Array<{ zone_id: number; gap: number; required_units: number; is_policy_hotspot: boolean }>; warnings: Array<Record<string, unknown>> };
+  plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; source_capacities?: Array<{ zone_id: number; movable_units: number }>; relocation_targets?: Array<{ zone_id: number; gap: number; required_units: number; is_policy_hotspot: boolean; target_basis?: string }>; warnings: Array<Record<string, unknown>> };
 };
 
 type DatasetRegime = 'normal' | 'peak' | 'rain' | 'rain_peak';
@@ -66,7 +69,8 @@ export const replaySnapshotReuseMs = 5 * 60_000;
 export function isReplaySnapshotReusable(sourceUpdatedAt: unknown, now = Date.now()) {
   if (!sourceUpdatedAt) return false;
   const updatedAt = new Date(String(sourceUpdatedAt)).getTime();
-  return Number.isFinite(updatedAt) && now - updatedAt < replaySnapshotReuseMs;
+  const ageMs = now - updatedAt;
+  return Number.isFinite(updatedAt) && ageMs >= 0 && ageMs < replaySnapshotReuseMs;
 }
 
 const requiredLiveFields = [
@@ -84,33 +88,33 @@ export class AiService {
     return this.request('/health', { method: 'GET' });
   }
 
-  async runNext(horizonMinutes: 5 | 15 | 30, regime?: DatasetRegime) {
+  async runNext(horizonMinutes: 5 | 10 | 15, regime?: DatasetRegime) {
     const snapshot = await this.ingestNext(regime);
     const decision = await this.generate(horizonMinutes, snapshot.id, false, true);
     return { snapshot, decision };
   }
 
-  async optimize(snapshotId: number, horizonMinutes: 5 | 15 | 30) {
+  async optimize(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
     await assertNoActiveExecution(this.db);
     const decision = await this.generate(horizonMinutes, snapshotId, true, true);
     return { decision };
   }
 
-  async forecast(snapshotId: number, horizonMinutes: 5 | 15 | 30) {
+  async forecast(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
     const decision = await this.generate(horizonMinutes, snapshotId, false, true);
     return { decision };
   }
 
   async runReplay(sourceAt: string) {
-    const dataset = await this.request<DatasetSnapshot>('/api/v1/datasets/snapshots/at', {
+    const dataset = await this.replaySnapshotAt(sourceAt);
+    const snapshot = await this.ingestExact(dataset);
+    return { snapshot };
+  }
+
+  async replaySnapshotAt(sourceAt: string) {
+    return this.request<DatasetSnapshot>('/api/v1/datasets/snapshots/at', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source_at: sourceAt }),
     });
-    const snapshot = await this.ingestExact(dataset);
-    const decision = await this.generate(5, snapshot.id, false, true);
-    if (decision.forecast_mode !== 'trained_model_replay') {
-      throw new UnprocessableEntityException({ code: 'REPLAY_MODEL_REQUIRED', message: 'Replay requires the trained LightGBM model; fallback output was rejected.' });
-    }
-    return { snapshot, decision };
   }
 
   async replayWindow(sourceAt: string) {
@@ -119,7 +123,7 @@ export class AiService {
     });
   }
 
-  async generate(horizonMinutes: 5 | 15 | 30, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
+  async generate(horizonMinutes: 5 | 10 | 15, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
     const inferenceStartedAt = Date.now();
     let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');
     snapshotQuery = snapshotId
@@ -172,14 +176,15 @@ export class AiService {
           message: 'Replay input requires the trained model; fallback output was rejected.',
         });
       }
-      const optimizerRunId = persistProposal
+      const shouldPersistPlan = persistProposal && decision.planning_status !== 'not_required';
+      const optimizerRunId = shouldPersistPlan
         ? await this.persistOptimizerRun(forecastRunId, String(modelInput.id), decision, Date.now() - inferenceStartedAt)
         : undefined;
-      if (persistForecast && persistProposal) {
+      if (persistForecast && shouldPersistPlan) {
         await this.persistDecision(snapshot, decision, String(modelInput.id), forecastRunId, optimizerRunId);
       } else {
         if (persistForecast) await this.persistForecast(snapshot, decision, forecastRunId);
-        if (persistProposal) await this.persistProposal(snapshot, decision, String(modelInput.id), forecastRunId, optimizerRunId);
+        if (shouldPersistPlan) await this.persistProposal(snapshot, decision, String(modelInput.id), forecastRunId, optimizerRunId);
       }
       await this.completeForecastRun(forecastRunId, decision);
       const { error: completeError } = await this.db.client.from('model_inputs').update({
@@ -427,6 +432,7 @@ export class AiService {
 
   private async persistProposal(snapshot: DbRow, decision: AiDecision, modelInputId?: string, forecastRunId?: string, optimizerRunId?: string) {
     const activation = decision.activation_recommendation;
+    const isRiskAdvisory = decision.reason_code === 'RISK_ADVISORY_PROPOSAL';
     const actionableTargetZoneIds = [...new Set([
       ...decision.plan.moves.map((move) => Number(move.to_zone)).filter((zoneId) => Number.isInteger(zoneId)),
       ...activation.target_zones.map((target) => target.zone_id),
@@ -440,9 +446,10 @@ export class AiService {
     const unmetBefore = decision.plan.relocation_targets?.reduce((sum, target) => sum + Math.max(0, target.gap), 0)
       ?? decision.hotspots.hotspots.reduce((sum, hotspot) => sum + Math.max(0, hotspot.gap), 0);
     const unmetAfterRelocation = decision.plan.residual_gap.reduce((sum, gap) => sum + gap.gap_remaining, 0);
-    const predictedDemand = decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_demand, 0);
-    const fulfillmentRate = (unmet: number) => predictedDemand > 0
-      ? Math.max(0, (1 - unmet / predictedDemand) * 100)
+    const planningDemand = decision.simulation?.metrics_before.total_demand
+      ?? decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_demand, 0);
+    const fulfillmentRate = (unmet: number) => planningDemand > 0
+      ? Math.max(0, (1 - unmet / planningDemand) * 100)
       : 100;
     const requestedOfferCount = activation.total_requested_offers;
     const incentiveAmount = Number(decision.activation_policy.incentive_amount);
@@ -462,6 +469,11 @@ export class AiService {
       && activation.total_expected_units_gained > 0
       && unmetAfterActivation < unmetAfterRelocation;
     const isOperationalPlan = relocationImproves || activationImproves;
+    const planMode = relocationImproves && activationImproves
+      ? 'HYBRID'
+      : relocationImproves
+        ? 'RELOCATION'
+        : 'ACTIVATION_ONLY';
     const estimatedIncentiveCost = offerCount * incentiveAmount;
     const proposalWarnings = decision.plan.warnings.map((warning) =>
       !hasDirectRelocation && isOperationalPlan && warning.code === 'NO_SOLUTION'
@@ -495,7 +507,7 @@ export class AiService {
     const sourceSupply = new Map((decision.hotspots.surplus_zones ?? [])
       .map((source) => [source.zone_id, source.idle_supply_current] as const));
     const withdrawnBySource = new Map<number, number>();
-    const persistedMoves = decision.plan.moves.map((move) => {
+    const persistedMoves = decision.plan.moves.map((move, index) => {
       const sourceZoneId = Number(move.from_zone);
       const quantity = Number(move.units_to_move ?? move.drivers ?? 0);
       const withdrawn = (withdrawnBySource.get(sourceZoneId) ?? 0) + quantity;
@@ -503,6 +515,7 @@ export class AiService {
       const idleSupply = sourceSupply.get(sourceZoneId);
       return {
         ...move,
+        id: String(move.id ?? `MV-${String(index + 1).padStart(2, '0')}`),
         ...(idleSupply === undefined ? {} : { source_supply_after: Math.max(0, idleSupply - withdrawn) }),
       };
     });
@@ -531,7 +544,9 @@ export class AiService {
       fare_multiplier: 1,
       estimated_cost: estimatedIncentiveCost,
       simulation_details: {
-        title: `AI điều phối ${decision.forecast.horizon_min} phút`,
+        title: isRiskAdvisory
+          ? `Khuyến nghị sớm theo risk p90 · ${decision.forecast.horizon_min} phút`
+          : `AI điều phối ${decision.forecast.horizon_min} phút`,
         scenario_id: decision.forecast.regime.replace('_', '-'),
         warnings: proposalWarnings,
         metrics_before: {
@@ -560,13 +575,14 @@ export class AiService {
         activation_policy: decision.activation_policy,
         activation_recommendation: activation,
         simulation_basis: decision.simulation?.basis ?? null,
-        plan_mode: relocationImproves ? 'RELOCATION' : 'ACTIVATION_ONLY',
+        plan_mode: planMode,
+        planning_basis: isRiskAdvisory ? 'RISK_P90_ADVISORY' : 'POLICY_HOTSPOT',
         requested_offer_count: requestedOfferCount,
         expected_accepted_driver_count: targetDriverCount,
         eligible_offer_capacity: eligibleOfferCapacity,
         eligible_driver_count: eligibleOfferCapacity,
       },
-      explanation: `Dự báo ${decision.forecast.model_version} từ ${decision.data_source} của snapshot ${snapshot.id}; ${decision.plan.moves.length} lệnh điều chuyển.`,
+      explanation: `${isRiskAdvisory ? 'Khuyến nghị sớm từ risk p90' : 'Phương án từ hotspot chính sách'}; dự báo ${decision.forecast.model_version} từ ${decision.data_source} của snapshot ${snapshot.id}; ${decision.plan.moves.length} lệnh điều chuyển.`,
       window_start_at: snapshot.captured_at,
       window_end_at: decision.forecast.forecast_ts,
     }).select('id').single();

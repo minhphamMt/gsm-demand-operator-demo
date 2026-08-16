@@ -24,6 +24,39 @@ export const mapLayerThresholds = {
   supply: { medium: 6, high: 13 },
 } as const
 
+export function mapLegendFor(layer: 'gap' | 'demand' | 'supply', forecastMinutes: number) {
+  const isForecast = forecastMinutes > 0
+  return (
+    layer === 'demand'
+      ? {
+          title: isForecast ? 'CHÚ GIẢI NHU CẦU DỰ BÁO P50' : 'CHÚ GIẢI NHU CẦU GHI NHẬN',
+          items: [
+            ['#f9ded8', `Thấp < ${mapLayerThresholds.demand.medium} xe`],
+            ['#f4ada0', `Vừa ${mapLayerThresholds.demand.medium}–${mapLayerThresholds.demand.high - 1} xe`],
+            ['#e0503c', `Cao ≥ ${mapLayerThresholds.demand.high} xe`],
+          ],
+        }
+      : layer === 'supply'
+        ? {
+            title: isForecast ? 'CHÚ GIẢI CUNG DỰ BÁO P50' : 'CHÚ GIẢI CUNG GHI NHẬN',
+            items: [
+              ['#d9f4f1', `Ít < ${mapLayerThresholds.supply.medium} xe`],
+              ['#72d8d1', `Vừa ${mapLayerThresholds.supply.medium}–${mapLayerThresholds.supply.high - 1} xe`],
+              ['#0c6e69', `Nhiều ≥ ${mapLayerThresholds.supply.high} xe`],
+            ],
+          }
+        : {
+            title: isForecast ? 'CHÚ GIẢI RỦI RO DỰ BÁO P90' : 'CHÚ GIẢI CHÊNH LỆCH GHI NHẬN',
+            items: [
+              [mapTheme.deficitHigh, `${isForecast ? 'Thiếu p90' : 'Thiếu'} ≥ 8 xe`],
+              [mapTheme.deficitLow, `${isForecast ? 'Thiếu p90' : 'Thiếu'} 3–7 xe`],
+              [mapTheme.surplus, 'Dư ≥ 4 xe'],
+              [mapTheme.balanced, 'Cân bằng −3…+2'],
+            ],
+          }
+  )
+}
+
 export function zoneFillColor(layer: 'gap' | 'demand' | 'supply'): ExpressionSpecification {
   if (layer === 'demand') return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#cbd5e1', ['step', ['get', 'demand'], '#f9ded8', mapLayerThresholds.demand.medium, '#f4ada0', mapLayerThresholds.demand.high, '#e0503c']]
   if (layer === 'supply') return ['case', ['==', ['get', 'dataStatus'], 'missing'], '#cbd5e1', ['step', ['get', 'supply'], '#d9f4f1', mapLayerThresholds.supply.medium, '#72d8d1', mapLayerThresholds.supply.high, '#0c6e69']]

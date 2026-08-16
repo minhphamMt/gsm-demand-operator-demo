@@ -57,9 +57,11 @@ export function useOperatorActions() {
     }),
     optimizeAiDecision: useMutation({
       mutationFn: ({ snapshotId, horizonMinutes }: { snapshotId: number; horizonMinutes: ForecastHorizon }) => operatorAdapter.optimizeAiDecision(snapshotId, horizonMinutes),
-      onSuccess: async (proposal) => {
-        cacheProposal(proposal)
-        await refreshPlans()
+      onSuccess: async (result) => {
+        if (result.planningStatus === 'proposal_created') {
+          cacheProposal(result.proposal)
+          await refreshPlans()
+        }
       },
     }),
     revise: useMutation({

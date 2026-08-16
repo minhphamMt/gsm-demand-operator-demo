@@ -1,6 +1,7 @@
 import { Check, LoaderCircle, X } from "lucide-react";
 
-import type { DispatchBatch, Proposal } from "@/features/operator-data";
+import { dispatchMoveLabel, dispatchProgress } from "@/features/operator-data";
+import type { DispatchBatch, DispatchMove, Move, Proposal } from "@/features/operator-data";
 import { formatNumber } from "@/shared/lib/format";
 
 type ExecutionDrawerProps = {
@@ -13,7 +14,27 @@ type ExecutionDrawerProps = {
 
 export function ExecutionDrawer({ batch, isComplete, onClose, onRetryMove, plan }: ExecutionDrawerProps) {
   const relocation = plan.metricsAfterRelocation ?? plan.metrics;
-  const assigned = plan.moves.reduce((sum, move) => sum + move.quantity, 0);
+  const progress = batch ? dispatchProgress(batch) : undefined;
+  const actualMoves = batch?.moves ?? [];
+  const latestReconciliation = batch?.reconciliations[0];
+  const verifiedResidual = isComplete && latestReconciliation?.isSnapshotFresh
+    ? latestReconciliation.residualGap
+    : null;
+
+  const sourceMoveFor = (execution: DispatchMove, index: number): Move | undefined => {
+    const exact = plan.moves.find((move) => move.id === execution.sourceMoveKey);
+    if (exact) return exact;
+    const legacy = plan.moves[index];
+    if (
+      legacy
+      && Number(legacy.sourceZoneId.replace(/^AI-Z/i, "")) === execution.sourceZoneId
+      && Number(legacy.targetZoneId.replace(/^AI-Z/i, "")) === execution.targetZoneId
+    ) return legacy;
+    return plan.moves.find((move) =>
+      Number(move.sourceZoneId.replace(/^AI-Z/i, "")) === execution.sourceZoneId
+      && Number(move.targetZoneId.replace(/^AI-Z/i, "")) === execution.targetZoneId,
+    );
+  };
 
   return (
     <section aria-label="Theo dõi thực hiện điều chuyển" className="nf-plan-drawer">
@@ -26,27 +47,31 @@ export function ExecutionDrawer({ batch, isComplete, onClose, onRetryMove, plan 
         <button aria-label="Đóng theo dõi thực hiện" onClick={onClose} type="button"><X size={17} /></button>
       </header>
       <div className="nf-plan-summary">
-        <strong>{isComplete ? "100%" : `${Math.max(15, Math.round(100 / Math.max(1, plan.moves.length)))}%`}</strong>
-        <span>{assigned} xe trong {plan.moves.length} lượt điều chuyển<br />còn thiếu {formatNumber(relocation.residualGap)} xe theo model</span>
+        <strong>{progress ? `${progress.completionPercent}%` : "0%"}</strong>
+        <span>{progress
+          ? <>{progress.availableUnits}/{progress.plannedUnits} xe đã AVAILABLE · {progress.finishedMoves}/{progress.totalMoves} lượt đã kết thúc<br />còn thiếu {formatNumber(relocation.residualGap)} xe theo model</>
+          : <>Chưa nhận được batch thực thi từ máy chủ<br />không giả lập trạng thái trên giao diện</>}</span>
       </div>
       <div className="nf-plan-scroll nf-scroll">
         <h3>TRẠNG THÁI TỪNG LƯỢT</h3>
-        {plan.moves.map((move, index) => {
-          const execution = batch?.moves.find((candidate) => candidate.sourceMoveKey === move.id)
-          const complete = execution?.state === 'AVAILABLE'
-          const failed = execution?.state === 'FAILED'
+        {actualMoves.length === 0 && <p className="nf-activation-plan">Chưa có dispatch move trong batch. Hệ thống đang chờ bước phát lệnh.</p>}
+        {actualMoves.map((execution, index) => {
+          const move = sourceMoveFor(execution, index);
+          const complete = execution.state === 'AVAILABLE';
+          const failed = execution.state === 'FAILED';
+          const active = ['SENT', 'ACKNOWLEDGED', 'EN_ROUTE', 'ARRIVED'].includes(execution.state);
           return (
-          <article className="nf-execution-move" key={move.id}>
-            <i>{complete ? <Check size={12} /> : failed ? <X size={12} /> : index === 0 ? <LoaderCircle className="animate-spin" size={12} /> : index + 1}</i>
-            <div><b>{move.sourceZoneLabel} → {move.targetZoneLabel}</b><small>{move.quantity} xe · ETA {move.etaMinutes}′ · {move.distanceKm.toFixed(1)} km</small></div>
-            <strong>{execution?.state ?? (isComplete ? "AVAILABLE" : index === 0 ? "EN_ROUTE" : "SENT")}</strong>
-            {failed && batch && onRetryMove ? <button className="btn btn-secondary" onClick={() => onRetryMove(batch.id, execution.id)} type="button">Thá»­ láº¡i</button> : null}
+          <article className="nf-execution-move" key={execution.id}>
+            <i>{complete ? <Check size={12} /> : failed ? <X size={12} /> : active ? <LoaderCircle className="animate-spin" size={12} /> : index + 1}</i>
+            <div><b>{move?.sourceZoneLabel ?? `Vùng ${execution.sourceZoneId}`} → {move?.targetZoneLabel ?? `Vùng ${execution.targetZoneId}`}</b><small>{execution.plannedUnits} xe · ETA {formatNumber(execution.etaMinutes)}′ · {execution.distanceKm.toFixed(1)} km</small></div>
+            <strong>{dispatchMoveLabel(execution.state)}</strong>
+            {failed && batch && onRetryMove ? <button className="btn btn-secondary" onClick={() => onRetryMove(batch.id, execution.id)} type="button">Thử lại</button> : null}
           </article>
         )})}
         <h3>KẾT QUẢ SAU ĐIỀU CHUYỂN</h3>
         <table className="table"><tbody>
           <tr><td>Thiếu hụt trước</td><td>{formatNumber(plan.metricsBefore.residualGap)} xe</td></tr>
-          <tr><td>Thiếu hụt còn lại</td><td>{batch?.reconciliations[0]?.residualGap == null ? 'Chờ snapshot fresh' : `${formatNumber(batch.reconciliations[0].residualGap)} xe`}</td></tr>
+          <tr><td>Thiếu hụt còn lại</td><td>{verifiedResidual == null ? 'Chờ xe AVAILABLE và snapshot fresh' : `${formatNumber(verifiedResidual)} xe`}</td></tr>
           <tr><td>Tỷ lệ đáp ứng</td><td>{formatNumber(relocation.fulfillmentRate)}%</td></tr>
         </tbody></table>
       </div>
