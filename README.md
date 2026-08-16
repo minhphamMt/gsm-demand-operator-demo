@@ -66,9 +66,8 @@ Snapshot → Forecast → Hotspot → Proposal → Operator review
 | Database/Auth | Supabase/PostgreSQL | System of record, RPC atomic, RLS và authentication |
 | Runtime | Docker, Cloud Run | Đóng gói và triển khai backend/AI |
 
-Xem [ARCHITECTURE.md](ARCHITECTURE.md) và
-[tài liệu thiết kế kiến trúc](docs/design/ARCHITECTURE.md) để biết component,
-data flow và trust boundary chi tiết.
+Xem [ARCHITECTURE.md](ARCHITECTURE.md) để biết component, data flow và trust
+boundary chi tiết.
 
 ## Cấu trúc repository
 
