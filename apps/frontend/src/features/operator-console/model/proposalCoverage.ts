@@ -9,7 +9,9 @@ export function proposalCoverageForStage(
   if (!plan) return { label: 'MỨC PHỦ MỤC TIÊU', percent: 0 } as const
 
   const usesExpectedActivation = Boolean(plan.metricsAfterActivation) && (
-    stage === 'activation_draft'
+    plan.planMode === 'HYBRID'
+    || plan.planMode === 'ACTIVATION_ONLY'
+    || stage === 'activation_draft'
     || stage === 'campaign'
     || (stage === 'approved' && plan.moves.length === 0)
   )
