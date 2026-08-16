@@ -109,7 +109,7 @@ describe('operator console safety states', () => {
     }
 
     expect(proposalCoverageForStage(plan, 'plan')).toEqual({
-      label: 'MỨC PHỦ ĐIỀU CHUYỂN',
+      label: 'MỨC PHỦ MỤC TIÊU',
       percent: 0,
     })
     expect(proposalCoverageForStage(plan, 'activation_draft')).toEqual({

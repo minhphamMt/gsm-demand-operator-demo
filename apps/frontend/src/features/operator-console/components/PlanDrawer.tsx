@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 
 import type { Proposal, RevisePlanRequest } from '@/features/operator-data'
 import { createRevisionRequest, initialMoveQuantities, moveQuantityLimit, previewPlanRevision } from '@/features/operator-console/model/planRevision'
-import { formatCurrency, formatNumber } from '@/shared/lib/format'
+import { formatCurrency } from '@/shared/lib/format'
 
 type PlanDrawerProps = {
   error: Error | null
@@ -13,7 +13,7 @@ type PlanDrawerProps = {
   plan: Proposal
 }
 
-const formatWait = (minutes: number) => minutes > 0 ? `${formatNumber(minutes)}′` : '—'
+const formatModelMetric = (value: number) => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(value)
 
 export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDrawerProps) {
   const [quantities, setQuantities] = useState(() => initialMoveQuantities(plan))
@@ -52,7 +52,7 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
     </header>
     <div aria-live="polite" className="nf-plan-summary">
       <strong>{hasOperationalAction ? `${preview.coverage}%` : '—'}</strong>
-      <span>{hasOperationalAction ? <>thiếu hụt dự kiến được phủ bởi điều chuyển<br />{preview.activeMoves} lượt chuyển · còn thiếu {formatNumber(preview.residualGap)} xe</> : <>Không có phương án điều phối để tính hiệu quả<br />Không phát hiện hotspot và nguồn dư đồng thời đạt ngưỡng policy</>}</span>
+      <span>{hasOperationalAction ? <>mức phủ mục tiêu khả thi do optimizer chọn<br />{preview.activeMoves} lượt chuyển · mục tiêu còn thiếu {formatModelMetric(preview.residualGap)} xe</> : <>Không có phương án điều phối để tính hiệu quả<br />Không phát hiện hotspot và nguồn dư đồng thời đạt ngưỡng policy</>}</span>
     </div>
     <div className="nf-plan-metrics">
       <span><small>CHUYỂN TRỰC TIẾP</small><b>{hasOperationalAction ? preview.activeMoves : '—'}</b></span>
@@ -64,9 +64,9 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
       <table className="table">
         <thead><tr><th>Chỉ số</th><th>Không hành động</th><th>Sau điều phối</th></tr></thead>
         <tbody>
-          <tr><td>Thiếu hụt</td><td>{formatNumber(plan.metricsBefore.residualGap)}</td><td>{formatNumber(preview.residualGap)}</td></tr>
-          <tr><td>Tỷ lệ đáp ứng</td><td>{formatNumber(plan.metricsBefore.fulfillmentRate)}%</td><td>{formatNumber(preview.fulfillmentRate)}%</td></tr>
-          <tr><td>Phút chờ trung bình</td><td>{formatWait(plan.metricsBefore.avgWaitProxy)}</td><td>{formatWait(plan.metrics.avgWaitProxy)}</td></tr>
+          <tr><td>Thiếu hụt mục tiêu</td><td>{formatModelMetric(plan.metricsBefore.residualGap)}</td><td>{formatModelMetric(preview.residualGap)}</td></tr>
+          <tr><td>Tỷ lệ đáp ứng</td><td>{formatModelMetric(plan.metricsBefore.fulfillmentRate)}%</td><td>{formatModelMetric(preview.fulfillmentRate)}%</td></tr>
+          <tr><td>Phút chờ trung bình</td><td>{plan.metricsBefore.avgWaitProxy > 0 ? `${formatModelMetric(plan.metricsBefore.avgWaitProxy)}′` : '—'}</td><td>{plan.metrics.avgWaitProxy > 0 ? `${formatModelMetric(plan.metrics.avgWaitProxy)}′` : '—'}</td></tr>
         </tbody>
       </table></>}
       <h3>RÀNG BUỘC VẬN HÀNH</h3>

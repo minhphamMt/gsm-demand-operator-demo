@@ -60,6 +60,20 @@ describe('PlanDrawer', () => {
     expect(waitRow).not.toHaveTextContent("0′")
   })
 
+  it('explains coverage as the optimizer target and rounds model metrics for operators', () => {
+    plan = {
+      ...plan,
+      metricsBefore: { ...plan.metricsBefore, residualGap: 0.552, fulfillmentRate: 99.882, avgWaitProxy: 2.65 },
+      metrics: { ...plan.metrics, residualGap: 0, fulfillmentRate: 100, avgWaitProxy: 2.649 },
+    }
+
+    render(<PlanDrawer error={null} isSaving={false} onClose={vi.fn()} onRevise={vi.fn()} plan={plan} />)
+
+    expect(screen.getByText(/mức phủ mục tiêu khả thi do optimizer chọn/)).toBeInTheDocument()
+    expect(screen.getByText('Thiếu hụt mục tiêu').closest('tr')).toHaveTextContent('0,60')
+    expect(screen.getByText('Tỷ lệ đáp ứng').closest('tr')).toHaveTextContent('99,9%100%')
+  })
+
   it('does not present a failed empty result as free instant 100% coverage', () => {
     plan = {
       ...plan,

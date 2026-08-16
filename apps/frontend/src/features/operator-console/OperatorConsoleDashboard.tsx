@@ -858,13 +858,13 @@ function KpiPanel({
         <b className={["executing", "executed", "campaign"].includes(stage) ? "is-active" : ""}>Thực hiện</b>
       </div>
       <section className="nf-kpi-primary">
-        <small>{stage === "observe" ? "THIẾU HỤT GHI NHẬN" : "THIẾU HỤT CẦN XỬ LÝ"}</small>
+        <small>{stage === "observe" ? "THIẾU HỤT GHI NHẬN" : "MẤT CÂN BẰNG DỰ BÁO P50"}</small>
         <strong>
           {balance.medianDeficit}
           <em> xe</em>
         </strong>
         <span>
-          {balance.riskBuffer > 0 ? `+${balance.riskBuffer} xe đệm rủi ro · ` : ''}{hotspots} khu vực · {requests} yêu cầu
+          {balance.riskBuffer > 0 ? `+${balance.riskBuffer} xe đệm rủi ro · ` : ''}{hotspots} hotspot chính sách · {requests} yêu cầu
         </span>
       </section>
       <div className="nf-kpi-grid">
