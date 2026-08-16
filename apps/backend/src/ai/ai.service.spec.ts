@@ -22,6 +22,7 @@ describe('AiService persistence', () => {
 
     expect(isReplaySnapshotReusable('2026-08-15T13:06:00.000Z', now)).toBe(true);
     expect(isReplaySnapshotReusable('2026-08-15T13:05:00.000Z', now)).toBe(false);
+    expect(isReplaySnapshotReusable('2026-09-25T01:35:00.000Z', now)).toBe(false);
     expect(isReplaySnapshotReusable('invalid', now)).toBe(false);
   });
 

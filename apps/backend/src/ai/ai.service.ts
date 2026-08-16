@@ -66,7 +66,8 @@ export const replaySnapshotReuseMs = 5 * 60_000;
 export function isReplaySnapshotReusable(sourceUpdatedAt: unknown, now = Date.now()) {
   if (!sourceUpdatedAt) return false;
   const updatedAt = new Date(String(sourceUpdatedAt)).getTime();
-  return Number.isFinite(updatedAt) && now - updatedAt < replaySnapshotReuseMs;
+  const ageMs = now - updatedAt;
+  return Number.isFinite(updatedAt) && ageMs >= 0 && ageMs < replaySnapshotReuseMs;
 }
 
 const requiredLiveFields = [
