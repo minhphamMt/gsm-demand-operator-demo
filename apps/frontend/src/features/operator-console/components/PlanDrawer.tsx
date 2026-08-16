@@ -23,6 +23,19 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
   const hasOperationalAction = hasDirectMoves || hasActivation
   const canEdit = plan.status === 'UnderReview' || plan.status === 'Revised'
   const preview = previewPlanRevision(plan, quantities)
+  const directVehicles = preview.assigned
+  const activationExpectedGain = plan.metricsAfterActivation
+    ? Math.max(0, plan.metrics.residualGap - plan.metricsAfterActivation.residualGap)
+    : 0
+  const expectedResidualGap = hasActivation
+    ? Math.max(0, preview.residualGap - activationExpectedGain)
+    : preview.residualGap
+  const expectedCoverage = Math.max(
+    0,
+    Math.min(100, Math.round((1 - expectedResidualGap / Math.max(1, plan.metricsBefore.residualGap)) * 100)),
+  )
+  const displayedCoverage = hasActivation ? expectedCoverage : preview.coverage
+  const maximumCommittedCost = preview.estimatedCost + (hasActivation ? plan.estimatedRewardCost : 0)
   const planModeLabel = !hasOperationalAction
     ? 'không có hành động khả thi'
     : plan.planMode === 'ACTIVATION_ONLY'
@@ -51,24 +64,29 @@ export function PlanDrawer({ error, isSaving, onClose, onRevise, plan }: PlanDra
       <button aria-label="Đóng bảng chi tiết" onClick={onClose} type="button"><X size={17} /></button>
     </header>
     <div aria-live="polite" className="nf-plan-summary">
-      <strong>{hasOperationalAction ? `${preview.coverage}%` : '—'}</strong>
-      <span>{hasOperationalAction ? <>mức phủ mục tiêu khả thi do optimizer chọn<br />{preview.activeMoves} lượt chuyển · mục tiêu còn thiếu {formatModelMetric(preview.residualGap)} xe</> : <>Không có phương án điều phối để tính hiệu quả<br />Không phát hiện hotspot và nguồn dư đồng thời đạt ngưỡng policy</>}</span>
+      <strong>{hasOperationalAction ? `${displayedCoverage}%` : '—'}</strong>
+      <span>{hasOperationalAction
+        ? hasActivation
+          ? <>mức phủ kỳ vọng của phương án {plan.planMode === 'HYBRID' ? 'kết hợp' : 'activation'}<br />{directVehicles} xe điều chuyển an toàn + {plan.expectedOfferCount} offer · kỳ vọng bổ sung {formatModelMetric(activationExpectedGain)} xe · còn thiếu {formatModelMetric(expectedResidualGap)} xe</>
+          : <>mức phủ trực tiếp theo lời giải optimizer<br />{directVehicles} xe qua {preview.activeMoves} lượt chuyển · còn thiếu {formatModelMetric(preview.residualGap)} xe</>
+        : <>Không có phương án điều phối để tính hiệu quả<br />Không phát hiện hotspot và nguồn dư đồng thời đạt ngưỡng policy</>}</span>
     </div>
     <div className="nf-plan-metrics">
-      <span><small>CHUYỂN TRỰC TIẾP</small><b>{hasOperationalAction ? preview.activeMoves : '—'}</b></span>
-      <span><small>CHI PHÍ</small><b>{hasOperationalAction ? formatCurrency(preview.estimatedCost) : '—'}</b></span>
-      <span><small>ETA TỐI ĐA</small><b>{hasOperationalAction ? `${Math.max(0, ...plan.moves.filter((move) => (quantities[move.id] ?? move.quantity) > 0).map((move) => move.etaMinutes))}′` : '—'}</b></span>
+      <span><small>XE ĐIỀU CHUYỂN</small><b>{hasOperationalAction ? directVehicles : '—'}</b></span>
+      <span><small>ACTIVATION KỲ VỌNG</small><b>{hasActivation ? `${formatModelMetric(activationExpectedGain)} / ${plan.expectedOfferCount} offer` : '—'}</b></span>
+      <span><small>CAM KẾT TỐI ĐA</small><b>{hasOperationalAction ? formatCurrency(maximumCommittedCost) : '—'}</b></span>
     </div>
     <div className="nf-plan-scroll nf-scroll">
       {hasOperationalAction && <><h3>TÁC ĐỘNG DỰ KIẾN</h3>
       <table className="table">
-        <thead><tr><th>Chỉ số</th><th>Không hành động</th><th>Sau điều phối</th></tr></thead>
+        <thead><tr><th>Chỉ số</th><th>Không hành động</th><th>Sau điều chuyển</th>{hasActivation && <th>Sau activation (kỳ vọng)</th>}</tr></thead>
         <tbody>
-          <tr><td>Thiếu hụt mục tiêu</td><td>{formatModelMetric(plan.metricsBefore.residualGap)}</td><td>{formatModelMetric(preview.residualGap)}</td></tr>
-          <tr><td>Tỷ lệ đáp ứng</td><td>{formatModelMetric(plan.metricsBefore.fulfillmentRate)}%</td><td>{formatModelMetric(preview.fulfillmentRate)}%</td></tr>
-          <tr><td>Phút chờ trung bình</td><td>{plan.metricsBefore.avgWaitProxy > 0 ? `${formatModelMetric(plan.metricsBefore.avgWaitProxy)}′` : '—'}</td><td>{plan.metrics.avgWaitProxy > 0 ? `${formatModelMetric(plan.metrics.avgWaitProxy)}′` : '—'}</td></tr>
+          <tr><td>Thiếu hụt mục tiêu</td><td>{formatModelMetric(plan.metricsBefore.residualGap)}</td><td>{formatModelMetric(preview.residualGap)}</td>{hasActivation && <td>{formatModelMetric(expectedResidualGap)}</td>}</tr>
+          <tr><td>Tỷ lệ đáp ứng</td><td>{formatModelMetric(plan.metricsBefore.fulfillmentRate)}%</td><td>{formatModelMetric(preview.fulfillmentRate)}%</td>{hasActivation && <td>{displayedCoverage}% mục tiêu rủi ro</td>}</tr>
+          <tr><td>Phút chờ trung bình</td><td>{plan.metricsBefore.avgWaitProxy > 0 ? `${formatModelMetric(plan.metricsBefore.avgWaitProxy)}′` : '—'}</td><td>{plan.metrics.avgWaitProxy > 0 ? `${formatModelMetric(plan.metrics.avgWaitProxy)}′` : '—'}</td>{hasActivation && <td>Chờ dữ liệu thực tế</td>}</tr>
         </tbody>
       </table></>}
+      {hasActivation && <p className="nf-activation-plan">Activation là phần bù cho thiếu hụt không thể xử lý bằng xe dư trong bán kính an toàn. {plan.expectedOfferCount} offer chưa được gửi; hệ thống kỳ vọng thêm {formatModelMetric(activationExpectedGain)} tài xế, kết quả thực tế sẽ được đo sau khi phát hành campaign.</p>}
       <h3>RÀNG BUỘC VẬN HÀNH</h3>
       <div className="nf-policy-tags">
         {plan.policyChecks.map((check) => <span className={check.passed ? 'pass' : 'fail'} key={check.id}>{check.passed ? '✓' : '!'} {check.label}</span>)}
