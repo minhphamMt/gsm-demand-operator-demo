@@ -21,8 +21,11 @@ export function moveQuantityLimit(plan: Proposal, quantities: MoveQuantities, mo
 }
 
 export function previewPlanRevision(plan: Proposal, quantities: MoveQuantities) {
+  const originalAssigned = plan.moves.reduce((sum, move) => sum + move.quantity, 0)
   const assigned = plan.moves.reduce((sum, move) => sum + (quantities[move.id] ?? move.quantity), 0)
-  const residualGap = Math.max(0, plan.metricsBefore.residualGap - assigned)
+  // The optimizer's residual is zone-aware and retains fractional forecast gaps.
+  // Start from that evidence; only apply the integer delta introduced by manual edits.
+  const residualGap = Math.max(0, plan.metrics.residualGap + originalAssigned - assigned)
   const coverage = Math.max(0, Math.round((1 - residualGap / Math.max(1, plan.metricsBefore.residualGap)) * 100))
   const estimatedCost = plan.moves.reduce((sum, move) => sum + ((quantities[move.id] ?? move.quantity) > 0 ? move.estimatedCost : 0), 0)
   const activeMoves = plan.moves.filter((move) => (quantities[move.id] ?? move.quantity) > 0).length

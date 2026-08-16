@@ -34,7 +34,12 @@ type AiDecision = {
     hotspots: Array<{ zone_id: number; gap: number }>;
     surplus_zones?: Array<{ zone_id: number; surplus: number; idle_supply_current: number }>;
   };
-  plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; warnings: Array<Record<string, unknown>> };
+  simulation?: {
+    metrics_before: { unmet_demand: number; avg_wait_proxy: number; est_cancel_rate: number; total_demand: number };
+    metrics_after_relocation: { unmet_demand: number; avg_wait_proxy: number; est_cancel_rate: number; total_demand: number };
+    basis: string;
+  };
+  plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; source_capacities?: Array<{ zone_id: number; movable_units: number }>; relocation_targets?: Array<{ zone_id: number; gap: number; required_units: number; is_policy_hotspot: boolean }>; warnings: Array<Record<string, unknown>> };
 };
 
 type DatasetRegime = 'normal' | 'peak' | 'rain' | 'rain_peak';
@@ -56,6 +61,13 @@ type DatasetSnapshot = {
 };
 
 const replaySourcePrefixes = ['AI_PARQUET_REPLAY:', 'AI_BRANCH_TEST_REPLAY:'] as const;
+export const replaySnapshotReuseMs = 5 * 60_000;
+
+export function isReplaySnapshotReusable(sourceUpdatedAt: unknown, now = Date.now()) {
+  if (!sourceUpdatedAt) return false;
+  const updatedAt = new Date(String(sourceUpdatedAt)).getTime();
+  return Number.isFinite(updatedAt) && now - updatedAt < replaySnapshotReuseMs;
+}
 
 const requiredLiveFields = [
   'demand_observed', 'idle_supply', 'enroute_supply', 'rain_mm_h',
@@ -260,8 +272,7 @@ export class AiService {
       .from('ai_zone_observations').select('snapshot_id,source_updated_at').eq('source_name', sourceName)
       .order('snapshot_id', { ascending: false }).limit(1).maybeSingle();
     if (existingError) this.db.unwrap(null, existingError);
-    const existingIsFresh = existingObservation?.source_updated_at
-      && Date.now() - new Date(String(existingObservation.source_updated_at)).getTime() < 30 * 60_000;
+    const existingIsFresh = isReplaySnapshotReusable(existingObservation?.source_updated_at);
     if (existingObservation?.snapshot_id && existingIsFresh) {
       const { data: existing, error } = await this.db.client.from('supply_demand_snapshots').select('*').eq('id', existingObservation.snapshot_id).single();
       return this.db.unwrap(existing, error);
@@ -426,7 +437,8 @@ export class AiService {
     const targetZoneIds = actionableTargetZoneIds.length
       ? actionableTargetZoneIds
       : [...new Set(decision.hotspots.hotspots.map((hotspot) => hotspot.zone_id))];
-    const unmetBefore = decision.hotspots.hotspots.reduce((sum, hotspot) => sum + Math.max(0, hotspot.gap), 0);
+    const unmetBefore = decision.plan.relocation_targets?.reduce((sum, target) => sum + Math.max(0, target.gap), 0)
+      ?? decision.hotspots.hotspots.reduce((sum, hotspot) => sum + Math.max(0, hotspot.gap), 0);
     const unmetAfterRelocation = decision.plan.residual_gap.reduce((sum, gap) => sum + gap.gap_remaining, 0);
     const predictedDemand = decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_demand, 0);
     const fulfillmentRate = (unmet: number) => predictedDemand > 0
@@ -468,12 +480,14 @@ export class AiService {
         allocatedBySource.set(sourceZoneId, (allocatedBySource.get(sourceZoneId) ?? 0) + quantity);
       }
     }
+    const capacityBySource = new Map((decision.plan.source_capacities ?? [])
+      .map((source) => [source.zone_id, source.movable_units] as const));
     // The AI response exposes raw surplus, not the optimizer's post-policy
     // movable capacity. Persist that evidence, but cap manual edits at the
     // quantity the optimizer actually allocated instead of inventing capacity.
     const candidateSourceZones = (decision.hotspots.surplus_zones ?? []).map((source) => ({
       zoneId: `AI-Z${String(source.zone_id).padStart(2, '0')}`,
-      availableSupply: allocatedBySource.get(source.zone_id) ?? 0,
+      availableSupply: capacityBySource.get(source.zone_id) ?? allocatedBySource.get(source.zone_id) ?? 0,
       modelSurplus: source.surplus,
       idleSupplyCurrent: source.idle_supply_current,
       capacitySource: 'optimizer_allocation',
@@ -520,9 +534,24 @@ export class AiService {
         title: `AI điều phối ${decision.forecast.horizon_min} phút`,
         scenario_id: decision.forecast.regime.replace('_', '-'),
         warnings: proposalWarnings,
-        metrics_before: { unmet_demand: unmetBefore, fulfillment_rate: fulfillmentRate(unmetBefore) },
-        metrics_after_relocation: { unmet_demand: unmetAfterRelocation, fulfillment_rate: fulfillmentRate(unmetAfterRelocation) },
-        metrics_after: { unmet_demand: unmetAfterRelocation, fulfillment_rate: fulfillmentRate(unmetAfterRelocation) },
+        metrics_before: {
+          unmet_demand: unmetBefore,
+          fulfillment_rate: fulfillmentRate(unmetBefore),
+          avg_wait_proxy: decision.simulation?.metrics_before.avg_wait_proxy ?? null,
+          est_cancel_rate: decision.simulation?.metrics_before.est_cancel_rate ?? null,
+        },
+        metrics_after_relocation: {
+          unmet_demand: unmetAfterRelocation,
+          fulfillment_rate: fulfillmentRate(unmetAfterRelocation),
+          avg_wait_proxy: decision.simulation?.metrics_after_relocation.avg_wait_proxy ?? null,
+          est_cancel_rate: decision.simulation?.metrics_after_relocation.est_cancel_rate ?? null,
+        },
+        metrics_after: {
+          unmet_demand: unmetAfterRelocation,
+          fulfillment_rate: fulfillmentRate(unmetAfterRelocation),
+          avg_wait_proxy: decision.simulation?.metrics_after_relocation.avg_wait_proxy ?? null,
+          est_cancel_rate: decision.simulation?.metrics_after_relocation.est_cancel_rate ?? null,
+        },
         metrics_after_activation_expected: { unmet_demand: unmetAfterActivation, fulfillment_rate: fulfillmentRate(unmetAfterActivation) },
         forecast_mode: decision.forecast_mode,
         forecast_run_id: forecastRunId ?? null,
@@ -530,6 +559,7 @@ export class AiService {
         data_source: decision.data_source,
         activation_policy: decision.activation_policy,
         activation_recommendation: activation,
+        simulation_basis: decision.simulation?.basis ?? null,
         plan_mode: relocationImproves ? 'RELOCATION' : 'ACTIVATION_ONLY',
         requested_offer_count: requestedOfferCount,
         expected_accepted_driver_count: targetDriverCount,

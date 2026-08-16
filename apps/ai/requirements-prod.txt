@@ -1,0 +1,13 @@
+# Runtime-only dependencies for the FastAPI inference container.
+# Training, linting, type checking, and test tools stay in requirements.txt.
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+python-dotenv>=1.0.0
+pandas>=2.2.0
+numpy>=1.26.0
+pyarrow>=18.0.0
+pyyaml>=6.0.0
+lightgbm>=4.5.0
+scipy>=1.14.0

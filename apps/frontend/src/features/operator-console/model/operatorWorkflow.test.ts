@@ -24,6 +24,10 @@ describe('resolveWorkflowStage', () => {
     expect(resolveWorkflowStage('observe', true)).toBe('campaign')
   })
 
+  it('keeps the no-solution result visible when generation completed without a safe action', () => {
+    expect(resolveWorkflowStage('no_solution', false, 'FailedGeneration')).toBe('no_solution')
+  })
+
   it.each(['Rejected', 'Stale', 'FailedGeneration'])(
     'does not expose moves or approval actions for a %s plan',
     (status) => expect(resolveWorkflowStage('plan', false, status)).toBe('observe'),

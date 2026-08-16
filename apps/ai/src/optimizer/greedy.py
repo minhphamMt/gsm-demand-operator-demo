@@ -24,6 +24,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
+import numpy as np
+from scipy.optimize import Bounds, LinearConstraint, milp
+
 from src.common.haversine import ZoneCoord, distance_between
 from src.common.policy import Policy
 from src.contracts.hotspot import Hotspot, HotspotOutput
@@ -69,6 +72,7 @@ class SolveResult:
     moves: tuple[Move, ...]
     residual_gap: tuple[ResidualGap, ...]
     plan_totals: PlanTotals
+    source_capacities: tuple[tuple[int, int], ...] = ()
     warnings: tuple[dict[str, object], ...] = ()
 
 
@@ -79,7 +83,16 @@ class _Candidate:
     zone_id: int
     distance_km: float
     eta_steps: int
-    cost: int
+    unit_cost: int
+
+
+def _required_units(gap: float) -> int:
+    """Convert a continuous forecast gap to indivisible vehicles by nearest integer.
+
+    Dispatching one vehicle to a predicted gap of 0.8 reduces imbalance; flooring every
+    zone separately stranded real safe capacity. Values below half a vehicle stay zero.
+    """
+    return max(0, math.floor(gap + 0.5))
 
 
 def solve(
@@ -107,72 +120,43 @@ def solve(
     remaining: dict[int, float] = {hotspot.zone_id: hotspot.gap for hotspot in targets}
     moves: list[Move] = []
     withdrawn: dict[int, int] = {}
+    allocations = _optimal_allocations(
+        targets,
+        capacity=capacity,
+        rain_mm_h=rain_mm_h,
+        limits=limits,
+        zone_coords=zone_coords,
+    )
     total_cost = 0
-
-    for hotspot in targets:
-        if not any(units > 0 for units in capacity.values()):
-            # Hết nguồn khả dụng — phần còn lại của MỌI hotspot rơi vào residual_gap (R10).
-            break
-
-        options = _candidates_for(
-            hotspot,
-            sources=tuple(capacity),
-            rain_mm_h=rain_mm_h,
-            limits=limits,
-            zone_coords=zone_coords,
+    total_deadhead_km = 0.0
+    for hotspot, option, units in allocations:
+        before_gap = remaining[hotspot.zone_id]
+        after_gap = before_gap - units
+        estimated_cost = move_cost(
+            option.distance_km,
+            units=units,
+            deadhead_cost_per_km=limits.deadhead_cost_per_km,
         )
-        budget_exhausted = False
-
-        while remaining[hotspot.zone_id] > FLOAT_TOLERANCE:
-            option = next((candidate for candidate in options if capacity[candidate.zone_id] > 0), None)
-            if option is None:
-                # Mọi ứng viên còn sức đều xa hơn max_distance, hoặc đã cạn — hotspot tiếp theo.
-                break
-
-            # Làm tròn XUỐNG: điều dư một xe là tạo cung ảo ở zone đích và tiêu ngân sách cho
-            # phần gap không tồn tại. Phần lẻ còn lại đi vào residual_gap, để Khối C quyết định.
-            units = min(math.floor(remaining[hotspot.zone_id]), capacity[option.zone_id])
-            if units <= 0:
-                break
-
-            if total_cost + option.cost > limits.budget_cap:
-                budget_exhausted = True
-                break
-
-            before_gap = remaining[hotspot.zone_id]
-            after_gap = before_gap - units
-            moves.append(
-                Move.model_validate(
-                    {
-                        "from_zone": option.zone_id,
-                        "to_zone": hotspot.zone_id,
-                        "units_to_move": units,
-                        "eta_steps": option.eta_steps,
-                        "estimated_distance_km": option.distance_km,
-                        "estimated_cost": option.cost,
-                        "deadhead_km": option.distance_km,
-                        "before_gap": before_gap,
-                        "after_gap": after_gap,
-                    },
-                    # Truyền policy vào để validator kiểm lại `max_distance` ngay tại NƠI PHÁT
-                    # SINH — bản ghi lịch sử đọc lại sau này không truyền, nên không bị ngưỡng
-                    # mới làm hỏng (xem docstring của policy_from_context).
-                    context={"policy": policy},
-                )
+        moves.append(
+            Move.model_validate(
+                {
+                    "from_zone": option.zone_id,
+                    "to_zone": hotspot.zone_id,
+                    "units_to_move": units,
+                    "eta_steps": option.eta_steps,
+                    "estimated_distance_km": option.distance_km,
+                    "estimated_cost": estimated_cost,
+                    "deadhead_km": option.distance_km,
+                    "before_gap": before_gap,
+                    "after_gap": after_gap,
+                },
+                context={"policy": policy},
             )
-            remaining[hotspot.zone_id] = after_gap
-            capacity[option.zone_id] -= units
-            withdrawn[option.zone_id] = withdrawn.get(option.zone_id, 0) + units
-            total_cost += option.cost
-
-        if budget_exhausted:
-            logger.warning(
-                "Dừng điều chuyển vì chạm budget_cap=%d (đã dùng %d, %d move) — phần còn lại vào residual_gap",
-                limits.budget_cap,
-                total_cost,
-                len(moves),
-            )
-            break
+        )
+        remaining[hotspot.zone_id] = after_gap
+        withdrawn[option.zone_id] = withdrawn.get(option.zone_id, 0) + units
+        total_cost += estimated_cost
+        total_deadhead_km += option.distance_km * units
 
     residual = tuple(
         ResidualGap(
@@ -190,7 +174,7 @@ def solve(
     plan_totals = PlanTotals(
         total_units=sum(move.units_to_move for move in moves),
         total_cost=total_cost,
-        total_deadhead_km=sum(move.deadhead_km for move in moves),
+        total_deadhead_km=total_deadhead_km,
         budget_cap=limits.budget_cap,
     )
     warnings = _collect_warnings(
@@ -214,6 +198,7 @@ def solve(
         moves=tuple(moves),
         residual_gap=residual,
         plan_totals=plan_totals,
+        source_capacities=tuple(sorted(capacity.items())),
         warnings=warnings,
     )
 
@@ -299,7 +284,7 @@ def _candidates_for(
                 zone_id=source_id,
                 distance_km=distance_km,
                 eta_steps=eta_steps_of(minutes),
-                cost=move_cost(distance_km, deadhead_cost_per_km=limits.deadhead_cost_per_km),
+                unit_cost=move_cost(distance_km, deadhead_cost_per_km=limits.deadhead_cost_per_km),
             )
         )
 
@@ -309,6 +294,100 @@ def _candidates_for(
             key=lambda candidate: (candidate.eta_steps > PREFERRED_ETA_STEPS, candidate.distance_km, candidate.zone_id),
         )
     )
+
+
+def _optimal_allocations(
+    targets: Sequence[Hotspot],
+    *,
+    capacity: Mapping[int, int],
+    rain_mm_h: Mapping[int, float],
+    limits: OptimizerLimits,
+    zone_coords: Mapping[int, ZoneCoord],
+) -> tuple[tuple[Hotspot, _Candidate, int], ...]:
+    """Maximise covered vehicles, then minimise priority/ETA/distance cost.
+
+    The previous target-by-target greedy could consume a source that was the only
+    feasible source for another target. This integer transport model evaluates the
+    complete source-target graph at once, so safe capacity is not stranded by order.
+    """
+    edges: list[tuple[Hotspot, _Candidate, int]] = []
+    target_rank = {target.zone_id: rank for rank, target in enumerate(targets)}
+    for target in targets:
+        demand = _required_units(target.gap)
+        if demand <= 0:
+            continue
+        for candidate in _candidates_for(
+            target,
+            sources=tuple(capacity),
+            rain_mm_h=rain_mm_h,
+            limits=limits,
+            zone_coords=zone_coords,
+        ):
+            upper = min(demand, capacity[candidate.zone_id])
+            if upper > 0:
+                edges.append((target, candidate, upper))
+    if not edges or limits.budget_cap <= 0:
+        return ()
+
+    variable_count = len(edges)
+    rows: list[np.ndarray] = []
+    lower: list[float] = []
+    upper_bounds: list[float] = []
+    for source_id, source_capacity in sorted(capacity.items()):
+        row = np.array([1.0 if candidate.zone_id == source_id else 0.0 for _, candidate, _ in edges])
+        rows.append(row)
+        lower.append(0.0)
+        upper_bounds.append(float(source_capacity))
+    for target in targets:
+        row = np.array([1.0 if edge_target.zone_id == target.zone_id else 0.0 for edge_target, _, _ in edges])
+        rows.append(row)
+        lower.append(0.0)
+        upper_bounds.append(float(_required_units(target.gap)))
+    unit_costs = np.array([float(candidate.unit_cost) for _, candidate, _ in edges])
+    rows.append(unit_costs)
+    lower.append(0.0)
+    upper_bounds.append(float(limits.budget_cap))
+    base_constraints = LinearConstraint(np.vstack(rows), np.array(lower), np.array(upper_bounds))
+    bounds = Bounds(np.zeros(variable_count), np.array([float(edge_upper) for _, _, edge_upper in edges]))
+    integrality = np.ones(variable_count)
+
+    coverage_result = milp(
+        c=-np.ones(variable_count),
+        integrality=integrality,
+        bounds=bounds,
+        constraints=base_constraints,
+    )
+    if not coverage_result.success or coverage_result.x is None:
+        raise RuntimeError(f"Không giải được bài toán phủ nguồn–đích: {coverage_result.message}")
+    covered_units = int(round(float(np.sum(coverage_result.x))))
+    if covered_units <= 0:
+        return ()
+
+    exact_coverage = LinearConstraint(np.ones((1, variable_count)), [float(covered_units)], [float(covered_units)])
+    operational_cost = np.array([
+        target_rank[target.zone_id] * 10_000_000
+        + (candidate.eta_steps > PREFERRED_ETA_STEPS) * 1_000_000
+        + candidate.eta_steps * 100_000
+        + round(candidate.distance_km * 100) * 100
+        + candidate.unit_cost
+        + candidate.zone_id
+        for target, candidate, _ in edges
+    ], dtype=float)
+    quality_result = milp(
+        c=operational_cost,
+        integrality=integrality,
+        bounds=bounds,
+        constraints=(base_constraints, exact_coverage),
+    )
+    if not quality_result.success or quality_result.x is None:
+        raise RuntimeError(f"Không tối ưu được chất lượng phương án: {quality_result.message}")
+
+    selected = [
+        (target, candidate, int(round(value)))
+        for (target, candidate, _), value in zip(edges, quality_result.x, strict=True)
+        if value > FLOAT_TOLERANCE
+    ]
+    return tuple(sorted(selected, key=lambda item: (target_rank[item[0].zone_id], item[1].eta_steps, item[1].distance_km, item[1].zone_id)))
 
 
 def _collect_warnings(
