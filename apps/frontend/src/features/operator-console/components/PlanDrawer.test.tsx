@@ -84,11 +84,12 @@ describe('PlanDrawer', () => {
       planMode: 'HYBRID',
       targetDriverCount: 25,
       expectedOfferCount: 43,
-      estimatedRewardCost: 430_000,
-      moves: [{ ...plan.moves[0]!, quantity: 2 }],
+      relocationBonus: 20_000,
+      estimatedRewardCost: 40_000,
+      moves: [{ ...plan.moves[0]!, quantity: 2, estimatedCost: 40_456 }],
       metricsBefore: { ...plan.metricsBefore, residualGap: 43 },
       metrics: { ...plan.metrics, residualGap: 41 },
-      metricsAfterActivation: { ...plan.metrics, residualGap: 15.8 },
+      metricsAfterActivation: { ...plan.metrics, fulfillmentRate: 97.2, residualGap: 15.8 },
     }
 
     render(<PlanDrawer error={null} isSaving={false} onClose={vi.fn()} onRevise={vi.fn()} plan={plan} />)
@@ -97,6 +98,8 @@ describe('PlanDrawer', () => {
     expect(screen.getByText(/2 xe điều chuyển an toàn \+ 43 offer/)).toBeInTheDocument()
     expect(screen.getByText(/kỳ vọng bổ sung 25,2 xe/)).toBeInTheDocument()
     expect(screen.getByText('ACTIVATION KỲ VỌNG').parentElement).toHaveTextContent('25,2 / 43 offer')
+    expect(screen.getByText('CAM KẾT TỐI ĐA').parentElement).toHaveTextContent('900.456 ₫')
+    expect(screen.getByText('Tỷ lệ đáp ứng').closest('tr')).toHaveTextContent('97,2%')
     expect(screen.getByRole('columnheader', { name: 'Sau activation (kỳ vọng)' })).toBeInTheDocument()
   })
 
