@@ -118,8 +118,8 @@ describe('AiService persistence', () => {
           forecast_mode: 'trained_model_replay',
           activation_policy: { incentive_amount: 20_000, incentive_budget_cap: 500_000, overbooking_factor: 1.6, assumed_accept_rate: 0.6 },
           activation_recommendation: {
-            target_zones: [{ zone_id: 9, gap_remaining: 4, requested_offers: 7, expected_units_gained: 4, expected_gap_remaining: 0 }],
-            total_requested_offers: 7, total_expected_units_gained: 4, total_expected_gap_remaining: 0,
+            target_zones: [{ zone_id: 9, gap_remaining: 2, requested_offers: 4, expected_units_gained: 2, expected_gap_remaining: 0 }],
+            total_requested_offers: 4, total_expected_units_gained: 2, total_expected_gap_remaining: 0,
             projected_gap_reduction_pct: 100, worst_case_commitment: 140_000, constrained_by_budget: false, accept_rate_source: 'policy_assumption',
           },
           forecast: {
@@ -135,7 +135,7 @@ describe('AiService persistence', () => {
           },
           plan: {
             moves: [{ from_zone: 6, to_zone: 9, units_to_move: 2 }],
-            residual_gap: [{ zone_id: 9, gap_remaining: 4, suggested_activation: 5 }],
+            residual_gap: [{ zone_id: 9, gap_remaining: 2, suggested_activation: 2 }],
             plan_totals: { total_cost: 20_000, budget_cap: 500_000 },
             warnings: [],
           },
@@ -166,7 +166,7 @@ describe('AiService persistence', () => {
         })],
         moves: [expect.objectContaining({ source_supply_after: 10 })],
       }),
-      simulation_details: expect.objectContaining({ eligible_driver_count: 3, scenario_id: 'rain-peak', forecast_run_id: 'run-1', model_input_id: 'model-input-1' }),
+      simulation_details: expect.objectContaining({ eligible_driver_count: 3, scenario_id: 'rain-peak', forecast_run_id: 'run-1', model_input_id: 'model-input-1', plan_mode: 'HYBRID' }),
     }));
     expect(outputInsert).toHaveBeenCalledWith(expect.objectContaining({
       model_input_id: 'model-input-1',
