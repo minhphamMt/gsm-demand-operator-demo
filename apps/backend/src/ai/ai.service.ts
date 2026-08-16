@@ -39,7 +39,7 @@ type AiDecision = {
     metrics_after_relocation: { unmet_demand: number; avg_wait_proxy: number; est_cancel_rate: number; total_demand: number };
     basis: string;
   };
-  plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; source_capacities?: Array<{ zone_id: number; movable_units: number }>; relocation_targets?: Array<{ zone_id: number; gap: number; required_units: number; is_policy_hotspot: boolean }>; warnings: Array<Record<string, unknown>> };
+  plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; source_capacities?: Array<{ zone_id: number; movable_units: number }>; relocation_targets?: Array<{ zone_id: number; gap: number; required_units: number; is_policy_hotspot: boolean; target_basis?: string }>; warnings: Array<Record<string, unknown>> };
 };
 
 type DatasetRegime = 'normal' | 'peak' | 'rain' | 'rain_peak';
@@ -441,9 +441,10 @@ export class AiService {
     const unmetBefore = decision.plan.relocation_targets?.reduce((sum, target) => sum + Math.max(0, target.gap), 0)
       ?? decision.hotspots.hotspots.reduce((sum, hotspot) => sum + Math.max(0, hotspot.gap), 0);
     const unmetAfterRelocation = decision.plan.residual_gap.reduce((sum, gap) => sum + gap.gap_remaining, 0);
-    const predictedDemand = decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_demand, 0);
-    const fulfillmentRate = (unmet: number) => predictedDemand > 0
-      ? Math.max(0, (1 - unmet / predictedDemand) * 100)
+    const planningDemand = decision.simulation?.metrics_before.total_demand
+      ?? decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_demand, 0);
+    const fulfillmentRate = (unmet: number) => planningDemand > 0
+      ? Math.max(0, (1 - unmet / planningDemand) * 100)
       : 100;
     const requestedOfferCount = activation.total_requested_offers;
     const incentiveAmount = Number(decision.activation_policy.incentive_amount);
@@ -463,6 +464,11 @@ export class AiService {
       && activation.total_expected_units_gained > 0
       && unmetAfterActivation < unmetAfterRelocation;
     const isOperationalPlan = relocationImproves || activationImproves;
+    const planMode = relocationImproves && activationImproves
+      ? 'HYBRID'
+      : relocationImproves
+        ? 'RELOCATION'
+        : 'ACTIVATION_ONLY';
     const estimatedIncentiveCost = offerCount * incentiveAmount;
     const proposalWarnings = decision.plan.warnings.map((warning) =>
       !hasDirectRelocation && isOperationalPlan && warning.code === 'NO_SOLUTION'
@@ -561,7 +567,7 @@ export class AiService {
         activation_policy: decision.activation_policy,
         activation_recommendation: activation,
         simulation_basis: decision.simulation?.basis ?? null,
-        plan_mode: relocationImproves ? 'RELOCATION' : 'ACTIVATION_ONLY',
+        plan_mode: planMode,
         requested_offer_count: requestedOfferCount,
         expected_accepted_driver_count: targetDriverCount,
         eligible_offer_capacity: eligibleOfferCapacity,
