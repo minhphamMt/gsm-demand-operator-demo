@@ -1,5 +1,10 @@
 # ARCHITECTURE.md — GSM-14 · NovaFour
 
+> [!WARNING]
+> Đây là **tài liệu thiết kế lịch sử**, có thể chứa topology, route và giả định
+> không còn khớp runtime hiện tại. Nguồn kiến trúc hiện hành là
+> [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md).
+
 > **Nguồn sự thật:** [docs/SPEC-GSM14-NovaFour-Unified.md](../SPEC-GSM14-NovaFour-Unified.md) v1.3 (06/08/2026).
 > Tài liệu này **không thêm chức năng nào ngoài spec**. Mọi mục đều neo về một mục spec (`§x.y`) hoặc một mã `[ASSUMPTION-nn]` (định nghĩa đầy đủ ở [DATA_CONTRACT.md](DATA_CONTRACT.md#8-assumption-register)).
 > Ngày lập: 08/08/2026 (cuối W2 — trùng mốc I-08 khóa contract/KPI/baseline).
