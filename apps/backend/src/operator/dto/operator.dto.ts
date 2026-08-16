@@ -137,6 +137,12 @@ export class AuditQueryDto {
   @Max(100)
   pageSize = 25;
 
+  @ApiPropertyOptional({ description: 'Opaque stable cursor returned by the previous page.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  cursor?: string;
+
   @ApiPropertyOptional({ format: 'uuid', description: 'Matches entity_id or metadata proposal_id/campaign_id.' })
   @IsOptional()
   @IsUUID()
@@ -176,6 +182,12 @@ export class AuditQueryDto {
 }
 
 export class ReviseProposalDto {
+  @ApiProperty({ example: 1, minimum: 1, description: 'Proposal version the operator reviewed before submitting changes.' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  expectedVersion: number;
+
   @ApiProperty({
     example: {
       moves: [{ id: 'move-1', from_zone: 6, to_zone: 2, drivers: 5 }],
@@ -234,6 +246,12 @@ export class ReviseProposalDto {
 }
 
 export class ApproveProposalDto {
+  @ApiProperty({ example: 1, minimum: 1, description: 'Proposal version reviewed by the operator.' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  expectedVersion: number;
+
   @ApiPropertyOptional({ example: 'Đã kiểm tra policy và ngân sách.' })
   @IsOptional()
   @IsString()
@@ -242,6 +260,12 @@ export class ApproveProposalDto {
 }
 
 export class RejectProposalDto {
+  @ApiProperty({ example: 1, minimum: 1, description: 'Proposal version reviewed by the operator.' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  expectedVersion: number;
+
   @ApiProperty({ enum: ['budget', 'source-risk', 'low-impact', 'stale-data', 'other'], example: 'budget' })
   @IsString()
   @IsIn(['budget', 'source-risk', 'low-impact', 'stale-data', 'other'])
@@ -275,6 +299,80 @@ export class ActivateProposalDto {
   @Transform(({ value }) => (Array.isArray(value) ? value : []))
   @IsUUID('4', { each: true })
   driverIds?: string[];
+}
+
+export class CancelCampaignDto {
+  @ApiProperty({ example: 'Dá»¯ liá»‡u cung cáº§u Ä‘Ã£ thay Ä‘á»•i.', maxLength: 500 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason: string;
+
+  @ApiProperty({ enum: ['RELEASE_OPEN_AND_COMPENSATE_ACCEPTED', 'RELEASE_OPEN_ONLY'], example: 'RELEASE_OPEN_AND_COMPENSATE_ACCEPTED' })
+  @IsIn(['RELEASE_OPEN_AND_COMPENSATE_ACCEPTED', 'RELEASE_OPEN_ONLY'])
+  disposition: 'RELEASE_OPEN_AND_COMPENSATE_ACCEPTED' | 'RELEASE_OPEN_ONLY';
+
+  @ApiProperty({ example: 'policy-v1', maxLength: 100 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  policyVersion: string;
+}
+
+export class DispatchEventDto {
+  @ApiProperty({ example: 'provider-event-42', maxLength: 200 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  eventKey: string;
+
+  @ApiProperty({ enum: ['SENT', 'ACKNOWLEDGED', 'EN_ROUTE', 'ARRIVED', 'AVAILABLE', 'FAILED', 'CANCELLED', 'RETRY_REQUESTED'] })
+  @IsIn(['SENT', 'ACKNOWLEDGED', 'EN_ROUTE', 'ARRIVED', 'AVAILABLE', 'FAILED', 'CANCELLED', 'RETRY_REQUESTED'])
+  eventType: 'SENT' | 'ACKNOWLEDGED' | 'EN_ROUTE' | 'ARRIVED' | 'AVAILABLE' | 'FAILED' | 'CANCELLED' | 'RETRY_REQUESTED';
+
+  @ApiProperty({ example: 1, minimum: 1, maximum: 100 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  units: number;
+
+  @ApiProperty({ format: 'date-time' })
+  @IsDateString()
+  occurredAt: string;
+
+  @ApiProperty({ example: 'fleet-telemetry', maxLength: 100 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  source: string;
+
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true, example: { accuracy_m: 12, inside_target: true } })
+  @IsOptional()
+  @IsObject()
+  payload?: Record<string, unknown>;
+}
+
+export class CancelDispatchDto {
+  @ApiProperty({ example: 'Dá»»ng batch do snapshot má»›i.', maxLength: 500 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason: string;
+}
+
+export class RetryDispatchDto {
+  @ApiProperty({ example: 'Provider did not acknowledge the first command.', maxLength: 500 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason: string;
+}
+
+export class ScenarioComparisonDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  proposalId: string;
 }
 
 export class DriverStatusDto {

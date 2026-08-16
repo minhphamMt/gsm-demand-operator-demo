@@ -14,7 +14,7 @@ export function ZoneWatchlist({ onSelect, selectedZoneId, zones }: ZoneWatchlist
   const visibleZones = [...zones]
     .filter((zone) => zone.label.toLocaleLowerCase('vi').includes(search.toLocaleLowerCase('vi')))
     .sort((left, right) => Number(left.dataStatus === 'missing') - Number(right.dataStatus === 'missing')
-      || (right.demand - right.supply) - (left.demand - left.supply))
+      || ((right.demand ?? 0) - (right.supply ?? 0)) - ((left.demand ?? 0) - (left.supply ?? 0)))
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-panel border border-slate-200 bg-white shadow-panel">
@@ -27,7 +27,7 @@ export function ZoneWatchlist({ onSelect, selectedZoneId, zones }: ZoneWatchlist
       <div className="min-h-0 flex-1 overflow-y-auto">
         {visibleZones.map((zone) => {
           const hasLiveData = zone.dataStatus === 'live'
-          const balance = zone.demand - zone.supply
+          const balance = (zone.demand ?? 0) - (zone.supply ?? 0)
           const hasShortage = balance > 0
           return <button className={`flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50 ${selectedZoneId === zone.id ? 'bg-teal-50' : ''} ${hasLiveData ? '' : 'opacity-60'}`} key={zone.id} onClick={() => onSelect(zone.id)} type="button">
             <span className={`grid size-7 shrink-0 place-items-center rounded-lg ${!hasLiveData ? 'bg-slate-100 text-slate-400' : hasShortage ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>{hasShortage ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}</span>

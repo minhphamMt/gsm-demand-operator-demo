@@ -20,11 +20,12 @@ export function AuditHistory() {
   if (audit.isError && audit.data === undefined) return <ErrorState onRetry={() => void audit.refetch()} />
 
   const page = audit.data
-  return <div className="space-y-5">
+  return <div className="nf-workspace-stack">
     <DataRefreshState hasError={audit.isRefetchError} isFetching={audit.isFetching} onRetry={() => void audit.refetch()} />
+    <div className="nf-quick-facts"><span><b>{page.total}</b> bản ghi</span><span>Trang <b>{page.totalPages ? `${page.page}/${page.totalPages}` : '0/0'}</b></span><span><b>Không thể sửa/xóa</b></span></div>
     <AuditFilterForm filters={filters} onApply={update} onReset={() => update({ action: '', actorType: '', entityId: '', entityType: '', from: '', page: 1, pageSize: 25, to: '' })} />
-    <Card className="p-0">
-      <div className="flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-end"><div><h2 className="font-semibold text-slate-950">Nhật ký append-only</h2><p className="mt-1 text-sm text-slate-500">Kết quả được lọc và phân trang trực tiếp từ cơ sở dữ liệu.</p></div><p className="text-sm font-semibold tabular-nums text-slate-700">{page.total} bản ghi</p></div>
+    <Card className="nf-workspace-panel p-0">
+      <div className="flex flex-col justify-between gap-3 px-5 py-3 sm:flex-row sm:items-center"><h2 className="font-semibold text-slate-950">Dòng sự kiện</h2><p className="text-xs font-semibold tabular-nums text-slate-500">{page.total} bản ghi</p></div>
       {page.items.length ? <AuditTable entries={page.items} /> : <div className="border-t border-slate-200 p-6"><EmptyState title="Không có bản ghi phù hợp" description="Thử xóa bớt bộ lọc hoặc chọn khoảng ngày khác." /></div>}
       <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row">
         <p className="text-sm text-slate-600">Trang {page.totalPages ? page.page : 0}/{page.totalPages} · tối đa {page.pageSize} dòng/trang</p>

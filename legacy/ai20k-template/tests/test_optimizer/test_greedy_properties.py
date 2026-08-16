@@ -17,7 +17,6 @@ from functools import cache
 from random import Random
 
 import pytest
-
 from src.common.haversine import ZoneCoord, distance_between, load_zone_coords
 from src.common.policy import Policy
 from src.contracts import ZONE_COUNT

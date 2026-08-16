@@ -11,7 +11,6 @@ from copy import deepcopy
 
 import pytest
 from pydantic import ValidationError
-
 from src.common.policy import Policy
 from src.contracts.driver import Driver
 from src.contracts.forecast import Forecast, ZoneForecast
@@ -22,6 +21,7 @@ from src.contracts.plan import ActivationSummary, Metrics, Move, PlanTotals, Rel
 from src.contracts.response import DriverResponse
 from src.contracts.revision import RevisionRequest
 from src.contracts.snapshot import Snapshot
+
 from tests.test_contracts import mocks
 from tests.test_contracts import spec_examples as ex
 

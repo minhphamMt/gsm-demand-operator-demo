@@ -110,8 +110,8 @@ def eta_steps_of(minutes: float) -> int:
     return max(1, math.ceil(minutes / STEP_MINUTES))
 
 
-def move_cost(distance_km: float, *, deadhead_cost_per_km: int) -> int:
-    """`estimated_cost = deadhead_cost_per_km × deadhead_km` — §5.4, DATA_CONTRACT §2.4.
+def move_cost(distance_km: float, *, units: int = 1, deadhead_cost_per_km: int) -> int:
+    """`estimated_cost = units × deadhead_cost_per_km × deadhead_km`.
 
     Tiền là int VNĐ (CLAUDE.md §5.2) nên phải làm tròn; dùng half-up thay vì `round()` để
     tránh làm tròn về số chẵn của Python — hai plan chênh nhau 1 đồng vì luật làm tròn là
@@ -120,7 +120,9 @@ def move_cost(distance_km: float, *, deadhead_cost_per_km: int) -> int:
     MVP: `deadhead_km == estimated_distance_km` (xe chạy rỗng toàn tuyến), ràng buộc này do
     validator của Move §4.4 giữ.
     """
-    return math.floor(deadhead_cost_per_km * distance_km + 0.5)
+    if units < 0:
+        raise ValueError(f"units={units} phải không âm")
+    return math.floor(units * deadhead_cost_per_km * distance_km + 0.5)
 
 
 def movable_units(*, idle_supply_current: int, surplus: float, limits: OptimizerLimits) -> int:

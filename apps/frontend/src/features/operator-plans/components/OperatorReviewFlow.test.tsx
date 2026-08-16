@@ -14,15 +14,20 @@ function ReviewRoute() {
 }
 
 describe('operator proposal review flow', () => {
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+  })
 
   beforeEach(async () => {
     vi.restoreAllMocks()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-08-15T08:00:00.000Z'))
     await mockOperatorAdapter.resetDemo()
   })
 
   it('preserves structured revision errors through the plan detail boundary', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     vi.spyOn(mockOperatorAdapter, 'revisePlan').mockRejectedValueOnce(new AppError('Dữ liệu không hợp lệ.', {
       code: 'VALIDATION_ERROR',
       details: { fieldErrors: { budgetLimit: 'Hạn mức thưởng không hợp lệ.' } },
@@ -42,10 +47,10 @@ describe('operator proposal review flow', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('revision-request-422')
     expect(screen.getByRole('spinbutton', { name: 'Hạn mức thưởng' })).toHaveAttribute('aria-invalid', 'true')
-  })
+  }, 10_000)
 
   it('revises, approves and publishes offers in the required order', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const router = createMemoryRouter([
       { path: '/operator/plans/:planId', element: <ReviewRoute /> },

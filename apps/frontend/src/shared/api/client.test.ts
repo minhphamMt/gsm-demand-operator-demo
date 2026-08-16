@@ -48,6 +48,8 @@ describe('requestJson', () => {
   it.each([
     [404, 'Không tìm thấy dữ liệu được yêu cầu.'],
     [409, 'Dữ liệu đã thay đổi hoặc thao tác đã được thực hiện trước đó.'],
+    [429, 'Có quá nhiều yêu cầu. Vui lòng thử lại sau.'],
+    [503, 'Dịch vụ tạm thời không sẵn sàng. Vui lòng thử lại sau.'],
   ])('normalizes HTTP %s errors for browser UI', async (status, message) => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ code: 'TEST_ERROR' }), { status }))
     await expect(requestJson('/operator/test')).rejects.toEqual(expect.objectContaining({ message, status }))

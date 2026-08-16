@@ -17,7 +17,6 @@ import math
 
 import pandas as pd
 import pytest
-
 from src.common.regime import REGIMES
 from src.contracts import ZONE_COUNT
 from src.forecasting.baseline_hist_avg import (

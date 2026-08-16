@@ -25,9 +25,7 @@ from typing import Any
 
 import pytest
 from pydantic import BaseModel
-
 from src.common.regime import tag_regime
-from src.config import PROJECT_ROOT
 from src.contracts import ZONE_COUNT
 from src.contracts.driver import Driver
 from src.contracts.forecast import Forecast
@@ -38,6 +36,8 @@ from src.contracts.plan import RelocationPlan
 from src.contracts.response import DriverResponse
 from src.contracts.revision import RevisionRequest
 from src.contracts.snapshot import Snapshot
+
+from src.config import PROJECT_ROOT
 from tests.test_contracts import mocks
 from tests.test_contracts import spec_examples as ex
 

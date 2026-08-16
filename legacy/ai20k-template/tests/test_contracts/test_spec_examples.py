@@ -14,6 +14,7 @@ from src.contracts.plan import RelocationPlan
 from src.contracts.response import DriverResponse
 from src.contracts.revision import RevisionRequest
 from src.contracts.snapshot import Snapshot
+
 from tests.test_contracts import spec_examples as ex
 
 

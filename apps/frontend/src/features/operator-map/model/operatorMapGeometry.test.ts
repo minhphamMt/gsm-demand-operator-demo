@@ -27,10 +27,21 @@ describe('buildFlowCollections', () => {
     expect(zonesForMapView(zones, 'core').map((zone) => zone.id)).toEqual(['AI-Z01'])
   })
 
+  it('uses the high tier from the live DB contract as the operational core', () => {
+    const liveZones = [
+      { id: 'AI-Z01', tier: 'medium' },
+      { id: 'AI-Z02', tier: 'high' },
+      { id: 'AI-Z03', tier: 'low' },
+    ] as Zone[]
+    expect(zonesForMapView(liveZones, 'core').map((zone) => zone.id)).toEqual(['AI-Z02'])
+    expect(zonesForMapView(liveZones, 'city')).toHaveLength(liveZones.length)
+  })
+
   it('uses per-zone bands that match the project dataset scale', () => {
     expect(mapLayerThresholds.supply).toEqual({ medium: 6, high: 13 })
     expect(mapLayerThresholds.demand).toEqual({ medium: 8, high: 16 })
-    expect(zoneFillColor('supply')).toContain(13)
-    expect(zoneFillColor('demand')).toContain(16)
+    expect(JSON.stringify(zoneFillColor('supply'))).toContain('13')
+    expect(JSON.stringify(zoneFillColor('demand'))).toContain('16')
+    expect(JSON.stringify(zoneFillColor('gap'))).toContain('missing')
   })
 })

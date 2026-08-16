@@ -5,8 +5,8 @@
   "generator": "generate_snapshots.py --split test",
   "field_provenance": {
     "rain_mm_h": "NASA POWER 2025 with deterministic spatial factors",
-    "demand_observed": "synthetic generator, seed 2026",
-    "idle_supply": "synthetic generator, seed 2026",
+    "demand_observed": "population density plus urban activity tier, synthetic generator seed 2026",
+    "idle_supply": "population-weighted supply with citywide relocation reserve, synthetic generator seed 2026",
     "rain_forecast_15_30": "deterministic nowcast noise, seed 13"
   },
   "seed": 2026,
@@ -16,5 +16,5 @@
   "steps": 2016,
   "ts_start": "2026-09-25T00:00:00+07:00",
   "ts_end": "2026-10-01T23:55:00+07:00",
-  "sha256": "e84208dc6294e90ada05ca1b1143e1638dbedae8ccad29ebea03dbfd11cbcf45"
+  "sha256": "91e1ef555fb96aaddaadc158b180eb65f629a04ba6a81c287be107985f0ad4f2"
 }

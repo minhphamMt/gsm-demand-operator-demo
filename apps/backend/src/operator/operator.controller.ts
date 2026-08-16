@@ -24,12 +24,17 @@ import {
   ActivateProposalDto,
   AuditQueryDto,
   ApproveProposalDto,
+  CancelCampaignDto,
+  CancelDispatchDto,
+  DispatchEventDto,
   DriverStatusDto,
   OfferResponseDto,
   OffersQueryDto,
   OperationsReportQueryDto,
   RejectProposalDto,
+  RetryDispatchDto,
   ReviseProposalDto,
+  ScenarioComparisonDto,
   SnapshotQueryDto,
   SnapshotWindowQueryDto,
 } from './dto/operator.dto';
@@ -37,11 +42,14 @@ import {
   AuditPageResponseDto,
   BaselineResponseDto,
   CampaignResponseDto,
+  DispatchBatchResponseDto,
   DriverSummaryResponseDto,
   DriverViewResponseDto,
   OfferViewDto,
   OperationsReportResponseDto,
+  OperatorCapabilitiesResponseDto,
   ProposalResponseDto,
+  ScenarioComparisonResponseDto,
   SnapshotResponseDto,
 } from './dto/operator-response.dto';
 import { OperatorService } from './operator.service';
@@ -61,6 +69,20 @@ import { OperatorService } from './operator.service';
 @Controller()
 export class OperatorController {
   constructor(private readonly service: OperatorService) {}
+
+  @Get('operator/capabilities')
+  @Roles('OPERATOR')
+  @ApiOkResponse({ type: OperatorCapabilitiesResponseDto })
+  capabilities() {
+    return this.service.capabilities();
+  }
+
+  @Get('operator/context')
+  @Roles('OPERATOR')
+  @ApiOkResponse({ schema: { type: 'object', additionalProperties: true } })
+  context(@Req() request: RequestWithId & { user: AuthenticatedUser }) {
+    return this.service.operatorContext(request.user.id);
+  }
 
   @Get('operator/snapshots/latest')
   @Roles('OPERATOR')
@@ -134,7 +156,7 @@ export class OperatorController {
     @Body() dto: ApproveProposalDto,
     @Req() request: RequestWithId & { user: AuthenticatedUser },
   ) {
-    return this.service.reviewProposal(id, 'APPROVED', dto, request.user.id, request.requestId);
+    return this.service.reviewProposal(id, 'APPROVED', dto, request.user.id, request.requestId, request.idempotencyKey);
   }
 
   @Post('operator/proposals/:id/reject')
@@ -149,7 +171,7 @@ export class OperatorController {
     @Body() dto: RejectProposalDto,
     @Req() request: RequestWithId & { user: AuthenticatedUser },
   ) {
-    return this.service.reviewProposal(id, 'REJECTED', dto, request.user.id, request.requestId);
+    return this.service.reviewProposal(id, 'REJECTED', dto, request.user.id, request.requestId, request.idempotencyKey);
   }
 
   @Post('operator/proposals/:id/activate')
@@ -165,6 +187,70 @@ export class OperatorController {
     @Req() request: RequestWithId & { user: AuthenticatedUser },
   ) {
     return this.service.activateProposal(id, dto, request.user.id, request.requestId);
+  }
+
+  @Post('operator/proposals/:id/dispatch')
+  @SensitiveMutation()
+  @Roles('OPERATOR')
+  @ApiCreatedResponse({ type: DispatchBatchResponseDto })
+  @ApiConflictResponse({ description: 'The approved revision was already released or changed.', type: ApiErrorDto })
+  releaseDispatch(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: RequestWithId & { user: AuthenticatedUser },
+  ) {
+    return this.service.releaseDispatch(id, request.user.id, request.requestId, request.idempotencyKey);
+  }
+
+  @Get('operator/dispatch')
+  @Roles('OPERATOR')
+  @ApiOkResponse({ type: DispatchBatchResponseDto, isArray: true })
+  listDispatch() {
+    return this.service.listDispatch();
+  }
+
+  @Get('operator/dispatch/:id')
+  @Roles('OPERATOR')
+  @ApiOkResponse({ type: DispatchBatchResponseDto })
+  dispatchDetail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.getDispatch(id);
+  }
+
+  @Post('operator/dispatch/:id/cancel')
+  @SensitiveMutation()
+  @Roles('OPERATOR')
+  @ApiCreatedResponse({ type: DispatchBatchResponseDto })
+  cancelDispatch(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelDispatchDto,
+    @Req() request: RequestWithId & { user: AuthenticatedUser },
+  ) {
+    return this.service.cancelDispatch(id, dto.reason, request.user.id, request.requestId);
+  }
+
+  @Post('operator/dispatch/:batchId/moves/:moveId/events')
+  @SensitiveMutation()
+  @Roles('OPERATOR')
+  @ApiCreatedResponse({ type: DispatchBatchResponseDto })
+  recordDispatchEvent(
+    @Param('batchId', ParseUUIDPipe) batchId: string,
+    @Param('moveId', ParseUUIDPipe) moveId: string,
+    @Body() dto: DispatchEventDto,
+    @Req() request: RequestWithId & { user: AuthenticatedUser },
+  ) {
+    return this.service.recordDispatchEvent(batchId, moveId, dto, request.user.id, request.requestId);
+  }
+
+  @Post('operator/dispatch/:batchId/moves/:moveId/retry')
+  @SensitiveMutation()
+  @Roles('OPERATOR')
+  @ApiCreatedResponse({ type: DispatchBatchResponseDto })
+  retryDispatchMove(
+    @Param('batchId', ParseUUIDPipe) batchId: string,
+    @Param('moveId', ParseUUIDPipe) moveId: string,
+    @Body() dto: RetryDispatchDto,
+    @Req() request: RequestWithId & { user: AuthenticatedUser },
+  ) {
+    return this.service.retryDispatchMove(batchId, moveId, dto.reason, request.user.id, request.requestId);
   }
 
   @Get('operator/campaigns')
@@ -190,9 +276,39 @@ export class OperatorController {
   @ApiUnprocessableEntityResponse({ description: 'Campaign cannot be cancelled.', type: ApiErrorDto })
   cancelCampaign(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelCampaignDto,
     @Req() request: RequestWithId & { user: AuthenticatedUser },
   ) {
-    return this.service.cancelCampaign(id, request.user.id, request.requestId);
+    return this.service.cancelCampaign(id, dto, request.user.id, request.requestId);
+  }
+
+  @Post('operator/scenarios/compare')
+  @SensitiveMutation()
+  @Roles('OPERATOR')
+  @ApiCreatedResponse({ type: ScenarioComparisonResponseDto })
+  compareScenarios(
+    @Body() dto: ScenarioComparisonDto,
+    @Req() request: RequestWithId & { user: AuthenticatedUser },
+  ) {
+    return this.service.compareScenarios(dto.proposalId, request.user.id);
+  }
+
+  @Get('operator/notifications')
+  @Roles('OPERATOR')
+  @ApiOkResponse({ schema: { type: 'array', items: { type: 'object', additionalProperties: true } } })
+  notifications(@Req() request: RequestWithId & { user: AuthenticatedUser }) {
+    return this.service.listNotifications(request.user.id);
+  }
+
+  @Post('operator/notifications/:id/acknowledge')
+  @SensitiveMutation()
+  @Roles('OPERATOR')
+  @ApiCreatedResponse({ schema: { type: 'object', additionalProperties: true } })
+  acknowledgeNotification(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: RequestWithId & { user: AuthenticatedUser },
+  ) {
+    return this.service.acknowledgeNotification(id, request.user.id, request.requestId);
   }
 
   @Get('operator/offers')

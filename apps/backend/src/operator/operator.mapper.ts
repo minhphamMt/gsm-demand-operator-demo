@@ -36,20 +36,27 @@ const proposalStatus: Record<string, string> = {
 
 const campaignStatus: Record<string, string> = {
   DRAFT: 'Draft',
+  SCHEDULED: 'Scheduled',
   ACTIVE: 'Active',
+  PAUSED: 'Paused',
   TARGET_REACHED: 'TargetReached',
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
   BUDGET_EXHAUSTED: 'BudgetExhausted',
+  EXPIRED: 'Expired',
+  SETTLING: 'Settling',
+  SETTLED: 'Settled',
 };
 
 const offerStatus: Record<string, string> = {
   CREATED: 'Open',
   SENT: 'Open',
+  DELIVERED: 'Open',
   VIEWED: 'Open',
   ACCEPTED: 'Accepted',
   DECLINED: 'Declined',
   EXPIRED: 'Expired',
+  CANCELLED_BEFORE_ACCEPT: 'Cancelled',
 };
 
 const metrics = (value: Row = {}) => ({
@@ -97,12 +104,19 @@ export const mapProposal = (row: Row) => {
     status: proposalStatus[row.status] ?? row.status,
     createdAt: iso(row.created_at),
     version: row.version ?? 1,
+    contentHash: row.content_hash ?? null,
+    approvedContentHash: row.approved_content_hash ?? null,
+    approvedVersion: row.approved_version ?? null,
+    optimizerRunId: row.optimizer_run_id ?? null,
     rank: simulation.rank ?? 1,
     scenarioId: simulation.scenario_id ?? 'normal',
     generatorType: row.generator_type,
     generatorVersion: row.generator_version ?? 'unknown',
+    planMode: simulation.plan_mode ?? (rawMoves.length ? 'RELOCATION' : 'ACTIVATION_ONLY'),
     forecastMode: simulation.forecast_mode ?? null,
     dataSource: simulation.data_source ?? null,
+    forecastRunId: simulation.forecast_run_id ?? sourcePlan.forecast_run_id ?? null,
+    modelInputId: simulation.model_input_id ?? sourcePlan.model_input_id ?? null,
     inputSnapshotId: row.input_snapshot_id ? String(row.input_snapshot_id) : null,
     hotspotId: row.hotspot_id,
     targetZoneId: targetZoneIds[0] ?? null,
@@ -231,7 +245,7 @@ export const mapCampaign = (row: Row, offers: Row[], participations: Row[], trip
     accepted: countOffer('ACCEPTED'),
     declined: countOffer('DECLINED'),
     expired: countOffer('EXPIRED'),
-    cancelled: countPart('CANCELLED'),
+    cancelled: countPart('CANCELLED_AFTER_ACCEPT') + countPart('CANCELLED') + countOffer('CANCELLED_BEFORE_ACCEPT'),
     enRoute: countPart('EN_ROUTE'),
     arrivedVerified: countPart('ARRIVED_VERIFIED'),
     unitsGained: countPart('ACTIVATED'),

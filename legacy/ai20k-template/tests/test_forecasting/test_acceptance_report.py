@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from src.common.regime import REGIMES
 from src.forecasting.features import FEATURE_COLUMNS, INTERACTION_FEATURES
 from src.forecasting.lgbm_quantile import MODEL_VERSION, RANDOM_SEED

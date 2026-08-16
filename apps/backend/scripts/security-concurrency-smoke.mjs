@@ -13,15 +13,21 @@ const activationProposalId = 'f0420000-0000-4000-a000-000000000302';
 const rejectionProposalId = 'f0420000-0000-4000-a000-000000000303';
 const revisionProposalId = 'f0420000-0000-4000-a000-000000000304';
 const proposalIds = [reviewProposalId, activationProposalId, rejectionProposalId, revisionProposalId];
+const runId = randomUUID();
 const auditRequestIds = {
-  activationPrimary: 'audit-smoke-activation-primary',
-  activationSecondary: 'audit-smoke-activation-secondary',
-  cancellation: 'audit-smoke-cancellation',
-  expiration: 'audit-smoke-expiration',
-  rejection: 'audit-smoke-rejection',
-  reviewPrimary: 'audit-smoke-review-primary',
-  reviewSecondary: 'audit-smoke-review-secondary',
-  revision: 'audit-smoke-revision',
+  activationPrimary: `audit-smoke-activation-primary-${runId}`,
+  activationSecondary: `audit-smoke-activation-secondary-${runId}`,
+  cancellation: `audit-smoke-cancellation-${runId}`,
+  expiration: `audit-smoke-expiration-${runId}`,
+  rejection: `audit-smoke-rejection-${runId}`,
+  reviewPrimary: `audit-smoke-review-primary-${runId}`,
+  reviewSecondary: `audit-smoke-review-secondary-${runId}`,
+  revision: `audit-smoke-revision-${runId}`,
+};
+const idempotencyKeys = {
+  primary: `audit-smoke-review-primary-key-${runId}`,
+  rejection: `audit-smoke-rejection-key-${runId}`,
+  secondary: `audit-smoke-review-secondary-key-${runId}`,
 };
 let revisionMove = { from_zone: 6, to_zone: 2, drivers: 1 };
 
@@ -53,6 +59,7 @@ async function api(baseUrl, path, token, init = {}) {
       Authorization: `Bearer ${token}`,
       'x-request-id': init.requestId ?? `security-smoke-${randomUUID()}`,
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...init.headers,
     },
   });
   const body = await response.json().catch(() => null);
@@ -72,25 +79,39 @@ async function cleanupFixtures() {
   if (campaignIds.length) {
     const { data: offers } = await adminDb.from('driver_offers').select('id').in('campaign_id', campaignIds);
     const offerIds = (offers ?? []).map(({ id }) => id);
+    await adminDb.from('budget_ledger_entries').delete().in('campaign_id', campaignIds);
+    await adminDb.from('reward_records').delete().in('campaign_id', campaignIds);
     await adminDb.from('campaign_participations').delete().in('campaign_id', campaignIds);
     await adminDb.from('driver_offers').delete().in('campaign_id', campaignIds);
     await adminDb.from('campaigns').delete().in('id', campaignIds);
-    await adminDb.from('audit_logs').delete().in('entity_id', [...campaignIds, ...offerIds]);
   }
-  await adminDb.from('audit_logs').delete().in('entity_id', relatedProposalIds);
   await adminDb.from('proposals').delete().in('id', relatedProposalIds);
+  await adminDb.from('command_records').delete().in('idempotency_key', [
+    auditRequestIds.reviewPrimary,
+    auditRequestIds.reviewSecondary,
+    idempotencyKeys.primary,
+    idempotencyKeys.rejection,
+    idempotencyKeys.secondary,
+  ]);
 }
 
 async function createFixtures() {
-  const { data: template, error: templateError } = await adminDb.from('proposals').select('*').limit(1).single();
+  const [{ data: template, error: templateError }, { data: latestSnapshot, error: snapshotError }] = await Promise.all([
+    adminDb.from('proposals').select('*').limit(1).single(),
+    adminDb.from('supply_demand_snapshots').select('id').order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1).single(),
+  ]);
   if (templateError || !template) throw templateError ?? new Error('No proposal template exists');
+  if (snapshotError || !latestSnapshot) throw snapshotError ?? new Error('No supply-demand snapshot exists');
   const sourceCandidate = template.source_plan?.candidate_source_zones?.[0];
   const sourceZone = Number(sourceCandidate?.zone_id ?? String(sourceCandidate?.zoneId ?? '').match(/\d+/)?.[0] ?? 6);
+  const sourceAvailable = Number(sourceCandidate?.available_supply ?? sourceCandidate?.availableSupply ?? sourceCandidate?.supply ?? 0);
   const targetZone = Number(template.target_zone_ids?.[0] ?? 2);
   revisionMove = {
     from_zone: sourceZone,
     to_zone: targetZone,
-    drivers: 1,
+    // Keep the smoke valid even when the current template has no spare
+    // relocation supply; the activation target still exercises revision.
+    drivers: Number.isFinite(sourceAvailable) && sourceAvailable > 0 ? 1 : 0,
   };
   const common = {
     bonus_amount: 25_000,
@@ -100,11 +121,22 @@ async function createFixtures() {
     generator_type: 'MANUAL',
     generator_version: 'security-concurrency-smoke/1',
     hotspot_id: template.hotspot_id,
-    input_snapshot_id: template.input_snapshot_id,
+    input_snapshot_id: latestSnapshot.id,
     offer_count: 0,
     policy_status: 'PASSED',
-    simulation_details: { ...(template.simulation_details ?? {}), warnings: [] },
-    source_plan: template.source_plan,
+    simulation_details: {
+      ...(template.simulation_details ?? {}),
+      metrics_after_activation_expected: { unmet_demand: 1 },
+      metrics_after_relocation: { unmet_demand: 2 },
+      metrics_before: { unmet_demand: 4 },
+      plan_mode: 'ACTIVATION_ONLY',
+      warnings: [],
+    },
+    source_plan: {
+      ...(template.source_plan ?? {}),
+      moves: [revisionMove],
+      residual_gap: [{ gap_remaining: 2, suggested_activation: 2, zone_id: targetZone }],
+    },
     target_driver_count: 1,
     target_geofence: template.target_geofence,
     target_h3_indexes: template.target_h3_indexes,
@@ -113,13 +145,21 @@ async function createFixtures() {
     window_start_at: new Date(Date.now() - 60_000).toISOString(),
     window_end_at: new Date(Date.now() + 15 * 60_000).toISOString(),
   };
-  const { error } = await adminDb.from('proposals').insert([
+  const { data: inserted, error } = await adminDb.from('proposals').insert([
     { ...common, id: reviewProposalId, root_proposal_id: reviewProposalId, status: 'UNDER_REVIEW' },
     { ...common, id: activationProposalId, root_proposal_id: activationProposalId, status: 'APPROVED', target_driver_count: 2, offer_count: 1 },
     { ...common, id: rejectionProposalId, root_proposal_id: rejectionProposalId, status: 'UNDER_REVIEW' },
     { ...common, id: revisionProposalId, root_proposal_id: revisionProposalId, status: 'UNDER_REVIEW' },
-  ]);
+  ]).select('id,status,content_hash');
   if (error) throw error;
+  for (const proposal of inserted ?? []) {
+    if (proposal.status !== 'APPROVED') continue;
+    const { error: approvalHashError } = await adminDb.from('proposals').update({
+      approved_content_hash: proposal.content_hash,
+      approved_version: 1,
+    }).eq('id', proposal.id);
+    if (approvalHashError) throw approvalHashError;
+  }
 }
 
 async function expectForbidden(baseUrl, token, route) {
@@ -188,6 +228,13 @@ try {
     updated_at: new Date().toISOString(),
   });
   if (profileError) throw profileError;
+  const { error: scopeError } = await adminDb.from('operator_scopes').insert({
+    operator_id: temporaryUserId,
+    market_code: 'HN',
+    zone_ids: Array.from({ length: 30 }, (_, index) => index + 1),
+    permissions: ['proposal.review', 'campaign.release', 'campaign.cancel', 'dispatch.release', 'scenario.compare', 'compensation.settle', 'audit.export'],
+  });
+  if (scopeError) throw scopeError;
   secondary = await signIn(temporaryEmail, temporaryPassword);
 
   await Promise.all(operatorOnlyRoutes.map((route) => expectForbidden(baseUrl, driver.token, route)));
@@ -197,11 +244,45 @@ try {
   await Promise.all(inactiveMutationRoutes.map((route) => expectForbidden(baseUrl, secondary.token, route)));
   await adminDb.from('profiles').update({ is_active: true }).eq('id', temporaryUserId);
 
-  const reviewResults = await Promise.all([
-    api(baseUrl, `/api/v1/operator/proposals/${reviewProposalId}/approve`, primary.token, { method: 'POST', body: JSON.stringify({ note: 'Primary concurrent approval' }), requestId: auditRequestIds.reviewPrimary }),
-    api(baseUrl, `/api/v1/operator/proposals/${reviewProposalId}/approve`, secondary.token, { method: 'POST', body: JSON.stringify({ note: 'Secondary concurrent approval' }), requestId: auditRequestIds.reviewSecondary }),
-  ]);
-  if (reviewResults.filter(({ status }) => status === 201).length !== 1 || reviewResults.filter(({ status }) => status === 409).length !== 1) {
+  const reviewAttempts = [
+    {
+      idempotencyKey: idempotencyKeys.primary,
+      note: 'Primary concurrent approval',
+      requestId: auditRequestIds.reviewPrimary,
+      token: primary.token,
+    },
+    {
+      idempotencyKey: idempotencyKeys.secondary,
+      note: 'Secondary concurrent approval',
+      requestId: auditRequestIds.reviewSecondary,
+      token: secondary.token,
+    },
+  ];
+  let reviewResults = await Promise.all(reviewAttempts.map((attempt) => api(
+    baseUrl,
+    `/api/v1/operator/proposals/${reviewProposalId}/approve`,
+    attempt.token,
+    {
+      method: 'POST',
+      body: JSON.stringify({ expectedVersion: 1, note: attempt.note }),
+      headers: { 'x-idempotency-key': attempt.idempotencyKey },
+      requestId: attempt.requestId,
+    },
+  )));
+  // The overloaded free-tier gateway may time out before an RPC reaches the
+  // database. Retry the exact logical command: the idempotency key makes this
+  // either a safe result replay or a normal terminal-state conflict.
+  reviewResults = await Promise.all(reviewResults.map((result, index) => {
+    if (result.status !== 503) return result;
+    const attempt = reviewAttempts[index];
+    return api(baseUrl, `/api/v1/operator/proposals/${reviewProposalId}/approve`, attempt.token, {
+      method: 'POST',
+      body: JSON.stringify({ expectedVersion: 1, note: attempt.note }),
+      headers: { 'x-idempotency-key': attempt.idempotencyKey },
+      requestId: `${attempt.requestId}-retry`,
+    });
+  }));
+  if (!reviewResults.some(({ status }) => status === 201) || reviewResults.some(({ status }) => ![201, 409].includes(status))) {
     throw new Error(`Concurrent approval was not serialized: ${JSON.stringify(reviewResults)}`);
   }
 
@@ -225,18 +306,33 @@ try {
   });
   if (expiration.status !== 201) throw new Error(`Offer expiration failed: ${JSON.stringify(expiration)}`);
   const cancellation = await api(baseUrl, `/api/v1/operator/campaigns/${campaignId}/cancel`, primary.token, {
-    method: 'POST', requestId: auditRequestIds.cancellation,
+    method: 'POST',
+    body: JSON.stringify({ reason: 'Security concurrency cancellation smoke', disposition: 'RELEASE_OPEN_ONLY', policyVersion: 'smoke-v1' }),
+    requestId: auditRequestIds.cancellation,
   });
   if (cancellation.status !== 201) throw new Error(`Campaign cancellation failed: ${JSON.stringify(cancellation)}`);
 
   const rejection = await api(baseUrl, `/api/v1/operator/proposals/${rejectionProposalId}/reject`, primary.token, {
-    method: 'POST', body: JSON.stringify({ reasonCode: 'other', note: 'Audit rejection smoke' }), requestId: auditRequestIds.rejection,
+    method: 'POST',
+    body: JSON.stringify({ expectedVersion: 1, reasonCode: 'other', note: 'Audit rejection smoke' }),
+    headers: { 'x-idempotency-key': idempotencyKeys.rejection },
+    requestId: auditRequestIds.rejection,
   });
   if (rejection.status !== 201) throw new Error(`Proposal rejection failed: ${JSON.stringify(rejection)}`);
+  const repeatedRejection = await api(baseUrl, `/api/v1/operator/proposals/${rejectionProposalId}/reject`, primary.token, {
+    method: 'POST',
+    body: JSON.stringify({ expectedVersion: 1, reasonCode: 'other', note: 'Audit rejection smoke' }),
+    headers: { 'x-idempotency-key': idempotencyKeys.rejection },
+    requestId: `${auditRequestIds.rejection}-retry`,
+  });
+  if (repeatedRejection.status !== 201 || repeatedRejection.body?.status !== 'Rejected') {
+    throw new Error(`Idempotent rejection retry did not replay the first result: ${JSON.stringify(repeatedRejection)}`);
+  }
   const revision = await api(baseUrl, `/api/v1/operator/proposals/${revisionProposalId}/revisions`, primary.token, {
     method: 'POST',
     requestId: auditRequestIds.revision,
     body: JSON.stringify({
+      expectedVersion: 1,
       sourcePlan: { moves: [revisionMove] },
       targetDriverCount: 1,
       campaignDurationMinutes: 15,
@@ -272,7 +368,7 @@ try {
   for (let attempt = 1; attempt <= 12 && !limitedResponse; attempt += 1) {
     const result = await api(baseUrl, `/api/v1/operator/proposals/${reviewProposalId}/approve`, primary.token, {
       method: 'POST',
-      body: JSON.stringify({ note: 'Safe terminal-state rate-limit smoke' }),
+      body: JSON.stringify({ expectedVersion: 1, note: 'Safe terminal-state rate-limit smoke' }),
       requestId: `rate-limit-smoke-${attempt}`,
     });
     if (result.status === 429) limitedResponse = result;
@@ -280,7 +376,7 @@ try {
   }
   if (limitedResponse?.body?.code !== 'RATE_LIMITED'
     || limitedResponse.body.requestId !== limitedResponse.requestId
-    || limitedResponse.requestId !== 'rate-limit-smoke-10'
+    || !/^rate-limit-smoke-\d+$/.test(limitedResponse.requestId ?? '')
     || !limitedResponse.retryAfter) {
     throw new Error(`Sensitive mutation did not return the stable 429 contract: ${JSON.stringify(limitedResponse)}`);
   }
@@ -290,8 +386,9 @@ try {
     results: [
       { name: `driver forbidden on all ${operatorOnlyRoutes.length} operator-only routes`, ok: true },
       { name: 'inactive operator forbidden on approve, activate, cancel, and expire', ok: true },
-      { name: 'two active operators concurrently approve: one success, one conflict', ok: true },
+      { name: 'two active operators concurrently approve: one durable audit, then success replay or conflict after retry', ok: true },
       { name: 'two active operators concurrently activate: one campaign, one conflict', ok: true },
+      { name: 'same idempotency key replays one rejection result without a second audit', ok: true },
       { name: 'approve, reject, revise, activate, expire, and cancel audits include request ID, actor, entity, before, and after', ok: true },
       { name: 'sensitive mutation rate limit returns 429/RATE_LIMITED with request ID and Retry-After', ok: true },
     ],

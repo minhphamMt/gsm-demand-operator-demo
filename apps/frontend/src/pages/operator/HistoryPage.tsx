@@ -1,4 +1,14 @@
-import { AuditHistory } from '@/features/operator-history/components/AuditHistory'
-import { PageHeader } from '@/shared/components/ui/PageHeader'
+import { ScrollText } from 'lucide-react'
 
-export function HistoryPage() { return <div className="h-full overflow-y-auto"><PageHeader title="Lịch sử & Audit" description="Tra cứu actor, hành động, đối tượng và bằng chứng của từng quyết định." /><div className="mt-3"><AuditHistory /></div></div> }
+import { AuditHistory } from '@/features/operator-history/components/AuditHistory'
+import { OperatorWorkspacePage } from '@/shared/components/layout/OperatorWorkspacePage'
+
+export function HistoryPage() {
+  return <OperatorWorkspacePage
+    description="Theo dõi nhanh ai đã làm gì và kết quả ra sao."
+    eyebrow="KIỂM SOÁT · MINH BẠCH"
+    icon={<ScrollText size={20} />}
+    statusLabel="DỮ LIỆU ĐÃ BẢO TOÀN"
+    title="Nhật ký vận hành"
+  ><AuditHistory /></OperatorWorkspacePage>
+}

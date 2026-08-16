@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from src.common.errors import ConfigError
 
@@ -111,6 +111,55 @@ class PolicyDerived(BaseModel):
     rain_travel_factor: RainTravelFactor
 
 
+class CustomerDriverPricing(BaseModel):
+    """Giả định giá khách–tài xế; chỉ dùng cho MVP mock/synthetic generator."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    base_fare_first_2km_vnd: int = Field(ge=0)
+    fare_per_km_after_2km_vnd: int = Field(ge=0)
+    surge_base_multiplier: float = Field(gt=0)
+    surge_gap_ratio_cap: float = Field(gt=0)
+    surge_gap_ratio_weight: float = Field(ge=0)
+    surge_min_multiplier: float = Field(gt=0)
+    surge_max_multiplier: float = Field(gt=0)
+    formula: str
+    gap_ratio_definition: str
+
+
+class BusinessDriverPricing(BaseModel):
+    """Giả định hoa hồng doanh nghiệp–tài xế; chưa dùng cho settlement thật."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    commission_rate_car: float = Field(ge=0, le=1)
+    driver_payout_formula: str
+    platform_revenue_formula: str
+
+
+class PricingProvenance(BaseModel):
+    """Nguồn và giới hạn sử dụng của pricing research."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source: str
+    benchmark: str
+    limitation: str
+
+
+class PricingPolicy(BaseModel):
+    """Policy pricing bổ sung, tách khỏi 19 ngưỡng vận hành đã khóa."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    version: str
+    status: Literal["assumption", "verified"]
+    approved_scope: str
+    customer_driver: CustomerDriverPricing
+    business_driver: BusinessDriverPricing
+    provenance: PricingProvenance
+
+
 class Policy(BaseModel):
     """Toàn bộ nội dung policy.yaml sau khi đã kiểm."""
 
@@ -120,6 +169,7 @@ class Policy(BaseModel):
     frozen_at: str
     rules: PolicyRules
     derived: PolicyDerived
+    pricing: PricingPolicy
     # meta[key] ứng 1-1 với field của rules — tách ra để `policy.rules.budget_cap`
     # trả thẳng con số, nơi dùng không phải viết `.value` ở mọi lời gọi.
     meta: dict[str, PolicyKeyMeta]
@@ -186,6 +236,7 @@ def load_policy(path: Path) -> Policy:
             frozen_at=str(raw.get("frozen_at", "")),
             rules=rules,
             derived=PolicyDerived(**derived_block),
+            pricing=PricingPolicy(**raw.get("pricing", {})),
             meta=meta,
         )
     except ValidationError as exc:

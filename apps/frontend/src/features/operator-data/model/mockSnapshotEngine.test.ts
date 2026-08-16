@@ -6,7 +6,7 @@ import { createZones } from '@/features/operator-data/model/zoneGeometry'
 describe('mock snapshot engine', () => {
   it('keeps a realistic and explainable rain-peak baseline', () => {
     const snapshot = simulateSnapshot(createZones(), { comparison: 'baseline', gain: 0, regime: 'rain_peak', replayIndex: 0 })
-    const forecastChanges = snapshot.zones.map((zone) => zone.forecast30 - zone.demand)
+    const forecastChanges = snapshot.zones.map((zone) => zone.forecast30 - (zone.demand ?? 0))
 
     expect(snapshot.kpis.residualGap).toBeGreaterThan(40)
     expect(snapshot.kpis.residualGap).toBeLessThan(100)

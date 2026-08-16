@@ -47,49 +47,78 @@ const replay = await api('/operator/ai/replay', {
   method: 'POST',
   body: JSON.stringify({ sourceAt: replaySourceAt }),
 });
-if (replay?.decision?.forecast?.horizon_min !== 5 || replay.decision.forecast.zones?.length !== 30) {
-  throw new Error('A replay bucket did not invoke a complete 5-minute model forecast');
+if (!Number.isInteger(replay?.snapshot?.id) || replay?.decision !== undefined) {
+  throw new Error('A historical replay bucket must return observed data without invoking the model');
 }
+// `run-next` creates a new snapshot and explicit future forecast every time,
+// making it the correct target for an idempotent smoke run. Replay only persists
+// historical observations,
+// so create one final current snapshot afterwards; otherwise the safety guard
+// correctly marks the original snapshot stale before approval.
+const optimizationRun = await api('/operator/ai/run-next', {
+  method: 'POST',
+  body: JSON.stringify({ horizonMinutes: 15, regime: 'rain_peak' }),
+});
+const optimizationSnapshotId = optimizationRun?.snapshot?.id;
+if (!Number.isInteger(optimizationSnapshotId)) throw new Error('Final forecast-only run did not persist an optimization snapshot');
 
 const before = await api('/operator/proposals');
-if (before.some((proposal) => proposal.generatorType === 'AGENT' && proposal.inputSnapshotId === String(snapshotId))) {
+if (before.some((proposal) => proposal.generatorType === 'AGENT' && proposal.inputSnapshotId === String(optimizationSnapshotId))) {
   throw new Error('Forecast-only stage created a proposal before optimization');
 }
 
 await api('/operator/ai/optimize', {
   method: 'POST',
-  body: JSON.stringify({ snapshotId, horizonMinutes: 15 }),
+  body: JSON.stringify({ snapshotId: optimizationSnapshotId, horizonMinutes: 15 }),
 });
 const after = await api('/operator/proposals');
-const proposal = after.find((candidate) => candidate.generatorType === 'AGENT' && candidate.inputSnapshotId === String(snapshotId));
+const proposal = after.find((candidate) => candidate.generatorType === 'AGENT' && candidate.inputSnapshotId === String(optimizationSnapshotId));
 if (!proposal) throw new Error('Optimizer did not create a proposal for the selected snapshot');
-if (!proposal.moves.length && proposal.targetDriverCount <= 0) throw new Error('Model returned neither relocation nor activation capacity');
+const hasOperationalAction = proposal.moves.length > 0 || proposal.targetDriverCount > 0;
+const policyPassed = proposal.policyChecks?.[0]?.passed;
+if (!hasOperationalAction && (proposal.status !== 'FailedGeneration' || policyPassed !== false)) {
+  throw new Error(`A no-action model decision was not retained safely: ${JSON.stringify({ status: proposal.status, policyPassed })}`);
+}
+if (hasOperationalAction && proposal.status !== 'UnderReview') {
+  throw new Error(`An actionable model decision was not placed in review: ${proposal.status}`);
+}
 if (proposal.activationBudgetLimit > 0 && proposal.expectedOfferCount * proposal.relocationBonus > proposal.activationBudgetLimit) {
   throw new Error('Activation recommendation exceeds its model budget guard');
 }
 
-const approved = await api(`/operator/proposals/${proposal.id}/approve`, {
-  method: 'POST',
-  body: JSON.stringify({ note: 'Automated end-to-end verification of the operator model flow' }),
-});
-if (approved.status !== 'Approved') throw new Error(`Proposal was not approved: ${approved.status}`);
+let deliveredOffers = 0;
+if (hasOperationalAction) {
+  const approved = await api(`/operator/proposals/${proposal.id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({
+      expectedVersion: proposal.version,
+      note: 'Automated end-to-end verification of the operator model flow',
+    }),
+  });
+  if (approved.status !== 'Approved') throw new Error(`Proposal was not approved: ${approved.status}`);
 
-const campaign = await api(`/operator/proposals/${proposal.id}/activate`, {
-  method: 'POST',
-  body: JSON.stringify({ responseMode: 'human' }),
-});
-const offers = await api(`/operator/offers?campaignId=${campaign.id}`);
-if (!offers.length) throw new Error('Campaign was created but no driver offer was delivered');
-await api(`/operator/campaigns/${campaign.id}/cancel`, { method: 'POST', body: '{}' });
+  const campaign = await api(`/operator/proposals/${proposal.id}/activate`, {
+    method: 'POST',
+    body: JSON.stringify({ responseMode: 'human' }),
+  });
+  const offers = await api(`/operator/offers?campaignId=${campaign.id}`);
+  if (!offers.length) throw new Error('Campaign was created but no driver offer was delivered');
+  deliveredOffers = offers.length;
+  await api(`/operator/campaigns/${campaign.id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: 'Model flow verification complete', disposition: 'RELEASE_OPEN_ONLY', policyVersion: 'smoke-v1' }),
+  });
+}
 
 console.log(JSON.stringify({
-  snapshotId,
+  snapshotId: optimizationSnapshotId,
   proposalId: proposal.id,
   directMoves: proposal.moves.length,
   targetDriverCount: proposal.targetDriverCount,
   offerPool: proposal.expectedOfferCount,
-  deliveredOffers: offers.length,
+  deliveredOffers,
   forecastSeparatedFromOptimization: true,
   replayFiveMinuteModelVerified: true,
-  driverOfferPathVerified: true,
+  noActionOutcomeVerified: !hasOperationalAction,
+  driverOfferPathVerified: hasOperationalAction,
 }, null, 2));

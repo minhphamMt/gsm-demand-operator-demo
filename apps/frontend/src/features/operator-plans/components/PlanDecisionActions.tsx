@@ -7,7 +7,8 @@ import { Dialog } from '@/shared/components/ui/Dialog'
 import { FieldLabel, Select, Textarea } from '@/shared/components/ui/Field'
 import { formatCurrency } from '@/shared/lib/format'
 
-type Props = { campaignStatus?: string | undefined; error?: string | undefined; hasOperationalCampaign?: boolean; isWorking: boolean; plan: Proposal; onActivate: () => void; onApprove: (note: string) => void; onReject: (request: RejectPlanRequest) => void }
+type RejectionForm = Omit<RejectPlanRequest, 'expectedVersion'>
+type Props = { campaignStatus?: string | undefined; error?: string | undefined; hasOperationalCampaign?: boolean; isWorking: boolean; plan: Proposal; onActivate: () => void; onApprove: (note: string) => void; onReject: (request: RejectionForm) => void }
 const checklist = ['Đã kiểm tra snapshot và hotspot đầu vào', 'Đã xem policy, cảnh báo và tác động trước/sau', 'Đã kiểm tra chi phí, ngân sách và residual gap'] as const
 
 export function PlanDecisionActions({ campaignStatus, error, hasOperationalCampaign = false, isWorking, plan, onActivate, onApprove, onReject }: Props) {

@@ -1,0 +1,50 @@
+import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, RotateCcw, Square } from 'lucide-react'
+import { Link } from 'react-router'
+
+import { dispatchMoveLabel, dispatchProgress, dispatchStatusPresentation, type DispatchBatch, type Proposal } from '@/features/operator-data'
+import { Button } from '@/shared/components/ui/Button'
+import { routes } from '@/shared/config/routes'
+import { formatNumber, formatTime } from '@/shared/lib/format'
+
+type DispatchOperationProps = {
+  batch: DispatchBatch
+  isRefreshing: boolean
+  isRetrying: boolean
+  onRefresh: () => void
+  onRetry: (batchId: string, moveId: string) => void
+  onStop: () => void
+  plan: Proposal | undefined
+}
+
+export function DispatchOperation({ batch, isRefreshing, isRetrying, onRefresh, onRetry, onStop, plan }: DispatchOperationProps) {
+  const status = dispatchStatusPresentation(batch)
+  const progress = dispatchProgress(batch)
+  const reconciliation = batch.reconciliations[0]
+  return <div className="nf-operation-stack">
+    {(status.isQueued || status.isOverdue) && <div className={`nf-operation-alert ${status.isOverdue ? 'is-warning' : ''}`} role="status">
+      {status.isOverdue ? <AlertTriangle size={18} /> : <Clock3 size={18} />}
+      <div><strong>{status.label}</strong><span>{status.isOverdue ? 'Đã vượt ETA dự kiến. Hãy kiểm tra telemetry, thử lại lệnh lỗi hoặc dừng phương án.' : 'Lệnh đã lưu trong DB nhưng chưa có telemetry SENT; hệ thống không còn hiển thị giả là đang chạy.'}</span></div>
+    </div>}
+    <section className="nf-operation-overview">
+      <div><small>TRẠNG THÁI</small><strong className={status.isAnimating ? 'is-live' : ''}>{status.label}</strong><span>Phát lúc {formatTime(batch.releasedAt)}</span></div>
+      <div><small>TIẾN ĐỘ LỆNH</small><strong>{progress.finishedMoves}/{progress.totalMoves}</strong><span>{progress.activeMoves} đang đi · {progress.waitingMoves} chờ</span></div>
+      <div><small>XE SẴN SÀNG</small><strong>{progress.availableUnits}/{progress.plannedUnits}</strong><span>{progress.failedMoves} lệnh lỗi</span></div>
+      <div><small>ĐỐI SOÁT</small><strong>{reconciliation ? `Lần ${reconciliation.revision}` : 'Đang chờ'}</strong><span>{reconciliation?.isSnapshotFresh ? 'Snapshot mới' : 'Chưa có snapshot mới'}</span></div>
+    </section>
+    <div className="nf-operation-progress"><span style={{ width: `${progress.completionPercent}%` }} /><b>{progress.completionPercent}% lệnh đã kết thúc</b></div>
+    <div className="nf-operation-toolbar"><div><strong>{plan?.title ?? 'Phương án điều chuyển'}</strong><span>Batch {batch.id.slice(0, 8)}… · phiên bản {batch.proposalVersion}</span></div><div><Link className="btn btn-secondary" to={routes.operator.planDetail(batch.proposalId)}>Xem phương án</Link><Button onClick={onRefresh} variant="secondary"><RefreshCw className={isRefreshing ? 'animate-spin' : ''} size={15} />Cập nhật</Button>{status.canCancel && <Button onClick={onStop} variant="danger"><Square size={14} />Dừng</Button>}</div></div>
+    <section className="nf-operation-panel"><header><div><small>ĐIỀU CHUYỂN</small><h2>Trạng thái từng lệnh</h2></div><span>{progress.totalMoves} tuyến</span></header><div className="nf-operation-moves">
+      {batch.moves.map((move) => {
+        const source = plan?.moves.find((candidate) => candidate.id === move.sourceMoveKey)
+        const isFailed = move.state === 'FAILED'
+        return <article className={`nf-operation-move is-${move.state.toLowerCase()}`} key={move.id}>
+          <i>{move.state === 'AVAILABLE' ? <CheckCircle2 size={16} /> : isFailed ? <AlertTriangle size={16} /> : <Clock3 size={16} />}</i>
+          <div><strong>{source?.sourceZoneLabel ?? `Vùng ${move.sourceZoneId}`} → {source?.targetZoneLabel ?? `Vùng ${move.targetZoneId}`}</strong><span>{move.plannedUnits} xe · {move.distanceKm.toFixed(1)} km · ETA {formatNumber(move.etaMinutes)} phút</span></div>
+          <b>{dispatchMoveLabel(move.state)}</b>
+          {isFailed && <Button disabled={isRetrying} onClick={() => onRetry(batch.id, move.id)} variant="secondary"><RotateCcw size={14} />Thử lại</Button>}
+        </article>
+      })}
+    </div></section>
+    <section className="nf-operation-panel"><header><div><small>KẾT QUẢ THẬT</small><h2>Đối soát gần nhất</h2></div></header>{reconciliation ? <div className="nf-operation-reconcile"><span>Đã đến <b>{reconciliation.arrivedUnits} xe</b></span><span>Sẵn sàng <b>{reconciliation.availableUnits} xe</b></span><span>Đóng góp thực <b>{reconciliation.actualContribution} xe</b></span><span>Thiếu còn lại <b>{reconciliation.residualGap == null ? 'Chờ snapshot' : `${formatNumber(reconciliation.residualGap)} xe`}</b></span></div> : <p className="nf-operation-empty">Chưa có telemetry hợp lệ để tạo bản đối soát.</p>}</section>
+  </div>
+}

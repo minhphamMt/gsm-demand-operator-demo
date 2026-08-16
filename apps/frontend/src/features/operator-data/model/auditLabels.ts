@@ -1,6 +1,10 @@
 import type { AuditAction } from '@/features/operator-data/model/types'
 
 export const auditActionLabels: Record<AuditAction, string> = {
+  DispatchCancelled: 'Dừng batch điều chuyển',
+  DispatchEventRecorded: 'Ghi nhận telemetry điều chuyển',
+  DispatchReleased: 'Phát lệnh điều chuyển',
+  DispatchRetryRequested: 'Yêu cầu thử lại điều chuyển',
   ActivationStarted: 'Phát hành offer',
   Approved: 'Phê duyệt proposal',
   CampaignCancelled: 'Dừng chiến dịch',

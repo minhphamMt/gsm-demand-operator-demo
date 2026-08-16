@@ -39,6 +39,7 @@ const errorCodes: Readonly<Record<number, string>> = {
   [HttpStatus.CONFLICT]: 'CONFLICT',
   [HttpStatus.UNPROCESSABLE_ENTITY]: 'UNPROCESSABLE_ENTITY',
   [HttpStatus.TOO_MANY_REQUESTS]: 'RATE_LIMITED',
+  [HttpStatus.SERVICE_UNAVAILABLE]: 'SERVICE_UNAVAILABLE',
 };
 
 const safeMessages: Readonly<Record<number, string>> = {
@@ -49,6 +50,7 @@ const safeMessages: Readonly<Record<number, string>> = {
   [HttpStatus.CONFLICT]: 'Dữ liệu đã thay đổi hoặc thao tác đã được thực hiện trước đó.',
   [HttpStatus.UNPROCESSABLE_ENTITY]: 'Trạng thái dữ liệu hiện tại không cho phép thao tác này.',
   [HttpStatus.TOO_MANY_REQUESTS]: 'Có quá nhiều yêu cầu. Vui lòng thử lại sau.',
+  [HttpStatus.SERVICE_UNAVAILABLE]: 'Dịch vụ tạm thời không sẵn sàng. Vui lòng thử lại sau.',
 };
 
 @Catch()

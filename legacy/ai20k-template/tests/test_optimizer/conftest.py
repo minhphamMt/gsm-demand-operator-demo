@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from src.common.haversine import EARTH_RADIUS_KM, ZoneCoord, load_zone_coords
 from src.common.policy import Policy, load_policy
 from src.contracts import ZONE_COUNT

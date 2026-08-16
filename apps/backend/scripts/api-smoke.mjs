@@ -64,17 +64,34 @@ const adminDb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERV
 });
 const policyFixtureId = 'f0420000-0000-4000-a000-000000000101';
 const staleFixtureId = 'f0420000-0000-4000-a000-000000000102';
-const fixtureIds = [policyFixtureId, staleFixtureId];
+const duplicateFixtureId = 'f0420000-0000-4000-a000-000000000103';
+const reviewFixtureIds = [policyFixtureId, staleFixtureId];
+const fixtureIds = [...reviewFixtureIds, duplicateFixtureId];
 
 async function cleanupReviewFixtures() {
-  await adminDb.from('audit_logs').delete().in('entity_id', fixtureIds);
+  const { data: campaigns } = await adminDb.from('campaigns').select('id').in('proposal_id', fixtureIds);
+  const campaignIds = (campaigns ?? []).map(({ id }) => id);
+  let offerIds = [];
+  if (campaignIds.length) {
+    const { data: offers } = await adminDb.from('driver_offers').select('id').in('campaign_id', campaignIds);
+    offerIds = (offers ?? []).map(({ id }) => id);
+    await adminDb.from('budget_ledger_entries').delete().in('campaign_id', campaignIds);
+    await adminDb.from('reward_records').delete().in('campaign_id', campaignIds);
+    await adminDb.from('campaign_participations').delete().in('campaign_id', campaignIds);
+    await adminDb.from('driver_offers').delete().in('campaign_id', campaignIds);
+    await adminDb.from('campaigns').delete().in('id', campaignIds);
+  }
   await adminDb.from('proposals').delete().in('id', fixtureIds);
 }
 
 async function createReviewFixtures() {
   await cleanupReviewFixtures();
-  const { data: template, error: templateError } = await adminDb.from('proposals').select('*').limit(1).single();
+  const [{ data: template, error: templateError }, { data: latestSnapshot, error: snapshotError }] = await Promise.all([
+    adminDb.from('proposals').select('*').limit(1).single(),
+    adminDb.from('supply_demand_snapshots').select('id').order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1).single(),
+  ]);
   if (templateError || !template) throw templateError ?? new Error('No proposal template exists');
+  if (snapshotError || !latestSnapshot) throw snapshotError ?? new Error('No supply-demand snapshot exists');
   const base = {
     bonus_amount: 25_000,
     estimated_cost: 50_000,
@@ -83,7 +100,9 @@ async function createReviewFixtures() {
     generator_type: 'MANUAL',
     generator_version: 'api-smoke/1',
     hotspot_id: template.hotspot_id,
-    input_snapshot_id: template.input_snapshot_id,
+    // Fixtures that exercise activation must point to the current data snapshot;
+    // an arbitrary proposal template may be intentionally stale.
+    input_snapshot_id: latestSnapshot.id,
     offer_count: 2,
     parent_proposal_id: null,
     simulation_details: { ...(template.simulation_details ?? {}), warnings: [] },
@@ -96,7 +115,7 @@ async function createReviewFixtures() {
     version: 1,
     window_start_at: new Date(Date.now() - 60_000).toISOString(),
   };
-  const { error } = await adminDb.from('proposals').insert([
+  const { data: inserted, error } = await adminDb.from('proposals').insert([
     {
       ...base,
       id: policyFixtureId,
@@ -111,8 +130,38 @@ async function createReviewFixtures() {
       root_proposal_id: staleFixtureId,
       window_end_at: new Date(Date.now() - 1_000).toISOString(),
     },
-  ]);
+    {
+      ...base,
+      id: duplicateFixtureId,
+      offer_count: 1,
+      policy_status: 'PASSED',
+      root_proposal_id: duplicateFixtureId,
+      simulation_details: {
+        ...(base.simulation_details ?? {}),
+        metrics_after_activation_expected: { unmet_demand: 0 },
+        metrics_after_relocation: { unmet_demand: 2 },
+        plan_mode: 'ACTIVATION_ONLY',
+        warnings: [],
+      },
+      source_plan: {
+        ...(base.source_plan ?? {}),
+        moves: [],
+        residual_gap: [{ gap_remaining: 2, suggested_activation: 2, zone_id: 2 }],
+      },
+      status: 'APPROVED',
+      target_driver_count: 1,
+      window_end_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+    },
+  ]).select('id,status,content_hash');
   if (error) throw error;
+  for (const proposal of inserted ?? []) {
+    if (proposal.status !== 'APPROVED') continue;
+    const { error: approvalHashError } = await adminDb.from('proposals').update({
+      approved_content_hash: proposal.content_hash,
+      approved_version: 1,
+    }).eq('id', proposal.id);
+    if (approvalHashError) throw approvalHashError;
+  }
 }
 
 const port = 3102;
@@ -135,13 +184,19 @@ try {
   await createReviewFixtures();
   const conflictCandidatesResponse = await request(baseUrl, '/api/v1/operator/proposals', operator.token);
   const conflictCandidates = await conflictCandidatesResponse.json();
-  const conflictCandidate = conflictCandidates.find((proposal) => !['Generated', 'UnderReview'].includes(proposal.status));
-  if (!conflictCandidate) throw new Error('No terminal proposal exists for the read-only conflict smoke test');
-  const campaignResponse = await request(baseUrl, '/api/v1/operator/campaigns', operator.token);
-  const campaignRows = await campaignResponse.json();
-  const duplicateActivation = campaignRows.find((campaign) => campaign.planId === conflictCandidate.id);
-  if (!duplicateActivation) throw new Error('No existing campaign exists for the duplicate-activation smoke test');
+  const conflictCandidate = conflictCandidates.find((proposal) => proposal.id === duplicateFixtureId);
+  if (!conflictCandidate) throw new Error('The dedicated terminal proposal fixture is missing');
+  const activationResponse = await request(
+    baseUrl,
+    `/api/v1/operator/proposals/${duplicateFixtureId}/activate`,
+    operator.token,
+    'smoke-seed-duplicate-activation',
+    { method: 'POST', body: JSON.stringify({ responseMode: 'human', driverIds: [driver.userId] }) },
+  );
+  if (activationResponse.status !== 201) throw new Error(`Dedicated campaign fixture failed: ${await activationResponse.text()}`);
+  const duplicateActivation = await activationResponse.json();
   const validRevisionBody = {
+    expectedVersion: conflictCandidate.version,
     sourcePlan: { moves: [{ from_zone: 6, to_zone: 2, drivers: 1 }] },
     targetDriverCount: 1,
     campaignDurationMinutes: 15,
@@ -176,6 +231,7 @@ try {
         {
           method: 'POST',
           body: JSON.stringify({
+            expectedVersion: 0,
             sourcePlan: { moves: [{ from_zone: 6, to_zone: 2, drivers: -1 }] },
             targetDriverCount: 0,
             campaignDurationMinutes: 1,
@@ -195,7 +251,7 @@ try {
         `/api/v1/operator/proposals/${conflictCandidate.id}/approve`,
         operator.token,
         'smoke-review-conflict',
-        { method: 'POST', body: JSON.stringify({ note: 'Read-only conflict smoke test' }) },
+        { method: 'POST', body: JSON.stringify({ expectedVersion: conflictCandidate.version, note: 'Read-only conflict smoke test' }) },
       ),
       409,
     ],
@@ -217,7 +273,7 @@ try {
         `/api/v1/operator/proposals/${policyFixtureId}/approve`,
         operator.token,
         'smoke-policy-rejected',
-        { method: 'POST', body: JSON.stringify({ note: 'Must not be approved' }) },
+        { method: 'POST', body: JSON.stringify({ expectedVersion: 1, note: 'Must not be approved' }) },
       ),
       422,
     ],
@@ -228,7 +284,7 @@ try {
         `/api/v1/operator/proposals/${staleFixtureId}/approve`,
         operator.token,
         'smoke-stale-rejected',
-        { method: 'POST', body: JSON.stringify({ note: 'Must not be approved' }) },
+        { method: 'POST', body: JSON.stringify({ expectedVersion: 1, note: 'Must not be approved' }) },
       ),
       409,
     ],
@@ -362,7 +418,7 @@ try {
     }
     if (name === 'operator revision field validation') {
       const fields = body?.details?.fieldErrors;
-      const expectedFields = ['sourcePlan.moves.0.drivers', 'targetDriverCount', 'campaignDurationMinutes', 'bonusAmount', 'zoneTripBonus', 'fareMultiplier', 'budgetLimit'];
+      const expectedFields = ['expectedVersion', 'sourcePlan.moves.0.drivers', 'campaignDurationMinutes', 'bonusAmount', 'zoneTripBonus', 'fareMultiplier', 'budgetLimit'];
       if (body?.code !== 'VALIDATION_ERROR' || expectedFields.some((field) => typeof fields?.[field] !== 'string')) {
         throw new Error(`Revision validation did not return field errors: ${JSON.stringify(body)}`);
       }
@@ -459,8 +515,8 @@ try {
     }
   }
   const [{ data: fixtures }, { data: fixtureAudit }] = await Promise.all([
-    adminDb.from('proposals').select('id,status').in('id', fixtureIds),
-    adminDb.from('audit_logs').select('id').in('entity_id', fixtureIds),
+    adminDb.from('proposals').select('id,status').in('id', reviewFixtureIds),
+    adminDb.from('audit_logs').select('id').in('entity_id', reviewFixtureIds),
   ]);
   if (fixtures?.some((proposal) => proposal.status !== 'UNDER_REVIEW') || fixtureAudit?.length) {
     throw new Error('A rejected operator workflow changed fixture state or wrote audit data');

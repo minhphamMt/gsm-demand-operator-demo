@@ -1,7 +1,7 @@
 """
 T-008 / T0.4: Bộ sinh dữ liệu synthetic — A1 (Snapshot thô)
 
-Đọc config từ: config/zone_registry.json, config/generator.yaml
+Đọc config từ: config/zone_registry.json, config/generator.yaml; pricing qua src/common/policy.py
 Ngưỡng mưa lấy qua src/common/regime.py (nguồn duy nhất), KHÔNG viết cứng ở đây.
 Output: data/snapshots/snapshot_{split}.parquet (split = train | test)
         data/test_set/ (bản đóng băng của split test + manifest SHA-256)
@@ -26,7 +26,9 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -34,6 +36,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import yaml
 
+from src.common.policy import PricingPolicy, load_policy
 from src.common.regime import rain_threshold, tag_regime
 
 TZ_ICT = timezone(timedelta(hours=7))
@@ -69,16 +72,38 @@ SNAPSHOT_SCHEMA = pa.schema(
 
 
 def load_config(base_dir="."):
-    """Đọc zone registry + tham số generator.
+    """Đọc zone registry, tham số generator và policy đã kiểm kiểu.
 
-    KHÔNG đọc config/policy.yaml: generator không dùng ngưỡng vận hành nào, và §3 #2
-    chỉ cho src/common/policy.py chạm file đó. Ngưỡng mưa vào đây qua rain_threshold().
+    Generator không tự parse policy YAML; mọi giá trị pricing đi qua loader duy nhất
+    ``src/common/policy.py``. Ngưỡng mưa tiếp tục đi qua ``rain_threshold()``.
     """
     with open(f"{base_dir}/config/zone_registry.json", encoding="utf-8") as f:
         zones = json.load(f)
     with open(f"{base_dir}/config/generator.yaml", encoding="utf-8") as f:
         gen_cfg = yaml.safe_load(f)
-    return zones, gen_cfg
+    policy = load_policy(Path(base_dir) / "config" / "policy.yaml")
+    return zones, gen_cfg, policy
+
+
+def calculate_price_index(
+    demand: np.ndarray,
+    supply: np.ndarray,
+    pricing: PricingPolicy,
+) -> np.ndarray:
+    """Tính price index động từ thiếu hụt cung–cầu theo policy có provenance.
+
+    Cột này chỉ mô phỏng pricing cho snapshot và không đi vào feature Model 1/2.
+    Demand bằng 0 cho gap ratio bằng 0 để tránh chia cho 0 và giữ multiplier nền.
+    """
+    config = pricing.customer_driver
+    gap = np.maximum(0.0, demand - supply)
+    gap_ratio = np.divide(gap, demand, out=np.zeros_like(gap, dtype=float), where=demand > 0)
+    weighted_gap = np.minimum(config.surge_gap_ratio_cap, gap_ratio) * config.surge_gap_ratio_weight
+    multiplier = config.surge_base_multiplier + weighted_gap
+    return np.round(
+        np.clip(multiplier, config.surge_min_multiplier, config.surge_max_multiplier),
+        3,
+    )
 
 
 def is_peak(dt, peak_hours):
@@ -99,6 +124,21 @@ def normalized_curve(values):
     if arr.shape != (24,):
         raise ValueError(f"Đường cong phải có đúng 24 giá trị, đang có {arr.shape}")
     return arr / arr.mean()
+
+
+def resolve_rain_source(base_dir="."):
+    """Tìm nguồn mưa ở package mới, rồi fallback về vị trí root trước refactor."""
+    package_source = Path(base_dir) / "data" / "external" / "rain_hanoi_2025.csv"
+    if package_source.is_file():
+        return package_source
+
+    # Không giả định script luôn nằm đúng ba cấp dưới repository: trong image Docker file này ở
+    # /app/generate_snapshots.py, còn khi chạy source trực tiếp nó ở <repo>/apps/ai/.
+    for ancestor in Path(__file__).resolve().parents:
+        repository_source = ancestor / "data" / "external" / "rain_hanoi_2025.csv"
+        if repository_source.is_file():
+            return repository_source
+    return package_source
 
 
 def load_real_rain_series(rain_csv_path, start_month, start_day, n_steps, step_minutes=5):
@@ -229,7 +269,7 @@ def apply_nowcast(rain_true, rng, threshold, horizon_steps, sigma_rel, sigma_abs
     return forecast, missed
 
 
-def build_snapshot(zones, gen_cfg, split="train", base_dir="."):
+def build_snapshot(zones, gen_cfg, pricing: PricingPolicy, split="train", base_dir="."):
     seed = gen_cfg["seed"]["train"] if split == "train" else gen_cfg["seed"]["test"]
     rng = np.random.default_rng(seed)
     # Seed nowcast độc lập seed split: đổi độ nhiễu dự báo không được làm xáo trộn
@@ -262,18 +302,22 @@ def build_snapshot(zones, gen_cfg, split="train", base_dir="."):
     holiday_day_idx = min(10, n_days - 2) if holiday_cfg["enabled"] else -1
     holiday_flags = (np.arange(n_steps) // steps_per_day == holiday_day_idx).astype(int)
 
-    rain_csv = f"{base_dir}/data/external/rain_hanoi_2025.csv"
+    rain_csv = resolve_rain_source(base_dir)
     city_rain = load_real_rain_series(rain_csv, window["start_month"], window["start_day"], n_steps, step_min)
     factors = spatial_rain_factors(zones, n_steps, step_min, rain_cfg["spatial"])
 
-    # Chuẩn hóa hai điểm số nền về 0-1 (building_density trong zone_registry đã sẵn 0-1)
+    # Mật độ dân số là số liệu hành chính có thể đối chiếu. ``building_density`` không được dùng
+    # làm proxy nhu cầu nữa: trường này là số công trình OSM thô nên quận ngoại thành có nhiều
+    # footprint nhà thấp tầng (Long Biên, Gia Lâm, Sơn Tây) từng bị xếp cao hơn khu trung tâm.
+    # Activity score biểu diễn cường độ thương mại/dịch vụ ở mức thận trọng theo tier đô thị.
     pop = np.array([z["population_density"] for z in zones], dtype=float)
-    build = np.array([z["building_density"] for z in zones], dtype=float)
     pop_norm = (pop - pop.min()) / (pop.max() - pop.min())
+    activity_by_tier = baseline["activity_score_by_tier"]
+    activity = np.array([activity_by_tier[z["tier"]] for z in zones], dtype=float)
     w_d = baseline["demand_score_weights"]
     w_s = baseline["supply_score_weights"]
-    score_d = w_d["population"] * pop_norm + w_d["building"] * build
-    score_s = w_s["population"] * pop_norm + w_s["building"] * build
+    score_d = w_d["population"] * pop_norm + w_d["activity"] * activity
+    score_s = w_s["population"] * pop_norm + w_s["activity"] * activity
 
     d_lo, d_hi = baseline["base_demand_range"]
     s_lo, s_hi = baseline["base_supply_range"]
@@ -324,6 +368,7 @@ def build_snapshot(zones, gen_cfg, split="train", base_dir="."):
 
         demand = np.maximum(0, demand * (1 + rng.normal(0, noise_pct, n_steps)))
         supply = np.maximum(0, supply * (1 + rng.normal(0, noise_pct, n_steps)))
+        price_index = calculate_price_index(demand, supply, pricing)
 
         frames.append(
             pd.DataFrame(
@@ -341,7 +386,7 @@ def build_snapshot(zones, gen_cfg, split="train", base_dir="."):
                     "rain_forecast_30": np.round(fc30, 3),
                     "peak_flag": peak_flags.astype(np.int32),
                     "holiday_flag": holiday_flags.astype(np.int32),
-                    "price_index": float(gen_cfg["price_index"]["fallback_value"]),
+                    "price_index": price_index,
                 }
             )
         )
@@ -406,7 +451,7 @@ def pick_sample_windows(df, threshold, window_steps=4):
     if len(rain_off_peak):
         picked += window_from(index.get_loc(rain_off_peak["rain_sum"].idxmax()))
 
-    # 4) rain_peak nặng nhất — chỗ duy nhất thấy được cung sụt 30% và mưa lệch giữa zone.
+    # 4) rain_peak nặng nhất — cho thấy cung đổi nhẹ và mưa lệch giữa các zone.
     rain_peak = steps[(steps["rain_max"] >= threshold) & (steps["peak"] == 1)]
     if len(rain_peak):
         picked += window_from(index.get_loc(rain_peak["rain_sum"].idxmax()))
@@ -432,6 +477,40 @@ def write_sample(df, out_path, threshold):
     return len(sample), len(windows)
 
 
+def operational_quality(df, zones):
+    """Đo hai điều kiện để snapshot dùng được cho bài toán điều chuyển.
+
+    * Cầu trung bình phải tập trung hợp lý ở nhóm quận đô thị ``high`` thay vì bị số
+      footprint công trình ở ngoại thành chi phối.
+    * Phần lớn timestamp cao điểm phải có tổng xe dư cục bộ đủ bù tổng xe thiếu cục bộ.
+      Đây chỉ là điều kiện khả thi cấp thành phố; optimizer vẫn phải xét reserve, ETA và chi phí.
+    """
+    work = df[["ts_bucket", "zone_id", "demand_observed", "idle_supply", "peak_flag"]].copy()
+    work["gap"] = work["demand_observed"] - work["idle_supply"]
+    work["deficit"] = work["gap"].clip(lower=0)
+    work["surplus"] = (-work["gap"]).clip(lower=0)
+
+    city = work.groupby("ts_bucket", as_index=False).agg(
+        deficit=("deficit", "sum"),
+        surplus=("surplus", "sum"),
+        peak_flag=("peak_flag", "max"),
+    )
+    peak = city[city["peak_flag"] == 1]
+    relocatable_peak_pct = float((peak["surplus"] >= peak["deficit"]).mean())
+
+    zone_tier = {int(zone["zone_id"]): zone["tier"] for zone in zones}
+    high_count = sum(tier == "high" for tier in zone_tier.values())
+    top_zone_ids = (
+        work.groupby("zone_id")["demand_observed"].mean().nlargest(high_count).index.astype(int).tolist()
+    )
+    top_demand_all_high = all(zone_tier[zone_id] == "high" for zone_id in top_zone_ids)
+    return {
+        "relocatable_peak_pct": relocatable_peak_pct,
+        "top_demand_all_high": top_demand_all_high,
+        "top_demand_zone_ids": top_zone_ids,
+    }
+
+
 def validate(df, zones, n_steps, threshold):
     """Kiểm tra quality requirements trong A1 + các bất biến contract §4.1."""
     errors = []
@@ -453,11 +532,26 @@ def validate(df, zones, n_steps, threshold):
     bad_inv3 = df[df["enroute_supply"] != df["enroute_arrivals"].apply(len)]
     if len(bad_inv3):
         errors.append(f"INV-3 vỡ ở {len(bad_inv3)} dòng: enroute_supply != Σ enroute_arrivals[].units")
+
+    quality = operational_quality(df, zones)
+    if quality["relocatable_peak_pct"] < 0.70:
+        errors.append(
+            "Dữ liệu không khả thi cho điều chuyển: chỉ "
+            f"{quality['relocatable_peak_pct']:.1%} timestamp cao điểm có xe dư đủ bù xe thiếu (cần >= 70%)"
+        )
+    if not quality["top_demand_all_high"]:
+        errors.append(
+            "Phân bố cầu sai thực tế đô thị: nhóm zone có cầu trung bình cao nhất không trùng nhóm tier=high; "
+            f"zone đang đứng đầu: {quality['top_demand_zone_ids']}"
+        )
     if errors:
         raise ValueError("VALIDATION FAILED:\n" + "\n".join(errors))
 
     n_events, n_rp_steps = count_rain_peak_events(df, threshold)
-    print(f"✅ Validation passed: {len(df)} dòng, {df['zone_id'].nunique()} zone, không null, đủ step.")
+    print(
+        f"✅ Validation passed: {len(df)} dòng, {df['zone_id'].nunique()} zone, không null, đủ step; "
+        f"{quality['relocatable_peak_pct']:.1%} timestamp cao điểm có xe dư đủ bù xe thiếu."
+    )
     return n_events, n_rp_steps
 
 
@@ -473,6 +567,14 @@ def sha256_of(path):
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def configure_console_encoding():
+    """Ép UTF-8 cho log CLI trên Windows mà không tạo side effect lúc import module."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8")
 
 
 def report(df, threshold, n_events, n_rp_steps, nowcast_stats):
@@ -498,13 +600,20 @@ def report(df, threshold, n_events, n_rp_steps, nowcast_stats):
 
 
 if __name__ == "__main__":
+    configure_console_encoding()
     parser = argparse.ArgumentParser()
     parser.add_argument("--split", choices=["train", "test"], default="train")
     parser.add_argument("--base_dir", default=".")
     args = parser.parse_args()
 
-    zones, gen_cfg = load_config(args.base_dir)
-    df, nowcast_stats = build_snapshot(zones, gen_cfg, split=args.split, base_dir=args.base_dir)
+    zones, gen_cfg, policy = load_config(args.base_dir)
+    df, nowcast_stats = build_snapshot(
+        zones,
+        gen_cfg,
+        policy.pricing,
+        split=args.split,
+        base_dir=args.base_dir,
+    )
 
     n_days = gen_cfg["time"]["days_train"] if args.split == "train" else gen_cfg["time"]["days_test"]
     n_steps = n_days * gen_cfg["time"]["steps_per_day"]
