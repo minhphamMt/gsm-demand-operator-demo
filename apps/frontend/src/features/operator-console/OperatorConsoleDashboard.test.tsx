@@ -37,9 +37,10 @@ describe('operator console safety states', () => {
   it('shows only the active operation and hides forecasting while it is running', async () => {
     renderDashboard({ withActiveExecution: true })
 
-    expect(await screen.findByRole('button', { name: 'Dừng' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Phương án đang chạy' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dừng phương án đang chạy' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Chạy dự báo/ })).not.toBeInTheDocument()
-    expect(screen.queryByText('Bản đồ vận hành')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Horizon dự báo' })).not.toBeInTheDocument()
   })
 
   it('renders all forecast horizons declared by the server capability', () => {

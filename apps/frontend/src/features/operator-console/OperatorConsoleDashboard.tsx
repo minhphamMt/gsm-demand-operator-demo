@@ -16,6 +16,7 @@ import {
   campaignsQuery,
   capabilitiesQuery,
   activeExecutionPlan,
+  dispatchProgress,
   dispatchStatusPresentation,
   dispatchQuery,
   forecastRunForHorizon,
@@ -43,7 +44,6 @@ import { ExecutionDrawer } from "./components/ExecutionDrawer";
 import { ForecastDrawer } from "./components/ForecastDrawer";
 import { ForecastRunStatus } from "./components/ForecastRunStatus";
 import { PlanDrawer } from "./components/PlanDrawer";
-import { ActiveOperation } from "@/features/operator-execution/components/ActiveOperation";
 import { StopOperationDialog } from "@/features/operator-execution/components/StopOperationDialog";
 import { useCurrentReplayAnchor } from "./hooks/useCurrentReplayAnchor";
 import { useServerClock } from "./hooks/useServerClock";
@@ -70,6 +70,8 @@ type MapLayer = "gap" | "demand" | "supply";
 type MapView = "city" | "core";
 type MapSource = "observed" | "forecast";
 type DialogKind = "approve" | "release" | "dispatch" | "reject" | null;
+type ActiveStopTarget = { id: string; kind: "campaign" | "dispatch" };
+type ActiveExecution = NonNullable<ReturnType<typeof activeExecutionPlan>>;
 
 export function OperatorConsoleDashboard() {
   const navigate = useNavigate();
@@ -93,6 +95,7 @@ export function OperatorConsoleDashboard() {
   const [railOpen, setRailOpen] = useState(true);
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [cancelApprovedOpen, setCancelApprovedOpen] = useState(false);
+  const [stopTarget, setStopTarget] = useState<ActiveStopTarget | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const snapshot = useQuery(snapshotQuery("baseline"));
   const capabilities = useQuery(capabilitiesQuery());
@@ -156,7 +159,6 @@ export function OperatorConsoleDashboard() {
 
   const execution = activeExecutionPlan(plans.data, campaigns.data, dispatches.data);
   const hasExecution = Boolean(execution);
-  if (hasExecution) return <ActiveOperation />;
 
   if (snapshot.isPending)
     return (
@@ -242,8 +244,9 @@ export function OperatorConsoleDashboard() {
   const hasRequestedForecast = forecastRun?.horizon === displayedHorizon && forecastRun.sourceAt === sourceAt;
   const forecastReady = Boolean(hasRequestedForecast && hasExactForecastRun(activeSnapshot.ai, displayedHorizon));
   const forecastStale = Boolean(forecastRun) && !forecastReady;
+  const displayedMapSource: MapSource = hasExecution ? "observed" : mapSource;
   const zones =
-    mapSource === "forecast" && forecastReady
+    displayedMapSource === "forecast" && forecastReady
       ? projectZonesAtMinute(
           observedZones,
           displayedHorizon,
@@ -253,7 +256,7 @@ export function OperatorConsoleDashboard() {
   const replayTime = formatTimeLabel(displaySourceAt);
   const forecastTime = addMinutesLabel(displaySourceAt, displayedHorizon);
   const selectedZone = recordedZones.find((zone) => zone.id === selectedZoneId);
-  const selectedForecastZone = mapSource === "forecast"
+  const selectedForecastZone = displayedMapSource === "forecast"
     ? zones.find((zone) => zone.id === selectedZoneId)
     : undefined;
   const balance = fleetBalanceSummary(zones);
@@ -388,6 +391,17 @@ export function OperatorConsoleDashboard() {
       },
     );
   };
+  const stopError = actions.cancelDispatch.error?.message ?? actions.cancelCampaign.error?.message;
+  const stopPending = actions.cancelDispatch.isPending || actions.cancelCampaign.isPending;
+  const stopActiveExecution = (reason: string) => {
+    if (!stopTarget) return;
+    const onSuccess = () => setStopTarget(null);
+    if (stopTarget.kind === "dispatch") {
+      actions.cancelDispatch.mutate({ batchId: stopTarget.id, reason }, { onSuccess });
+    } else {
+      actions.cancelCampaign.mutate(stopTarget.id, { onSuccess });
+    }
+  };
 
   return (
     <div className="nf-ops">
@@ -407,6 +421,7 @@ export function OperatorConsoleDashboard() {
         generatedAt={displaySourceAt}
         modelVersion={forecastRunForHorizon(activeSnapshot.ai, displayedHorizon)?.modelVersion ?? activeSnapshot.ai?.modelVersion}
         horizons={forecastHorizons}
+        executionActive={hasExecution}
         isForecasting={actions.generateAiDecision.isPending}
         onForecastChange={changeHorizon}
         onRefresh={() => {
@@ -420,12 +435,12 @@ export function OperatorConsoleDashboard() {
       />
       <div className="nf-ops-workspace">
         <section className="nf-map-stage" aria-label="Bản đồ vận hành">
-          {forecastRun
+          {!hasExecution && forecastRun
             ? <ForecastRunStatus forecast={activeSnapshot.ai} horizon={forecastMinutes} isExact={forecastReady} />
-            : <p className="nf-forecast-run is-ready" role="status">Dữ liệu ghi nhận · chưa chạy model cho mốc này</p>}
+            : <p className="nf-forecast-run is-ready" role="status">{hasExecution ? "Đang theo dõi phương án đang thực hiện · dự báo đã khóa" : "Dữ liệu ghi nhận · chưa chạy model cho mốc này"}</p>}
           <Suspense fallback={<Skeleton className="h-full" />}>
             <OperatorMap
-              forecastMinutes={mapSource === "forecast" ? displayedHorizon : 0}
+              forecastMinutes={displayedMapSource === "forecast" ? displayedHorizon : 0}
               flowState={
                 activeStage === "executing"
                   ? "executing"
@@ -438,7 +453,7 @@ export function OperatorConsoleDashboard() {
               onZoneSelect={setSelectedZoneId}
               selectedZoneId={selectedZoneId}
               timeLabel={
-                mapSource === "forecast"
+                displayedMapSource === "forecast"
                   ? `Dự báo ${forecastTime}`
                   : `Ghi nhận ${replayTime}`
               }
@@ -447,10 +462,10 @@ export function OperatorConsoleDashboard() {
             />
           </Suspense>
           <MapControls
-            forecastEnabled={forecastReady}
+            forecastEnabled={forecastReady && !hasExecution}
             forecastTime={forecastTime}
             layer={layer}
-            mapSource={mapSource}
+            mapSource={displayedMapSource}
             onLayerChange={setLayer}
             onSourceChange={setMapSource}
             onViewChange={(nextView) => {
@@ -471,7 +486,7 @@ export function OperatorConsoleDashboard() {
           />
           {selectedZone && (
             <ZoneCard
-              forecastTime={mapSource === "forecast" ? forecastTime : undefined}
+              forecastTime={displayedMapSource === "forecast" ? forecastTime : undefined}
               forecastZone={selectedForecastZone}
               observationTime={replayTime}
               onClose={() => setSelectedZoneId(undefined)}
@@ -488,7 +503,7 @@ export function OperatorConsoleDashboard() {
           />
           {actions.runReplayStep.isError && <div className="nf-replay-error" role="alert">{actions.runReplayStep.error.message}</div>}
           {!dataComplete && <div className="nf-replay-error" role="alert">Snapshot thiếu dữ liệu ở {missingZoneCount} zone. Không thể chạy dự báo hoặc tạo phương án cho đến khi nguồn dữ liệu đầy đủ.</div>}
-          {drawerOpen && ["forecast", "not_required"].includes(activeStage) && <ForecastDrawer
+          {drawerOpen && !hasExecution && ["forecast", "not_required"].includes(activeStage) && <ForecastDrawer
             dataSource={forecastRunForHorizon(activeSnapshot.ai, displayedHorizon)?.dataSource ?? activeSnapshot.ai?.dataSource}
             forecastMode={forecastRunForHorizon(activeSnapshot.ai, displayedHorizon)?.forecastMode ?? activeSnapshot.ai?.forecastMode}
             forecastTime={forecastTime}
@@ -501,7 +516,7 @@ export function OperatorConsoleDashboard() {
             sourceTime={replayTime}
             zones={zones}
           />}
-          {drawerOpen && planReady && plan && (["executing", "executed"].includes(activeStage)
+          {drawerOpen && !hasExecution && planReady && plan && (["executing", "executed"].includes(activeStage)
             ? <ExecutionDrawer batch={dispatch} isComplete={activeStage === "executed"} onClose={() => setDrawerOpen(false)} onRetryMove={(batchId, moveId) => actions.retryDispatch.mutate({ batchId, moveId, reason: "Operator requested retry after reviewing the failed move." })} plan={plan} />
             : activeStage === "activation_draft"
               ? <ActivationDraftDrawer onClose={() => setDrawerOpen(false)} plan={plan} />
@@ -530,59 +545,68 @@ export function OperatorConsoleDashboard() {
           aria-label="Bảng chỉ huy vận hành"
           className={`nf-command-rail ${railOpen ? "is-open" : ""}`}
         >
-          <KpiPanel
-            balance={balance}
-            campaign={campaign}
-            hotspots={hotspots}
-            plan={planReady ? plan : undefined}
-            requests={activeSnapshot.kpis.requests}
-            stage={activeStage}
-          />
-          <Pipeline
-            campaign={campaign}
-            dispatch={dispatch}
-            forecastReady={forecastReady}
-            forecastStale={forecastStale}
-            isForecasting={actions.generateAiDecision.isPending}
-            isOptimizing={actions.optimizeAiDecision.isPending}
-            isScanning={actions.runReplayStep.isPending}
-            optimizationStopReason={optimizationStopReason}
-            plan={planReady ? plan : undefined}
-            onOpenPlan={() => setDrawerOpen(true)}
-            onOpenExecution={() => navigate(routes.operator.execution)}
-            replayTargetAt={replayTargetAt ? displayTimeForSource(replayTargetAt) : undefined}
-            stage={activeStage}
-          />
-          <RailActions
-            activeDispatch={dispatch}
-            campaign={campaign}
-            dataComplete={dataComplete}
-            forecastReady={forecastReady}
-            isGenerating={actions.generateAiDecision.isPending}
-            isOptimizing={actions.optimizeAiDecision.isPending}
-            isScanning={actions.runReplayStep.isPending}
-            optimizationError={actions.optimizeAiDecision.error?.message}
-            optimizationStopReason={optimizationStopReason}
-            isLiveEdge={isLiveEdge}
-            dispatchEnabled={capabilities.data?.capabilities.dispatchRelease.enabled ?? false}
-            isDispatching={actions.releaseDispatch.isPending}
-            hasActiveExecution={hasExecution}
-            missingZoneCount={missingZoneCount}
-            snapshotStale={snapshotStale}
-            onActivate={() => setDialog("release")}
-            onDispatch={() => setDialog("dispatch")}
-            onApprove={() => setDialog("approve")}
-            onCancelApproved={() => setCancelApprovedOpen(true)}
-            onGenerate={runForecast}
-            onOptimize={optimize}
-            onPrepareActivation={() => { setWorkflowStage("activation_draft"); setDrawerOpen(true); }}
-            onOpenCampaign={() => navigate(routes.operator.campaigns)}
-            onOpenExecution={() => navigate(routes.operator.execution)}
-            onOpenPlan={() => setDrawerOpen(true)}
-            onReject={() => setDialog("reject")}
-            plan={planReady ? plan : undefined}
-            stage={activeStage}
-          />
+          {execution ? (
+            <ActiveExecutionRail
+              execution={execution}
+              onOpenExecution={() => navigate(routes.operator.execution)}
+              onStop={(target) => setStopTarget(target)}
+            />
+          ) : (
+            <>
+              <KpiPanel
+                balance={balance}
+                campaign={campaign}
+                hotspots={hotspots}
+                plan={planReady ? plan : undefined}
+                requests={activeSnapshot.kpis.requests}
+                stage={activeStage}
+              />
+              <Pipeline
+                campaign={campaign}
+                dispatch={dispatch}
+                forecastReady={forecastReady}
+                forecastStale={forecastStale}
+                isForecasting={actions.generateAiDecision.isPending}
+                isOptimizing={actions.optimizeAiDecision.isPending}
+                isScanning={actions.runReplayStep.isPending}
+                optimizationStopReason={optimizationStopReason}
+                plan={planReady ? plan : undefined}
+                onOpenPlan={() => setDrawerOpen(true)}
+                onOpenExecution={() => navigate(routes.operator.execution)}
+                replayTargetAt={replayTargetAt ? displayTimeForSource(replayTargetAt) : undefined}
+                stage={activeStage}
+              />
+              <RailActions
+                activeDispatch={dispatch}
+                campaign={campaign}
+                dataComplete={dataComplete}
+                forecastReady={forecastReady}
+                isGenerating={actions.generateAiDecision.isPending}
+                isOptimizing={actions.optimizeAiDecision.isPending}
+                isScanning={actions.runReplayStep.isPending}
+                optimizationError={actions.optimizeAiDecision.error?.message}
+                optimizationStopReason={optimizationStopReason}
+                isLiveEdge={isLiveEdge}
+                dispatchEnabled={capabilities.data?.capabilities.dispatchRelease.enabled ?? false}
+                isDispatching={actions.releaseDispatch.isPending}
+                missingZoneCount={missingZoneCount}
+                snapshotStale={snapshotStale}
+                onActivate={() => setDialog("release")}
+                onDispatch={() => setDialog("dispatch")}
+                onApprove={() => setDialog("approve")}
+                onCancelApproved={() => setCancelApprovedOpen(true)}
+                onGenerate={runForecast}
+                onOptimize={optimize}
+                onPrepareActivation={() => { setWorkflowStage("activation_draft"); setDrawerOpen(true); }}
+                onOpenCampaign={() => navigate(routes.operator.campaigns)}
+                onOpenExecution={() => navigate(routes.operator.execution)}
+                onOpenPlan={() => setDrawerOpen(true)}
+                onReject={() => setDialog("reject")}
+                plan={planReady ? plan : undefined}
+                stage={activeStage}
+              />
+            </>
+          )}
         </aside>
       </div>
       {dialog && plan && (
@@ -615,11 +639,22 @@ export function OperatorConsoleDashboard() {
           title="Hủy phương án đã duyệt?"
         />
       )}
+      {execution && (
+        <StopOperationDialog
+          error={stopError}
+          isOpen={stopTarget !== null}
+          isSaving={stopPending}
+          onClose={() => setStopTarget(null)}
+          onConfirm={stopActiveExecution}
+          title="Dừng phương án đang vận hành?"
+        />
+      )}
     </div>
   );
 }
 
 export function ScenarioBar({
+  executionActive = false,
   fleet,
   forecastMinutes,
   generatedAt,
@@ -632,6 +667,7 @@ export function ScenarioBar({
   serverTime,
   zoneCount,
 }: {
+  executionActive?: boolean;
   fleet: number;
   forecastMinutes: ForecastHorizon;
   generatedAt: string;
@@ -658,22 +694,28 @@ export function ScenarioBar({
         Đội xe vận hành {fleet} xe · {zoneCount}/30 zone
       </span>
       <span className="nf-model">MODEL {modelVersion ?? "CHƯA XÁC ĐỊNH"}</span>
-      <small>HORIZON DỰ BÁO</small>
-      <div className="seg" role="group" aria-label="Horizon dự báo">
-        {horizons.map((minute) => (
-          <label className="seg-opt" key={minute}>
-            <input
-              checked={forecastMinutes === minute}
-              disabled={isForecasting}
-              name="hz"
-              onChange={() => onForecastChange(minute)}
-              type="radio"
-            />
-            {minute} phút
-          </label>
-        ))}
-        {horizons.length === 0 && <span role="status">Chưa có mốc dự báo khả dụng</span>}
-      </div>
+      {executionActive ? (
+        <span className="nf-execution-lock" role="status">ĐANG ĐIỀU HÀNH · DỰ BÁO ĐÃ KHÓA</span>
+      ) : (
+        <>
+          <small>HORIZON DỰ BÁO</small>
+          <div className="seg" role="group" aria-label="Horizon dự báo">
+            {horizons.map((minute) => (
+              <label className="seg-opt" key={minute}>
+                <input
+                  checked={forecastMinutes === minute}
+                  disabled={isForecasting}
+                  name="hz"
+                  onChange={() => onForecastChange(minute)}
+                  type="radio"
+                />
+                {minute} phút
+              </label>
+            ))}
+            {horizons.length === 0 && <span role="status">Chưa có mốc dự báo khả dụng</span>}
+          </div>
+        </>
+      )}
       <button className="btn btn-secondary" onClick={onRefresh} type="button">
         Làm mới dữ liệu
       </button>
@@ -1281,6 +1323,94 @@ function pipelineStatusLabel(state: PipelineState) {
   if (state === "stale") return "DỮ LIỆU CŨ";
   if (state === "skipped") return "BỎ QUA";
   return "CHỜ ĐIỀU KIỆN";
+}
+
+function ActiveExecutionRail({
+  execution,
+  onOpenExecution,
+  onStop,
+}: {
+  execution: ActiveExecution;
+  onOpenExecution: () => void;
+  onStop: (target: ActiveStopTarget) => void;
+}) {
+  const dispatchState = execution.dispatch
+    ? dispatchStatusPresentation(execution.dispatch)
+    : undefined;
+  const progress = execution.dispatch ? dispatchProgress(execution.dispatch) : undefined;
+  const stopTarget = execution.dispatch && dispatchState?.canCancel
+    ? { id: execution.dispatch.id, kind: "dispatch" as const }
+    : execution.campaign
+      ? { id: execution.campaign.id, kind: "campaign" as const }
+      : undefined;
+  const title = execution.plan?.title ?? "Phương án đang vận hành";
+  const statusLabel = dispatchState?.label ?? (execution.campaign ? "Đang kích hoạt" : "Đang thực hiện");
+
+  return (
+    <section aria-label="Phương án đang chạy" className="nf-active-rail">
+      <header className="nf-active-rail-header">
+        <div>
+          <small>PHƯƠNG ÁN ĐANG CHẠY</small>
+          <strong>{title}</strong>
+        </div>
+        <span className="nf-active-rail-badge">KHÓA DỰ BÁO</span>
+      </header>
+      <div className="nf-active-rail-status">
+        <i />
+        <strong>{statusLabel}</strong>
+        <small>{execution.plan ? `Revision v${execution.plan.version}` : execution.planId.slice(0, 12)}</small>
+      </div>
+      <div className="nf-active-rail-summary">
+        {progress ? (
+          <span>
+            <small>TIẾN ĐỘ LỆNH</small>
+            <b>{progress.finishedMoves}/{progress.totalMoves}</b>
+            <em>{progress.activeMoves} đang đi · {progress.waitingMoves} chờ</em>
+          </span>
+        ) : execution.campaign ? (
+          <span>
+            <small>PHẢN HỒI OFFER</small>
+            <b>{execution.campaign.accepted}/{execution.campaign.offersSent}</b>
+            <em>{execution.campaign.viewed} đã xem</em>
+          </span>
+        ) : null}
+        <span>
+          <small>PHƯƠNG ÁN</small>
+          <b>{execution.plan?.moves.length ?? "—"}</b>
+          <em>{execution.plan?.moves.length === 1 ? "lệnh điều phối" : "lệnh điều phối"}</em>
+        </span>
+      </div>
+      {execution.dispatch && (
+        <div className="nf-active-rail-moves">
+          <small>LỆNH ĐANG THEO DÕI</small>
+          {execution.dispatch.moves.slice(0, 4).map((move) => (
+            <div key={move.id}>
+              <span>{move.sourceZoneId} → {move.targetZoneId}</span>
+              <b>{move.plannedUnits} xe</b>
+            </div>
+          ))}
+          {execution.dispatch.moves.length > 4 && <em>+{execution.dispatch.moves.length - 4} lệnh khác</em>}
+        </div>
+      )}
+      {execution.campaign && !execution.dispatch && (
+        <div className="nf-active-rail-campaign">
+          <small>CHIẾN DỊCH ĐANG PHẢN HỒI</small>
+          <p>{execution.campaign.offersSent} offer đã gửi · hết hạn {formatTimeLabel(execution.campaign.expiresAt)}</p>
+        </div>
+      )}
+      <div className="nf-active-rail-actions">
+        <button className="btn btn-primary btn-block" onClick={onOpenExecution} type="button">
+          Mở chi tiết phương án
+        </button>
+        {stopTarget && (
+          <button className="btn btn-secondary btn-block" onClick={() => onStop(stopTarget)} type="button">
+            Dừng phương án đang chạy
+          </button>
+        )}
+        <p>Dự báo và tính phương án mới sẽ mở lại sau khi phương án này hoàn tất hoặc được dừng.</p>
+      </div>
+    </section>
+  );
 }
 
 export function RailActions({
