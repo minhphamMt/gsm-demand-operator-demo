@@ -276,8 +276,12 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map?.isStyleLoaded() || mapStatus !== 'ready') return
-    moveMapToView(map, view, 650)
+    if (!map || mapStatus !== 'ready') return undefined
+    const frame = window.requestAnimationFrame(() => {
+      map.resize()
+      moveMapToView(map, view, 950)
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [mapStatus, view])
 
   useEffect(() => {
@@ -358,13 +362,11 @@ function moveMapToView(map: mapboxgl.Map, view: OperatorMapView, duration = 0) {
     map.jumpTo({ center: viewport.center, zoom: viewport.zoom })
     return
   }
-  map.flyTo({
+  map.easeTo({
     center: viewport.center,
     zoom: viewport.zoom,
-    duration: 950,
+    duration,
     essential: true,
-    curve: 1.35,
-    speed: 0.85,
   })
 }
 
