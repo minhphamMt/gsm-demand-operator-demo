@@ -1,8 +1,14 @@
-// Cửa sổ rain_peak đã được kiểm trên bundle model hiện hành: cả 12 bucket đều có ít nhất
-// một phương án điều chuyển trong bán kính vận hành. Phút vẫn bám đồng hồ thật để snapshot
-// tự tiến mỗi 5 phút; đây không phải một snapshot cố định.
-const replayDatasetDay = '2026-09-29'
-const replayOperationalHour = 17
+// Three consecutive rain-peak buckets verified against every 5/10/15-minute
+// model: each bucket produces a policy-valid relocation, while only 10-11 of 30
+// zones are raining. Cycling this window keeps the demo live without letting a
+// forecast cross the 09:00 peak boundary and manufacture an abrupt demand drop.
+export const verifiedReplaySources = [
+  '2026-09-25T08:30:00+07:00',
+  '2026-09-25T08:35:00+07:00',
+  '2026-09-25T08:40:00+07:00',
+] as const
+
+const replayBucketMs = 5 * 60_000
 
 /**
  * The model replay uses a frozen, checksummed dataset. Keep the live five-minute
@@ -11,17 +17,11 @@ const replayOperationalHour = 17
  * low-demand regime and manufacture empty proposals.
  */
 export function currentOperatorReplaySourceAt(now = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit',
-    hourCycle: 'h23',
-    minute: '2-digit',
-    timeZone: 'Asia/Ho_Chi_Minh',
-  }).formatToParts(now)
-  const hour = Number(parts.find((part) => part.type === 'hour')?.value)
-  const minute = Number(parts.find((part) => part.type === 'minute')?.value)
-  if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
+  const timestamp = now.getTime()
+  if (!Number.isFinite(timestamp)) {
     throw new Error('Không thể xác định giờ vận hành hiện tại.')
   }
-  const completedBucketMinute = Math.floor(minute / 5) * 5
-  return `${replayDatasetDay}T${String(replayOperationalHour).padStart(2, '0')}:${String(completedBucketMinute).padStart(2, '0')}:00+07:00`
+  const bucket = Math.floor(timestamp / replayBucketMs)
+  const index = ((bucket % verifiedReplaySources.length) + verifiedReplaySources.length) % verifiedReplaySources.length
+  return verifiedReplaySources[index]!
 }

@@ -46,7 +46,7 @@ class HotspotDto {
 
 class ForecastRunDto {
   @ApiProperty({ format: 'uuid' }) id: string;
-  @ApiProperty({ enum: [5, 15, 30] }) horizonMinutes: number;
+  @ApiProperty({ enum: [5, 10, 15] }) horizonMinutes: number;
   @ApiProperty({ enum: ['COMPLETED', 'FALLBACK'] }) status: string;
   @ApiProperty() modelVersion: string;
   @ApiProperty() featureVersion: string;
@@ -64,7 +64,7 @@ class AiSnapshotDto {
   @ApiProperty({ example: 30 }) registeredZones: number;
   @ApiProperty({ example: 30 }) liveZones: number;
   @ApiProperty({ example: 30 }) forecastedZones: number;
-  @ApiProperty({ type: [Number], example: [5, 15, 30] }) horizons: number[];
+  @ApiProperty({ type: [Number], example: [5, 10, 15] }) horizons: number[];
   @ApiProperty({ type: [ForecastRunDto] }) forecastRuns: ForecastRunDto[];
   @ApiProperty({ nullable: true }) modelVersion: string | null;
   @ApiProperty({ nullable: true }) forecastMode: string | null;
@@ -359,5 +359,6 @@ export class ScenarioComparisonResponseDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty({ example: 'sha256' }) commonInputHash: string;
   @ApiProperty({ type: 'array', items: { type: 'object', additionalProperties: true } }) scenarios: Record<string, unknown>[];
+  @ApiProperty({ type: 'object', additionalProperties: true }) forecastEvaluation: Record<string, unknown>;
   @ApiProperty({ example: false }) hasObservedRevenue: boolean;
 }

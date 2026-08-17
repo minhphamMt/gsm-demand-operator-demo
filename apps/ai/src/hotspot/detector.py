@@ -58,7 +58,7 @@ class DetectionResult:
     state: HysteresisState
 
 
-def _gap_inputs(
+def gap_inputs(
     zone: ZoneForecast,
     *,
     regime: Regime,
@@ -79,7 +79,7 @@ def _gap_inputs(
 
 def gap_of(zone: ZoneForecast, *, regime: Regime, conservative_gap_mode: GapMode) -> float:
     """`gap = cầu − cung` theo chế độ đang hiệu lực — §4.3."""
-    demand, supply = _gap_inputs(zone, regime=regime, conservative_gap_mode=conservative_gap_mode)
+    demand, supply = gap_inputs(zone, regime=regime, conservative_gap_mode=conservative_gap_mode)
     return demand - supply
 
 

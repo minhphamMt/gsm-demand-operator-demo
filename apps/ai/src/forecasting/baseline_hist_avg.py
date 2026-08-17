@@ -37,7 +37,7 @@ from src.forecasting.features import KEY_COLUMNS, STEP_MINUTES
 MODEL_VERSION = "hist_avg_v1"
 
 TARGETS: tuple[str, ...] = ("demand", "supply")
-HORIZONS: tuple[int, ...] = (5, 15, 30)
+HORIZONS: tuple[int, ...] = (5, 10, 15)
 QUANTILES: tuple[int, ...] = (10, 50, 90)
 
 # Ba mức tra, dùng theo thứ tự; mức sau chỉ chạy cho dòng mà mức trước không có số
@@ -353,7 +353,7 @@ def forecast_at(
     if len(rows) == 0:
         raise ValueError(f"Không có dòng A2 nào tại t={t.isoformat()}")
     predictions = predict(lookup, rows)
-    # A1 only publishes 15/30-minute rain nowcasts. For the added 5-minute model,
+    # A1 publishes 15/30-minute rain nowcasts. All product horizons (5/10/15)
     # use the nearest published nowcast without scaling an intensity (mm/h) as if it
     # were accumulated rainfall.
     rain_horizon = 15 if horizon_min <= 15 else 30

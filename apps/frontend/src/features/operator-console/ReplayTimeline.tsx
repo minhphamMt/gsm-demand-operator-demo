@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { ReplayTimelineStep } from '@/features/operator-data'
 
 type ReplayTimelineProps = {
+  displayTimeForSource?: (sourceAt: string) => string
   hasError?: boolean
   isLoading: boolean
   onSourceChange: (sourceAt: string) => void
@@ -11,7 +12,7 @@ type ReplayTimelineProps = {
   steps: readonly ReplayTimelineStep[]
 }
 
-export function ReplayTimeline({ hasError = false, isLoading, onSourceChange, selectedSourceAt, steps }: ReplayTimelineProps) {
+export function ReplayTimeline({ displayTimeForSource = (sourceAt) => sourceAt, hasError = false, isLoading, onSourceChange, selectedSourceAt, steps }: ReplayTimelineProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const selectedIndex = Math.max(0, steps.findIndex((step) => step.sourceAt === selectedSourceAt))
   const maxRain = Math.max(0.01, ...steps.map((step) => step.meanRainMmH))
@@ -48,19 +49,19 @@ export function ReplayTimeline({ hasError = false, isLoading, onSourceChange, se
     </div>
     <div className="nf-timeline-track">
       <div>{steps.map((step, index) => <button
-        aria-label={`${formatTime(step.sourceAt)} · mưa trung bình ${step.meanRainMmH.toFixed(2)} mm/h`}
+        aria-label={`${formatTime(displayTimeForSource(step.sourceAt))} · mưa trung bình ${step.meanRainMmH.toFixed(2)} mm/h`}
         aria-pressed={index === selectedIndex}
         className={index === selectedIndex ? 'is-current' : index < selectedIndex ? 'is-past' : ''}
         disabled={isLoading}
         key={step.sourceAt}
         onClick={() => select(index)}
         style={{ height: 10 + step.meanRainMmH / maxRain * 20 }}
-        title={`${formatTime(step.sourceAt)} · ${step.meanRainMmH.toFixed(2)} mm/h`}
+        title={`${formatTime(displayTimeForSource(step.sourceAt))} · ${step.meanRainMmH.toFixed(2)} mm/h`}
         type="button"
       />)}</div>
-      <p><span>{steps[0] ? formatTime(steps[0].sourceAt) : '—'}</span><span>{formatTime(selectedSourceAt)}</span><span>{steps.at(-1) ? formatTime(steps.at(-1)!.sourceAt) : '—'}</span></p>
+      <p><span>{steps[0] ? formatTime(displayTimeForSource(steps[0].sourceAt)) : '—'}</span><span>{formatTime(displayTimeForSource(selectedSourceAt))}</span><span>{steps.at(-1) ? formatTime(displayTimeForSource(steps.at(-1)!.sourceAt)) : '—'}</span></p>
     </div>
-    <em>REPLAY · MODEL +5′/BƯỚC<br /><b>{isLoading ? 'Đang chạy LightGBM…' : hasError ? 'Đã dừng do lỗi' : isPlaying ? 'Tự chạy · 1,5 giây/bước' : `Đang xem ${formatTime(selectedSourceAt)}`}</b></em>
+    <em>REPLAY · DỮ LIỆU GHI NHẬN 5′/BƯỚC<br /><b>{isLoading ? 'Đang đọc dữ liệu…' : hasError ? 'Đã dừng do lỗi' : isPlaying ? 'Tự chạy · 1,5 giây/bước' : `Đang xem ${formatTime(displayTimeForSource(selectedSourceAt))}`}</b></em>
   </div>
 }
 
