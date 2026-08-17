@@ -203,20 +203,17 @@ def snapshot_at(source_at: pd.Timestamp) -> dict[str, Any]:
     return {**dataset_status(), "source_at": source_at.isoformat(), "regime": step_regime, "zones": zones}
 
 
-def snapshot_window(center_at: pd.Timestamp, lookback_minutes: int = 60) -> list[dict[str, Any]]:
-    """Return only observed buckets from the lookback window through ``center_at``.
-
-    Replay is an observation reader, not an inference loop.  Keeping future
-    buckets out of this response prevents the UI from presenting ground truth
-    that would not yet be available at the live edge.
-    """
+def snapshot_window(center_at: pd.Timestamp, radius: int = 9) -> list[dict[str, Any]]:
+    """Return stored timeline metrics for contiguous inference-ready 5-minute buckets."""
     timestamps = sorted(_inference_timestamps())
     if center_at not in timestamps:
         raise LookupError(f"Dataset has no inference-ready snapshot at {center_at.isoformat()}")
     center_index = timestamps.index(center_at)
-    lookback_steps = max(0, lookback_minutes // STEP_MINUTES)
-    start = max(0, center_index - lookback_steps)
-    selected = timestamps[start:center_index + 1]
+    window_size = radius * 2 + 1
+    start = max(0, center_index - radius)
+    end = min(len(timestamps), start + window_size)
+    start = max(0, end - window_size)
+    selected = timestamps[start:end]
     frame = _dataset()
     return [
         {

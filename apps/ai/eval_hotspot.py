@@ -6,7 +6,7 @@ Chạy: python eval_hotspot.py
   data/features/features_test.parquet + data/labels/labels_{train,test}.parquet
                                         (sinh bởi build_features.py)
   data/snapshots/snapshot_test.parquet  cột `idle_supply` — số xe rỗi THẬT tại `t` (AC #5)
-  data/models/lgbm_*.txt                18 booster (h5/h10/h15) của Model 1
+  data/models/lgbm_*.txt                18 booster (h5/h15/h30) của Model 1
   config/policy.yaml                    min_supply_per_zone, conservative_gap_mode (AC #6)
 
 Ghi:

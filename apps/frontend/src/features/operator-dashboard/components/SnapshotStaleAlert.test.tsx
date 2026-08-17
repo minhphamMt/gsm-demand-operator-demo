@@ -4,12 +4,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { SnapshotStaleAlert } from '@/features/operator-dashboard/components/SnapshotStaleAlert'
 
 describe('SnapshotStaleAlert', () => {
-  const now = new Date('2026-08-09T12:11:00.000Z')
+  const now = new Date('2026-08-09T12:10:00.000Z')
 
   it('warns and safely retries when the DB snapshot is stale', () => {
     const refresh = vi.fn()
     render(<SnapshotStaleAlert generatedAt="2026-08-09T12:00:00.000Z" isRefreshing={false} now={now} onRefresh={refresh} />)
-    expect(screen.getByRole('alert')).toHaveTextContent('cách hiện tại 11 phút')
+    expect(screen.getByRole('alert')).toHaveTextContent('cách hiện tại 10 phút')
     fireEvent.click(screen.getByRole('button', { name: /Tải snapshot mới/ }))
     expect(refresh).toHaveBeenCalledOnce()
   })

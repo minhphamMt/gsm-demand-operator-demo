@@ -17,11 +17,11 @@ describe('ReplayTimeline', () => {
     expect(onSourceChange).toHaveBeenCalledWith(steps[1]!.sourceAt)
   })
 
-  it('locks timeline changes while observed data is loading', () => {
+  it('locks timeline changes while trained inference is running', () => {
     cleanup()
     render(<ReplayTimeline isLoading onSourceChange={vi.fn()} selectedSourceAt={steps[0]!.sourceAt} steps={steps} />)
     expect(screen.getByRole('button', { name: /08:15.*0.80 mm\/h/ })).toBeDisabled()
-    expect(screen.getByText('Đang đọc dữ liệu…')).toBeInTheDocument()
+    expect(screen.getByText('Đang chạy LightGBM…')).toBeInTheDocument()
   })
 
   it('stops autoplay when a model step fails', async () => {

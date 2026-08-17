@@ -39,7 +39,7 @@ LOOKBACK_STEPS = 6
 ROLL_STEPS = 6
 
 # Hai tầm dự báo của §4.2, tính theo số bước.
-HORIZON_MINUTES: tuple[int, ...] = (5, 10, 15)
+HORIZON_MINUTES: tuple[int, ...] = (5, 15, 30)
 
 KEY_COLUMNS: tuple[str, ...] = ("zone_id", "ts_bucket")
 

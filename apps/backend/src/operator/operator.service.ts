@@ -1,12 +1,10 @@
-import { ConflictException, Injectable, NotFoundException, Optional, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 
-import { AiService } from '../ai/ai.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { assertNoActiveExecution } from './active-execution.guard';
 import { buildRevisedSourcePlan } from './revision-source-plan';
 import { deriveHotspots } from './hotspot-policy';
-import { evaluateForecast, isGroundTruthDue, replayGroundTruthSourceAt } from './forecast-evaluation';
 import { calculateSnapshotKpis, mapAiZone } from './snapshot.mapper';
 import {
   ActivateProposalDto,
@@ -52,7 +50,7 @@ const canonicalAuditEntity = (entityType: string) => Object.entries(auditEntityA
 
 @Injectable()
 export class OperatorService {
-  constructor(private readonly db: SupabaseService, @Optional() private readonly ai?: AiService) {}
+  constructor(private readonly db: SupabaseService) {}
 
   async capabilities() {
     const enabled = (name: string, defaultValue: boolean) => {
@@ -65,7 +63,7 @@ export class OperatorService {
       timezone: 'Asia/Ho_Chi_Minh',
       health: { api: 'UP', database: databaseError ? 'DEGRADED' : 'UP', ai: 'AVAILABLE', map: 'CLIENT' },
       capabilities: {
-        forecastHorizons: { available: true, enabled: true, values: [5, 10, 15] },
+        forecastHorizons: { available: true, enabled: true, values: [5, 15, 30] },
         proposalReview: { available: true, enabled: true },
         dispatchRelease: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },
         dispatchReconciliation: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },
@@ -179,12 +177,12 @@ export class OperatorService {
     const selectedRuns = [...latestRunByHorizon.values()]
       .filter((candidate) => candidate.zoneIds.size === registeredZoneCount);
     const latestForecasts = selectedRuns.flatMap((candidate) => candidate.forecasts);
-    const forecastsByZone = new Map<number, { horizon5?: any; horizon10?: any; horizon15?: any }>();
+    const forecastsByZone = new Map<number, { horizon5?: any; horizon15?: any; horizon30?: any }>();
     for (const forecast of latestForecasts) {
       const current = forecastsByZone.get(Number(forecast.zone_id)) ?? {};
       if (Number(forecast.horizon_min) === 5) current.horizon5 = forecast;
-      if (Number(forecast.horizon_min) === 10) current.horizon10 = forecast;
       if (Number(forecast.horizon_min) === 15) current.horizon15 = forecast;
+      if (Number(forecast.horizon_min) === 30) current.horizon30 = forecast;
       forecastsByZone.set(Number(forecast.zone_id), current);
     }
     const liveZoneIds = new Set((observations ?? []).filter((observation: any) => observation.data_status === 'live').map((observation: any) => Number(observation.zone_id)));
@@ -497,11 +495,7 @@ export class OperatorService {
       });
     }
     await assertNoActiveExecution(this.db, id);
-    // Snapshot freshness is checked at approval time. Once approved, the
-    // immutable content hash/version is the release authority until the
-    // proposal window expires. Requiring the input snapshot to remain the
-    // newest here creates a race between the review and release gates every
-    // time the five-minute replay ingests its next snapshot.
+    await this.assertProposalSnapshotCurrent(proposal, id);
     if (!proposal.window_end_at || new Date(proposal.window_end_at).getTime() <= Date.now()) {
       throw new ConflictException({
         code: 'STALE_PROPOSAL',
@@ -744,7 +738,6 @@ export class OperatorService {
     const { data: run, error: runError } = await this.db.client.from('forecast_runs').select('*').eq('id', forecastRunId).maybeSingle();
     if (runError) this.db.unwrap(null, runError);
     if (!run) throw new UnprocessableEntityException({ code: 'SCENARIO_INPUT_MISSING', message: 'Forecast run was not found.' });
-    const forecastEvaluation = await this.getForecastEvaluation(forecastRunId);
     const commonInputHash = createHash('sha256').update(JSON.stringify({
       snapshotId: proposal.input_snapshot_id,
       forecastRunId,
@@ -794,69 +787,9 @@ export class OperatorService {
         uncertainty: row.uncertainty,
         responseSource: row.response_source,
       })),
-      forecastEvaluation,
       hasObservedRevenue: false,
       revenueNotice: 'Incremental revenue is unavailable until an observed revenue ledger exists.',
     };
-  }
-
-  private async getForecastEvaluation(forecastRunId: string) {
-    const { data: forecastRows, error: forecastError } = await this.db.client.from('ai_zone_forecasts')
-      .select('snapshot_id,zone_id,horizon_min,forecast_at,predicted_demand,predicted_supply,demand_p10,demand_p90,supply_p10,supply_p90')
-      .eq('forecast_run_id', forecastRunId)
-      .order('zone_id', { ascending: true });
-    if (forecastError) this.db.unwrap(null, forecastError);
-    const targetAt = forecastRows?.[0]?.forecast_at ? String(forecastRows[0].forecast_at) : null;
-    if (!targetAt) return { status: 'PENDING_GROUND_TRUTH', targetAt: null, evaluatedZones: 0 };
-    if (!isGroundTruthDue(targetAt)) {
-      return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
-    }
-
-    const sourceSnapshotId = forecastRows?.[0]?.snapshot_id;
-    const horizonMinutes = forecastRows?.[0]?.horizon_min;
-    const { data: sourceObservation, error: sourceError } = await this.db.client.from('ai_zone_observations')
-      .select('source_name')
-      .eq('snapshot_id', sourceSnapshotId)
-      .limit(1)
-      .maybeSingle();
-    if (sourceError) this.db.unwrap(null, sourceError);
-    const replayTargetAt = replayGroundTruthSourceAt(sourceObservation?.source_name, horizonMinutes);
-    if (!replayTargetAt) return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
-
-    // forecast_at follows the displayed server clock. Ground truth must instead
-    // advance from the immutable replay source bucket by the forecast horizon.
-    const { data: candidates, error: candidateError } = await this.db.client.from('ai_zone_observations')
-      .select('snapshot_id,source_name')
-      .like('source_name', 'AI_PARQUET_REPLAY:%')
-      .order('snapshot_id', { ascending: false })
-      .limit(2000);
-    if (candidateError) this.db.unwrap(null, candidateError);
-    const targetMs = Date.parse(replayTargetAt);
-    const targetSnapshotId = candidates?.find((row: any) => {
-      const sourceAt = String(row.source_name ?? '').slice('AI_PARQUET_REPLAY:'.length);
-      return Number.isFinite(targetMs) && Date.parse(sourceAt) === targetMs;
-    })?.snapshot_id;
-    if (!targetSnapshotId) {
-      if (!this.ai) return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
-      try {
-        const replaySnapshot = await this.ai.replaySnapshotAt(replayTargetAt);
-        return evaluateForecast(
-          forecastRows ?? [],
-          replaySnapshot.zones.map((zone) => ({ ...zone, data_status: 'live' })),
-          targetAt,
-        ) ?? { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
-      } catch {
-        return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
-      }
-    }
-
-    const { data: observations, error: observationError } = await this.db.client.from('ai_zone_observations')
-      .select('zone_id,data_status,demand_observed,idle_supply')
-      .eq('snapshot_id', targetSnapshotId)
-      .order('zone_id', { ascending: true });
-    if (observationError) this.db.unwrap(null, observationError);
-    return evaluateForecast(forecastRows ?? [], observations ?? [], targetAt)
-      ?? { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
   }
 
   async listNotifications(ownerId: string) {

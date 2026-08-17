@@ -51,7 +51,7 @@ export class AiController {
 
   @Post('replay')
   @SensitiveMutation(40)
-  @ApiOperation({ summary: 'Load an exact observed replay bucket without running inference' })
+  @ApiOperation({ summary: 'Load an exact real replay bucket and run the trained 5-minute forecast' })
   replay(@Body() body: RunReplayAiDecisionDto) {
     return this.service.runReplay(body.sourceAt);
   }

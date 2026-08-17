@@ -10,8 +10,7 @@ import type { FlowState } from '@/features/operator-map/model/operatorMapGeometr
 import { env } from '@/shared/config/env'
 
 const hanoiCenter: [longitude: number, latitude: number] = [105.8342, 21.0278]
-// Keep the map aligned with the policy/regime threshold used by the AI service.
-const rainThreshold = 0.5
+const rainThreshold = 0.3
 const mapLoadTimeoutMs = 15_000
 type MapStatus = 'idle' | 'ready' | 'error'
 export type MapFailureKind = 'network' | 'timeout' | 'token-style' | 'unknown'
@@ -406,7 +405,7 @@ function MapLegend({ layer }: { layer: OperatorMapLayer }) {
         Vùng mờ: khu vực đại diện AI, không phải ranh giới hành chính
       </p>
       <p>
-        <b className="nf-legend-rain">☁</b>Icon mưa: zone ≥ 0,5 mm/h
+        <b className="nf-legend-rain">☁</b>Icon mưa: zone ≥ 0,3 mm/h
       </p>
     </div>
   )

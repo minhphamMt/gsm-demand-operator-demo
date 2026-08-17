@@ -1,17 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { currentOperatorReplaySourceAt, verifiedReplaySources } from './defaultReplay'
+import { currentOperatorReplaySourceAt } from './defaultReplay'
 
 describe('default operator replay', () => {
-  it('uses only buckets verified to create relocation at every horizon', () => {
-    expect(verifiedReplaySources).toContain(currentOperatorReplaySourceAt(new Date('2026-08-15T09:48:00.000Z')) as typeof verifiedReplaySources[number])
+  it('uses a verified rain/peak window and keeps the live five-minute cadence', () => {
+    expect(currentOperatorReplaySourceAt(new Date('2026-08-15T09:48:00.000Z')))
+      .toBe('2026-09-29T17:45:00+07:00')
   })
 
-  it('advances exactly one curated bucket every five server minutes', () => {
-    const now = new Date('2026-08-15T09:45:00.000Z')
-    const current = currentOperatorReplaySourceAt(now)
-    const next = currentOperatorReplaySourceAt(new Date(now.getTime() + 5 * 60_000))
-    const currentIndex = verifiedReplaySources.indexOf(current as typeof verifiedReplaySources[number])
-    expect(next).toBe(verifiedReplaySources[(currentIndex + 1) % verifiedReplaySources.length])
+  it('does not drift into a non-operational hour at midnight', () => {
+    expect(currentOperatorReplaySourceAt(new Date('2026-08-14T17:02:00.000Z')))
+      .toBe('2026-09-29T17:00:00+07:00')
   })
 })

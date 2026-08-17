@@ -39,7 +39,7 @@ type AiDecision = {
     metrics_after_relocation: { unmet_demand: number; avg_wait_proxy: number; est_cancel_rate: number; total_demand: number };
     basis: string;
   };
-  plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; source_capacities?: Array<{ zone_id: number; movable_units: number }>; relocation_targets?: Array<{ zone_id: number; gap: number; required_units: number; is_policy_hotspot: boolean; target_basis?: string }>; warnings: Array<Record<string, unknown>> };
+  plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; source_capacities?: Array<{ zone_id: number; movable_units: number }>; relocation_targets?: Array<{ zone_id: number; gap: number; required_units: number; is_policy_hotspot: boolean }>; warnings: Array<Record<string, unknown>> };
 };
 
 type DatasetRegime = 'normal' | 'peak' | 'rain' | 'rain_peak';
@@ -66,8 +66,7 @@ export const replaySnapshotReuseMs = 5 * 60_000;
 export function isReplaySnapshotReusable(sourceUpdatedAt: unknown, now = Date.now()) {
   if (!sourceUpdatedAt) return false;
   const updatedAt = new Date(String(sourceUpdatedAt)).getTime();
-  const ageMs = now - updatedAt;
-  return Number.isFinite(updatedAt) && ageMs >= 0 && ageMs < replaySnapshotReuseMs;
+  return Number.isFinite(updatedAt) && now - updatedAt < replaySnapshotReuseMs;
 }
 
 const requiredLiveFields = [
@@ -85,33 +84,33 @@ export class AiService {
     return this.request('/health', { method: 'GET' });
   }
 
-  async runNext(horizonMinutes: 5 | 10 | 15, regime?: DatasetRegime) {
+  async runNext(horizonMinutes: 5 | 15 | 30, regime?: DatasetRegime) {
     const snapshot = await this.ingestNext(regime);
     const decision = await this.generate(horizonMinutes, snapshot.id, false, true);
     return { snapshot, decision };
   }
 
-  async optimize(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
+  async optimize(snapshotId: number, horizonMinutes: 5 | 15 | 30) {
     await assertNoActiveExecution(this.db);
     const decision = await this.generate(horizonMinutes, snapshotId, true, true);
     return { decision };
   }
 
-  async forecast(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
+  async forecast(snapshotId: number, horizonMinutes: 5 | 15 | 30) {
     const decision = await this.generate(horizonMinutes, snapshotId, false, true);
     return { decision };
   }
 
   async runReplay(sourceAt: string) {
-    const dataset = await this.replaySnapshotAt(sourceAt);
-    const snapshot = await this.ingestExact(dataset);
-    return { snapshot };
-  }
-
-  async replaySnapshotAt(sourceAt: string) {
-    return this.request<DatasetSnapshot>('/api/v1/datasets/snapshots/at', {
+    const dataset = await this.request<DatasetSnapshot>('/api/v1/datasets/snapshots/at', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source_at: sourceAt }),
     });
+    const snapshot = await this.ingestExact(dataset);
+    const decision = await this.generate(5, snapshot.id, false, true);
+    if (decision.forecast_mode !== 'trained_model_replay') {
+      throw new UnprocessableEntityException({ code: 'REPLAY_MODEL_REQUIRED', message: 'Replay requires the trained LightGBM model; fallback output was rejected.' });
+    }
+    return { snapshot, decision };
   }
 
   async replayWindow(sourceAt: string) {
@@ -120,7 +119,7 @@ export class AiService {
     });
   }
 
-  async generate(horizonMinutes: 5 | 10 | 15, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
+  async generate(horizonMinutes: 5 | 15 | 30, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
     const inferenceStartedAt = Date.now();
     let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');
     snapshotQuery = snapshotId
@@ -441,10 +440,9 @@ export class AiService {
     const unmetBefore = decision.plan.relocation_targets?.reduce((sum, target) => sum + Math.max(0, target.gap), 0)
       ?? decision.hotspots.hotspots.reduce((sum, hotspot) => sum + Math.max(0, hotspot.gap), 0);
     const unmetAfterRelocation = decision.plan.residual_gap.reduce((sum, gap) => sum + gap.gap_remaining, 0);
-    const planningDemand = decision.simulation?.metrics_before.total_demand
-      ?? decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_demand, 0);
-    const fulfillmentRate = (unmet: number) => planningDemand > 0
-      ? Math.max(0, (1 - unmet / planningDemand) * 100)
+    const predictedDemand = decision.forecast.zones.reduce((sum, zone) => sum + zone.predicted_demand, 0);
+    const fulfillmentRate = (unmet: number) => predictedDemand > 0
+      ? Math.max(0, (1 - unmet / predictedDemand) * 100)
       : 100;
     const requestedOfferCount = activation.total_requested_offers;
     const incentiveAmount = Number(decision.activation_policy.incentive_amount);
@@ -464,11 +462,6 @@ export class AiService {
       && activation.total_expected_units_gained > 0
       && unmetAfterActivation < unmetAfterRelocation;
     const isOperationalPlan = relocationImproves || activationImproves;
-    const planMode = relocationImproves && activationImproves
-      ? 'HYBRID'
-      : relocationImproves
-        ? 'RELOCATION'
-        : 'ACTIVATION_ONLY';
     const estimatedIncentiveCost = offerCount * incentiveAmount;
     const proposalWarnings = decision.plan.warnings.map((warning) =>
       !hasDirectRelocation && isOperationalPlan && warning.code === 'NO_SOLUTION'
@@ -567,7 +560,7 @@ export class AiService {
         activation_policy: decision.activation_policy,
         activation_recommendation: activation,
         simulation_basis: decision.simulation?.basis ?? null,
-        plan_mode: planMode,
+        plan_mode: relocationImproves ? 'RELOCATION' : 'ACTIVATION_ONLY',
         requested_offer_count: requestedOfferCount,
         expected_accepted_driver_count: targetDriverCount,
         eligible_offer_capacity: eligibleOfferCapacity,

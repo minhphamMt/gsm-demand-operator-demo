@@ -1,5 +1,5 @@
-export const snapshotRefreshIntervalMs = 5 * 60 * 1_000
-export const snapshotStaleAfterMs = 10 * 60 * 1_000
+export const snapshotRefreshIntervalMs = 2 * 60 * 1_000
+export const snapshotStaleAfterMs = 5 * 60 * 1_000
 
 export type SnapshotFreshness = {
   ageMinutes: number | null

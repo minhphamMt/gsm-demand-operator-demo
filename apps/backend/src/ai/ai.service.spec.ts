@@ -22,21 +22,20 @@ describe('AiService persistence', () => {
 
     expect(isReplaySnapshotReusable('2026-08-15T13:06:00.000Z', now)).toBe(true);
     expect(isReplaySnapshotReusable('2026-08-15T13:05:00.000Z', now)).toBe(false);
-    expect(isReplaySnapshotReusable('2026-09-25T01:35:00.000Z', now)).toBe(false);
     expect(isReplaySnapshotReusable('invalid', now)).toBe(false);
   });
 
-  it('loads an exact replay observation without running a forecast', async () => {
+  it('persists the exact five-minute replay forecast without creating a proposal', async () => {
     const service = new AiService({} as never);
     const sourceAt = '2026-08-11T21:30:00Z';
     const dataset = { dataset: 'project', source_at: sourceAt, regime: 'rain_peak', zones: [] };
     jest.spyOn(service as never, 'request').mockResolvedValue(dataset as never);
     jest.spyOn(service as never, 'ingestExact').mockResolvedValue({ id: 42 } as never);
-    const generate = jest.spyOn(service, 'generate');
+    const generate = jest.spyOn(service, 'generate').mockResolvedValue({ forecast_mode: 'trained_model_replay' } as never);
 
-    await expect(service.runReplay(sourceAt)).resolves.toEqual({ snapshot: { id: 42 } });
+    await service.runReplay(sourceAt);
 
-    expect(generate).not.toHaveBeenCalled();
+    expect(generate).toHaveBeenCalledWith(5, 42, false, true);
   });
 
   it('supersedes completed forecasts from older snapshots after ingesting a new replay snapshot', async () => {
@@ -68,6 +67,8 @@ describe('AiService persistence', () => {
       dataset: 'test', source_at: '2026-08-15T00:00:00.000Z', regime: 'normal',
       zones: [{ zone_id: 1, demand_observed: 10, idle_supply: 8, enroute_supply: 0, rain_mm_h: 0, rain_forecast_15: 0, rain_forecast_30: 0, peak_flag: 0, holiday_flag: 0 }],
     } as never);
+    jest.spyOn(service, 'generate').mockResolvedValue({ forecast_mode: 'trained_model_replay' } as never);
+
     await service.runReplay('2026-08-15T00:00:00.000Z');
 
     expect(forecastUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'SUPERSEDED' }));
@@ -118,8 +119,8 @@ describe('AiService persistence', () => {
           forecast_mode: 'trained_model_replay',
           activation_policy: { incentive_amount: 20_000, incentive_budget_cap: 500_000, overbooking_factor: 1.6, assumed_accept_rate: 0.6 },
           activation_recommendation: {
-            target_zones: [{ zone_id: 9, gap_remaining: 2, requested_offers: 4, expected_units_gained: 2, expected_gap_remaining: 0 }],
-            total_requested_offers: 4, total_expected_units_gained: 2, total_expected_gap_remaining: 0,
+            target_zones: [{ zone_id: 9, gap_remaining: 4, requested_offers: 7, expected_units_gained: 4, expected_gap_remaining: 0 }],
+            total_requested_offers: 7, total_expected_units_gained: 4, total_expected_gap_remaining: 0,
             projected_gap_reduction_pct: 100, worst_case_commitment: 140_000, constrained_by_budget: false, accept_rate_source: 'policy_assumption',
           },
           forecast: {
@@ -135,7 +136,7 @@ describe('AiService persistence', () => {
           },
           plan: {
             moves: [{ from_zone: 6, to_zone: 9, units_to_move: 2 }],
-            residual_gap: [{ zone_id: 9, gap_remaining: 2, suggested_activation: 2 }],
+            residual_gap: [{ zone_id: 9, gap_remaining: 4, suggested_activation: 5 }],
             plan_totals: { total_cost: 20_000, budget_cap: 500_000 },
             warnings: [],
           },
@@ -166,7 +167,7 @@ describe('AiService persistence', () => {
         })],
         moves: [expect.objectContaining({ source_supply_after: 10 })],
       }),
-      simulation_details: expect.objectContaining({ eligible_driver_count: 3, scenario_id: 'rain-peak', forecast_run_id: 'run-1', model_input_id: 'model-input-1', plan_mode: 'HYBRID' }),
+      simulation_details: expect.objectContaining({ eligible_driver_count: 3, scenario_id: 'rain-peak', forecast_run_id: 'run-1', model_input_id: 'model-input-1' }),
     }));
     expect(outputInsert).toHaveBeenCalledWith(expect.objectContaining({
       model_input_id: 'model-input-1',

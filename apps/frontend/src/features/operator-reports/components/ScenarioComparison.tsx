@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Ban, CarFront, CheckCircle2, Clock3, Combine, Sparkles, TriangleAlert, Zap } from 'lucide-react'
+import { Ban, CarFront, CheckCircle2, Combine, Sparkles, TriangleAlert, Zap } from 'lucide-react'
 
 import { useOperatorActions } from '@/features/operator-data'
 import type { Proposal, ScenarioComparison as ScenarioComparisonData } from '@/features/operator-data'
@@ -15,24 +15,28 @@ const labels: Record<string, string> = {
   HYBRID: 'Kết hợp',
 }
 
-const icons = { NO_ACTION: Ban, RELOCATION: CarFront, ACTIVATION: Zap, HYBRID: Combine } as const
+const icons = {
+  NO_ACTION: Ban,
+  RELOCATION: CarFront,
+  ACTIVATION: Zap,
+  HYBRID: Combine,
+} as const
 
 export function ScenarioComparison({ plans }: { plans: readonly Proposal[] }) {
   const comparable = plans.filter((plan) => plan.forecastRunId)
   const [planId, setPlanId] = useState(comparable[0]?.id ?? '')
-  const selectedPlanId = comparable.some((plan) => plan.id === planId) ? planId : (comparable[0]?.id ?? '')
   const actions = useOperatorActions()
   const comparison = actions.compareScenarios.data
-  const run = () => { if (selectedPlanId) actions.compareScenarios.mutate(selectedPlanId) }
+  const run = () => { if (planId) actions.compareScenarios.mutate(planId) }
 
   return <Card className="nf-workspace-panel">
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><h2 className="font-semibold text-slate-950">Chọn phương án để so sánh</h2><p className="mt-1 text-xs text-slate-500">Cùng dữ liệu đầu vào và cùng lần chạy dự báo</p></div>
+      <div><h2 className="font-semibold text-slate-950">Chọn phương án để so sánh</h2><p className="mt-1 text-xs text-slate-500">Cùng dữ liệu đầu vào</p></div>
       <div className="flex min-w-72 gap-2">
-        <Select aria-label="Phương án so sánh" className="min-w-56" onChange={(event) => setPlanId(event.target.value)} value={selectedPlanId}>
+        <Select aria-label="Phương án so sánh" className="min-w-56" onChange={(event) => setPlanId(event.target.value)} value={planId}>
           {comparable.map((plan) => <option key={plan.id} value={plan.id}>v{plan.version} · {plan.title}</option>)}
         </Select>
-        <button className="btn btn-primary" disabled={!selectedPlanId || actions.compareScenarios.isPending} onClick={run} type="button">{actions.compareScenarios.isPending ? 'Đang tính…' : 'So sánh'}</button>
+        <button className="btn btn-primary" disabled={!planId || actions.compareScenarios.isPending} onClick={run} type="button">{actions.compareScenarios.isPending ? 'Đang tính…' : 'So sánh'}</button>
       </div>
     </div>
     {actions.compareScenarios.isError && <p className="mt-3 text-sm text-rose-700" role="alert">{actions.compareScenarios.error.message}</p>}
@@ -44,45 +48,13 @@ function ComparisonResult({ value }: { value: ScenarioComparisonData }) {
   const recommended = recommendedScenarioType(value.scenarios)
   return <div className="mt-4 space-y-3">
     <div className="nf-compare-ready"><CheckCircle2 size={16} /><span>Đã chuẩn hóa cùng đầu vào</span><small>{value.scenarios.length} kịch bản</small></div>
-    <ForecastEvaluation value={value} />
     <ScenarioComparisonChart scenarios={value.scenarios} />
     <div className="nf-scenario-grid">
       {value.scenarios.map((scenario) => <ScenarioCard isRecommended={scenario.type === recommended} key={scenario.type} scenario={scenario} />)}
     </div>
-    <div className="nf-compare-warning"><TriangleAlert size={16} /><span>Chưa có sổ cái doanh thu thực tế; chỉ số tác động vận hành lấy từ điều phối/chiến dịch.</span></div>
+    <div className="nf-compare-warning"><TriangleAlert size={16} /><span>Chưa có doanh thu thực tế</span></div>
     <details className="nf-technical-details"><summary>Chi tiết kỹ thuật</summary><p>Input {value.commonInputHash.slice(0, 16)}… · Model {value.modelVersion} · Policy {value.policyVersion}</p><p>{value.revenueNotice}</p></details>
   </div>
-}
-
-function ForecastEvaluation({ value }: { value: ScenarioComparisonData }) {
-  const evaluation = value.forecastEvaluation ?? { status: 'PENDING_GROUND_TRUTH' as const, targetAt: null, evaluatedZones: 0 }
-  if (evaluation.status !== 'OBSERVED') return <div className="nf-forecast-evaluation is-pending">
-    <Clock3 size={18} />
-    <div><strong>Đang chờ dữ liệu ghi nhận tại mốc dự báo</strong><small>Kết quả sẽ tự đối chiếu khi luồng dữ liệu 5 phút nạp đến {formatEvaluationTime(evaluation.targetAt)}.</small></div>
-  </div>
-  return <section className="nf-forecast-evaluation" aria-label="Đối chiếu dự báo với dữ liệu ghi nhận">
-    <header><CheckCircle2 size={18} /><div><strong>Dự báo so với dữ liệu ghi nhận</strong><small>{evaluation.evaluatedZones}/30 vùng · mốc {formatEvaluationTime(evaluation.targetAt)}</small></div></header>
-    <div className="nf-evaluation-metrics">
-      <Metric label="Sai số cầu MAE" value={`${formatMetric(evaluation.demandMae)} yêu cầu/vùng`} />
-      <Metric label="Sai số cung MAE" value={`${formatMetric(evaluation.supplyMae)} xe/vùng`} />
-      <Metric label="Sai số đáp ứng" value={`${formatMetric(evaluation.fulfillmentRateError)} điểm %`} />
-      <Metric label="Cầu nằm trong P10–P90" value={`${formatMetric(evaluation.demandIntervalCoverage)}%`} />
-    </div>
-    <p>Đáp ứng dự báo <b>{formatMetric(evaluation.forecastFulfillmentRate)}%</b> → ghi nhận <b>{formatMetric(evaluation.observedFulfillmentRate)}%</b> · thiếu xe dự báo <b>{formatMetric(evaluation.forecastResidualGap)}</b> → ghi nhận <b>{formatMetric(evaluation.observedResidualGap)}</b>.</p>
-  </section>
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div><small>{label}</small><strong>{value}</strong></div>
-}
-
-function formatMetric(value: number | undefined) {
-  return value === undefined ? '—' : value.toLocaleString('vi-VN', { maximumFractionDigits: 1 })
-}
-
-function formatEvaluationTime(value: string | null) {
-  if (!value) return 'chưa xác định'
-  return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value))
 }
 
 function ScenarioCard({ isRecommended, scenario }: { isRecommended: boolean; scenario: ScenarioComparisonData['scenarios'][number] }) {

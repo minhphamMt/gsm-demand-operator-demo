@@ -47,12 +47,11 @@ const replay = await api('/operator/ai/replay', {
   method: 'POST',
   body: JSON.stringify({ sourceAt: replaySourceAt }),
 });
-if (!Number.isInteger(replay?.snapshot?.id) || replay?.decision !== undefined) {
-  throw new Error('A historical replay bucket must return observed data without invoking the model');
+if (replay?.decision?.forecast?.horizon_min !== 5 || replay.decision.forecast.zones?.length !== 30) {
+  throw new Error('A replay bucket did not invoke a complete 5-minute model forecast');
 }
-// `run-next` creates a new snapshot and explicit future forecast every time,
-// making it the correct target for an idempotent smoke run. Replay only persists
-// historical observations,
+// `run-next` creates a new snapshot every time, making it the correct target
+// for an idempotent smoke run. The replay above persists a historical snapshot,
 // so create one final current snapshot afterwards; otherwise the safety guard
 // correctly marks the original snapshot stale before approval.
 const optimizationRun = await api('/operator/ai/run-next', {

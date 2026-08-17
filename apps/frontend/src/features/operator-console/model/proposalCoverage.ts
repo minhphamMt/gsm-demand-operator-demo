@@ -6,12 +6,10 @@ export function proposalCoverageForStage(
   plan: Proposal | undefined,
   stage: OperatorWorkflowStage,
 ) {
-  if (!plan) return { label: 'MỨC PHỦ MỤC TIÊU', percent: 0 } as const
+  if (!plan) return { label: 'MỨC PHỦ PHƯƠNG ÁN', percent: 0 } as const
 
   const usesExpectedActivation = Boolean(plan.metricsAfterActivation) && (
-    plan.planMode === 'HYBRID'
-    || plan.planMode === 'ACTIVATION_ONLY'
-    || stage === 'activation_draft'
+    stage === 'activation_draft'
     || stage === 'campaign'
     || (stage === 'approved' && plan.moves.length === 0)
   )
@@ -29,7 +27,7 @@ export function proposalCoverageForStage(
   )
 
   return {
-    label: usesExpectedActivation ? 'MỨC PHỦ KỲ VỌNG' : 'MỨC PHỦ MỤC TIÊU',
+    label: usesExpectedActivation ? 'MỨC PHỦ KỲ VỌNG' : 'MỨC PHỦ ĐIỀU CHUYỂN',
     percent,
   } as const
 }

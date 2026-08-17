@@ -1,7 +1,6 @@
 import { X } from "lucide-react";
 
 import { hasOperationalObservation, operationalGapFor, type ForecastRun, type Hotspot, type Zone } from "@/features/operator-data";
-import { fleetBalanceSummary } from "../model/fleetBalanceSummary";
 import { formatNumber } from "@/shared/lib/format";
 
 type ForecastDrawerProps = {
@@ -21,33 +20,34 @@ type ForecastDrawerProps = {
 function demandQuantiles(zone: Zone, horizon: number) {
   const range = horizon === 5
     ? zone.demandRange5
-    : horizon === 10
-      ? zone.demandRange10
     : horizon === 15
       ? zone.demandRange15
-      : null;
+      : zone.demandRange30;
   const p50 = horizon === 5
     ? zone.forecast5
-    : horizon === 10
-      ? zone.forecast10
     : horizon === 15
       ? zone.forecast15
-      : null;
+      : zone.forecast30;
   return { p10: range?.[0] ?? null, p50: p50 ?? null, p90: range?.[1] ?? null };
 }
 
 export function ForecastDrawer(props: ForecastDrawerProps) {
   const hotspotsByZone = new Map(props.hotspots.map((hotspot) => [hotspot.zoneId, hotspot]));
-  const balance = fleetBalanceSummary(props.zones);
   const deficits = props.zones
     .filter(hasOperationalObservation)
     .map((zone) => ({ zone, gap: Math.max(0, zone.operationalGap ?? operationalGapFor(zone) ?? 0) }))
     .filter(({ gap }) => gap >= 3)
     .sort((left, right) => right.gap - left.gap);
-  const surplusZones = props.zones
+  const surplus = props.zones
     .filter(hasOperationalObservation)
-    .filter((zone) => (operationalGapFor(zone) ?? 0) < 0);
+    .map((zone) => Math.max(0, -(zone.operationalGap ?? operationalGapFor(zone) ?? 0)))
+    .filter((gap) => gap >= 4);
+  const totalDeficit = deficits.reduce((sum, item) => sum + item.gap, 0);
+  const totalSurplus = surplus.reduce((sum, gap) => sum + gap, 0);
   const deficitQuantiles = deficits.map(({ zone, gap }) => ({ zone, gap, quantiles: demandQuantiles(zone, props.horizon) }));
+  const bandHigh = deficitQuantiles.reduce((sum, { zone, gap, quantiles }) => (
+    sum + Math.max(gap, Math.round((quantiles.p90 ?? zone.demand) - zone.supply))
+  ), 0);
   const maxGap = Math.max(1, ...deficits.map((item) => item.gap));
 
   return (
@@ -58,13 +58,13 @@ export function ForecastDrawer(props: ForecastDrawerProps) {
         <button aria-label="Đóng bảng chi tiết" onClick={props.onClose} type="button"><X size={17} /></button>
       </header>
       <div className="nf-forecast-summary">
-        <div><small>THIẾU HỤT DỰ BÁO P50</small><strong>{formatNumber(balance.medianDeficit)} xe</strong>
-          <span>{deficits.length} vùng rủi ro · +{formatNumber(balance.riskBuffer)} xe đệm p90</span></div>
-        <div><small>NGUỒN DƯ DỰ BÁO P50</small><strong>{formatNumber(balance.forecastSurplus)} xe</strong>
-          <span>{surplusZones.length} zone · trước giới hạn khoảng cách, đệm nguồn và cooldown</span></div>
+        <div><small>THIẾU HỤT DỰ BÁO</small><strong>{formatNumber(totalDeficit)} xe</strong>
+          <span>{deficits.length} zone · khoảng {formatNumber(totalDeficit)}–{formatNumber(bandHigh)} xe theo dải bất định</span></div>
+        <div><small>NGUỒN DƯ KHẢ DỤNG</small><strong>{formatNumber(totalSurplus)} xe</strong>
+          <span>{surplus.length} zone · sau khi giữ đệm tại nguồn</span></div>
       </div>
       <div className="nf-plan-scroll nf-scroll">
-        <h3>VÙNG RỦI RO P90 TẠI {props.forecastTime}</h3>
+        <h3>ĐIỂM NÓNG TẠI {props.forecastTime}</h3>
         <div className="nf-hotspot-list">
           {deficitQuantiles.map(({ zone, gap, quantiles }) => {
             const hotspot = hotspotsByZone.get(zone.id);

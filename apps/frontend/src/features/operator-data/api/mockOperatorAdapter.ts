@@ -79,7 +79,7 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     serverTime: new Date().toISOString(),
     timezone: 'Asia/Ho_Chi_Minh' as const,
     capabilities: {
-      forecastHorizons: { available: true, enabled: true, values: [5, 10, 15] },
+      forecastHorizons: { available: true, enabled: true, values: [5, 15, 30] },
       proposalReview: { available: true, enabled: true },
       dispatchRelease: { available: true, enabled: true },
       dispatchReconciliation: { available: true, enabled: true },
@@ -94,7 +94,7 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     state = { ...state, plans: [proposal, ...state.plans.slice(1)] }
     return clone(proposal)
   },
-  runReplayStep: async (sourceAt) => ({ ...await mockOperatorAdapter.getSnapshot('baseline'), sourceAt }),
+  runReplayStep: async () => mockOperatorAdapter.getSnapshot('baseline'),
   getReplayWindow: async (sourceAt) => [{ sourceAt, meanRainMmH: baseZones.reduce((sum, zone) => sum + zone.rainMmH, 0) / baseZones.length }],
   getSnapshot: (comparison, demoScenarioId = state.scenarioId, replayIndex = 0) => requestLocal(() => {
     const scenario = scenarios.find((item) => item.id === demoScenarioId) ?? scenarios[0]!
@@ -108,10 +108,10 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
       regime: scenario.regime,
       ai: {
         zoneContract: 'AI_ZONE_1_30', registeredZones: 30, liveZones: 30, forecastedZones: 30,
-        horizons: [5, 10, 15], modelVersion: 'mock-forecast-v1', forecastMode: 'simulated',
+        horizons: [5, 15, 30], modelVersion: 'mock-forecast-v1', forecastMode: 'simulated',
         dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), forecastRunId: `mock-${replayIndex}`,
         forecastStatus: 'COMPLETED',
-        forecastRuns: ([5, 10, 15] as const).map((horizonMinutes) => ({
+        forecastRuns: ([5, 15, 30] as const).map((horizonMinutes) => ({
           id: `mock-${replayIndex}-${horizonMinutes}`, horizonMinutes, status: 'COMPLETED' as const,
           modelVersion: 'mock-forecast-v1', featureVersion: 'mock-feature-v1', policyVersion: 'mock-policy-v1', inputHash: `mock-input-${replayIndex}-${horizonMinutes}`,
           forecastMode: 'simulated', dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), completedAt: new Date().toISOString(), zoneCount: 30,
@@ -262,21 +262,6 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
         { type: 'ACTIVATION' as const, estimatedMetrics: plan.metricsAfterActivation ?? plan.metrics, observedMetrics: null, uncertainty: { source: 'mock' }, responseSource: 'policy_assumption' },
         { type: 'HYBRID' as const, estimatedMetrics: plan.metricsAfterActivation ?? plan.metrics, observedMetrics: null, uncertainty: { source: 'mock' }, responseSource: 'optimizer_plus_policy_assumption' },
       ],
-      forecastEvaluation: {
-        status: 'OBSERVED' as const,
-        targetAt: new Date().toISOString(),
-        evaluatedZones: 30,
-        demandMae: 1.4,
-        supplyMae: 0.8,
-        demandMape: 8.7,
-        demandIntervalCoverage: 86.7,
-        supplyIntervalCoverage: 90,
-        forecastFulfillmentRate: 82.3,
-        observedFulfillmentRate: 80.9,
-        fulfillmentRateError: 1.4,
-        forecastResidualGap: 42,
-        observedResidualGap: 46,
-      },
       hasObservedRevenue: false as const,
       revenueNotice: 'Chưa có ledger doanh thu quan sát.',
     } satisfies ScenarioComparison)

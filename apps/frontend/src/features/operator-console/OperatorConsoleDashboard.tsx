@@ -43,7 +43,6 @@ import { ForecastDrawer } from "./components/ForecastDrawer";
 import { ForecastRunStatus } from "./components/ForecastRunStatus";
 import { PlanDrawer } from "./components/PlanDrawer";
 import { useCurrentReplayAnchor } from "./hooks/useCurrentReplayAnchor";
-import { useServerClock } from "./hooks/useServerClock";
 import { SnapshotStaleAlert } from "@/features/operator-dashboard/components/SnapshotStaleAlert";
 import {
   planningHorizonFor,
@@ -55,7 +54,6 @@ import {
 import { proposalCoverageForStage } from "./model/proposalCoverage";
 import { scenarioPresentation } from "./model/scenarioPresentation";
 import { fleetBalanceSummary } from "./model/fleetBalanceSummary";
-import { observedAtForReplaySource } from "./model/replayClock";
 import "./operator-dashboard.css";
 
 const OperatorMap = lazy(() =>
@@ -70,7 +68,7 @@ type DialogKind = "approve" | "release" | "dispatch" | "reject" | null;
 
 export function OperatorConsoleDashboard() {
   const navigate = useNavigate();
-  const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(5);
+  const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(30);
   const [replaySnapshot, setReplaySnapshot] = useState<Snapshot>();
   const [selectedZoneId, setSelectedZoneId] = useState<string>();
   const [search, setSearch] = useState("");
@@ -95,7 +93,6 @@ export function OperatorConsoleDashboard() {
     capabilities.data?.serverTime,
     capabilities.isError,
   );
-  const serverNow = useServerClock(capabilities.data?.serverTime, capabilities.isError);
   const replayWindow = useQuery(replayWindowQuery(replayAnchorAt ?? ""));
   const plans = useQuery(plansQuery());
   const campaigns = useQuery(campaignsQuery());
@@ -116,10 +113,12 @@ export function OperatorConsoleDashboard() {
           window.clearTimeout(autoReplayRetryTimerRef.current);
           autoReplayRetryTimerRef.current = undefined;
         }
+        const nextAt = nextSnapshot.sourceAt ?? nextSnapshot.generatedAt;
         setReplaySnapshot(nextSnapshot);
-        setForecastRun(null);
-        setWorkflowStage("observe");
-        setMapSource("observed");
+        setForecastMinutes(5);
+        setForecastRun({ horizon: 5, sourceAt: nextAt });
+        setWorkflowStage("forecast");
+        setMapSource("forecast");
       },
       onError: () => {
         lastAutoReplayAtRef.current = undefined;
@@ -185,13 +184,6 @@ export function OperatorConsoleDashboard() {
   const activeStage = resolveWorkflowStage(dispatchStage, Boolean(campaign), plan?.status);
   const planReady = stageHasPlan(activeStage);
   const sourceAt = activeSnapshot.sourceAt ?? activeSnapshot.generatedAt;
-  const isLiveEdge = Boolean(replayAnchorAt && sourceAt === replayAnchorAt);
-  const displaySourceAt = replayAnchorAt && serverNow
-    ? observedAtForReplaySource(sourceAt, replayAnchorAt, serverNow)
-    : sourceAt;
-  const displayTimeForSource = (replaySourceAt: string) => replayAnchorAt && serverNow
-    ? observedAtForReplaySource(replaySourceAt, replayAnchorAt, serverNow)
-    : replaySourceAt;
   const observedZones = activeSnapshot.zones;
   const missingZoneCount = observedZones.filter((zone) => !hasOperationalObservation(zone)).length;
   const dataComplete = missingZoneCount === 0
@@ -207,9 +199,8 @@ export function OperatorConsoleDashboard() {
   const displayedHorizon = forecastHorizons.includes(forecastMinutes)
     ? forecastMinutes
     : (forecastHorizons[0] ?? forecastMinutes);
-  const hasRequestedForecast = forecastRun?.horizon === displayedHorizon && forecastRun.sourceAt === sourceAt;
-  const forecastReady = Boolean(hasRequestedForecast && hasExactForecastRun(activeSnapshot.ai, displayedHorizon));
-  const forecastStale = Boolean(forecastRun) && !forecastReady;
+  const forecastReady = hasExactForecastRun(activeSnapshot.ai, displayedHorizon);
+  const forecastStale = Boolean(forecastRun || activeSnapshot.ai?.forecastRunId) && !forecastReady;
   const zones =
     mapSource === "forecast" && forecastReady
       ? projectZonesAtMinute(
@@ -218,8 +209,8 @@ export function OperatorConsoleDashboard() {
           activeSnapshot.regime === "rain_peak",
         )
       : observedZones;
-  const replayTime = formatTimeLabel(displaySourceAt);
-  const forecastTime = addMinutesLabel(displaySourceAt, displayedHorizon);
+  const replayTime = formatTimeLabel(sourceAt);
+  const forecastTime = addMinutesLabel(sourceAt, displayedHorizon);
   const selectedZone = zones.find((zone) => zone.id === selectedZoneId);
   const balance = fleetBalanceSummary(zones);
   const hotspots = zones.filter(hasOperationalObservation).filter((zone) => {
@@ -244,16 +235,18 @@ export function OperatorConsoleDashboard() {
     setDrawerOpen(false);
     actions.runReplayStep.mutate(nextSourceAt, {
       onSuccess: (nextSnapshot) => {
+        const nextAt = nextSnapshot.sourceAt ?? nextSnapshot.generatedAt;
         setReplaySnapshot(nextSnapshot);
-        setForecastRun(null);
-        setWorkflowStage("observe");
-        setMapSource("observed");
+        setForecastMinutes(5);
+        setForecastRun({ horizon: 5, sourceAt: nextAt });
+        setWorkflowStage("forecast");
+        setMapSource("forecast");
       },
       onSettled: () => setReplayTargetAt(undefined),
     });
   };
   const runForecastFor = (horizon: ForecastHorizon) => {
-    if (!isLiveEdge || !dataComplete || snapshotStale || actions.generateAiDecision.isPending) return;
+    if (!dataComplete || snapshotStale || actions.generateAiDecision.isPending) return;
     requestedForecastRef.current = horizon;
     actions.generateAiDecision.mutate({ snapshotId: Number(activeSnapshot.replayStep), horizonMinutes: horizon }, {
       onSuccess: (forecastSnapshot) => {
@@ -270,14 +263,19 @@ export function OperatorConsoleDashboard() {
   };
   const changeHorizon = (value: ForecastHorizon) => {
     setForecastMinutes(value);
+    if (hasExactForecastRun(activeSnapshot.ai, value)) {
+      setMapSource("forecast");
+      setWorkflowStage("forecast");
+      return;
+    }
     setMapSource("observed");
     setWorkflowStage("observe");
-    setDrawerOpen(false);
+    runForecastFor(value);
   };
   const runForecast = () => runForecastFor(forecastMinutes);
 
   const optimize = () => {
-    if (!isLiveEdge || !forecastReady || !dataComplete || snapshotStale || execution) return;
+    if (!dataComplete || snapshotStale || execution) return;
     const parsedSnapshotId = Number(activeSnapshot.replayStep);
     const snapshotId = Number.isInteger(parsedSnapshotId) ? parsedSnapshotId : 0;
     actions.optimizeAiDecision.mutate(
@@ -345,7 +343,7 @@ export function OperatorConsoleDashboard() {
       <ScenarioBar
         forecastMinutes={displayedHorizon}
         fleet={activeSnapshot.kpis.fleetAvailable}
-        generatedAt={displaySourceAt}
+        generatedAt={sourceAt}
         modelVersion={forecastRunForHorizon(activeSnapshot.ai, displayedHorizon)?.modelVersion ?? activeSnapshot.ai?.modelVersion}
         horizons={forecastHorizons}
         isForecasting={actions.generateAiDecision.isPending}
@@ -356,14 +354,11 @@ export function OperatorConsoleDashboard() {
           else setReplaySnapshot(undefined);
         }}
         regime={activeSnapshot.regime}
-        serverTime={serverNow ?? capabilities.data?.serverTime}
         zoneCount={zones.length}
       />
       <div className="nf-ops-workspace">
         <section className="nf-map-stage" aria-label="Bản đồ vận hành">
-          {forecastRun
-            ? <ForecastRunStatus forecast={activeSnapshot.ai} horizon={forecastMinutes} isExact={forecastReady} />
-            : <p className="nf-forecast-run is-ready" role="status">Dữ liệu ghi nhận · chưa chạy model cho mốc này</p>}
+          <ForecastRunStatus forecast={activeSnapshot.ai} horizon={forecastMinutes} isExact={forecastReady} />
           <Suspense fallback={<Skeleton className="h-full" />}>
             <OperatorMap
               forecastMinutes={mapSource === "forecast" ? displayedHorizon : 0}
@@ -416,7 +411,6 @@ export function OperatorConsoleDashboard() {
             />
           )}
           <ReplayTimeline
-            displayTimeForSource={displayTimeForSource}
             hasError={actions.runReplayStep.isError}
             isLoading={actions.runReplayStep.isPending}
             onSourceChange={changeReplaySource}
@@ -486,7 +480,7 @@ export function OperatorConsoleDashboard() {
             plan={planReady ? plan : undefined}
             onOpenPlan={() => setDrawerOpen(true)}
             onOpenExecution={() => navigate(routes.operator.execution)}
-            replayTargetAt={replayTargetAt ? displayTimeForSource(replayTargetAt) : undefined}
+            replayTargetAt={replayTargetAt}
             stage={activeStage}
           />
           <RailActions
@@ -497,7 +491,6 @@ export function OperatorConsoleDashboard() {
             isGenerating={actions.generateAiDecision.isPending}
             isOptimizing={actions.optimizeAiDecision.isPending}
             isScanning={actions.runReplayStep.isPending}
-            isLiveEdge={isLiveEdge}
             dispatchEnabled={capabilities.data?.capabilities.dispatchRelease.enabled ?? false}
             isDispatching={actions.releaseDispatch.isPending}
             hasActiveExecution={execution !== undefined}
@@ -552,7 +545,6 @@ export function ScenarioBar({
   onForecastChange,
   onRefresh,
   regime,
-  serverTime,
   zoneCount,
 }: {
   fleet: number;
@@ -564,17 +556,15 @@ export function ScenarioBar({
   onForecastChange: (value: ForecastHorizon) => void;
   onRefresh: () => void;
   regime: string;
-  serverTime?: string | undefined;
   zoneCount: number;
 }) {
   const scenario = scenarioPresentation(regime, generatedAt);
   return (
     <div className="nf-scenario-bar">
       <strong>{scenario.heading}</strong>
-      <span className="nf-server-clock">GIỜ MÁY CHỦ {serverTime ? formatServerDateTime(serverTime) : "ĐANG ĐỒNG BỘ"}</span>
       <i />
       <span>
-        <CloudRain size={14} /> Thời tiết: {scenario.weather} · dữ liệu ghi nhận
+        <CloudRain size={14} /> Thời tiết: {scenario.weather} · dữ liệu AI
       </span>
       <i />
       <span>
@@ -858,13 +848,13 @@ function KpiPanel({
         <b className={["executing", "executed", "campaign"].includes(stage) ? "is-active" : ""}>Thực hiện</b>
       </div>
       <section className="nf-kpi-primary">
-        <small>{stage === "observe" ? "THIẾU HỤT GHI NHẬN" : "MẤT CÂN BẰNG DỰ BÁO P50"}</small>
+        <small>{stage === "observe" ? "THIẾU HỤT GHI NHẬN" : "THIẾU HỤT CẦN XỬ LÝ"}</small>
         <strong>
           {balance.medianDeficit}
           <em> xe</em>
         </strong>
         <span>
-          {balance.riskBuffer > 0 ? `+${balance.riskBuffer} xe đệm rủi ro · ` : ''}{hotspots} hotspot chính sách · {requests} yêu cầu
+          {balance.riskBuffer > 0 ? `+${balance.riskBuffer} xe đệm rủi ro · ` : ''}{hotspots} khu vực · {requests} yêu cầu
         </span>
       </section>
       <div className="nf-kpi-grid">
@@ -935,12 +925,12 @@ function Pipeline({
       state: (isScanning ? "running" : "done") as PipelineState,
       command: "snapshot.load(zone_registry)",
       result: isScanning
-        ? "Đang đọc mốc dữ liệu ghi nhận"
+        ? "Đang nạp mốc replay từ bộ Parquet của dự án"
         : "30/30 zone hợp lệ từ nguồn dữ liệu dự án",
     },
     {
       label: "Dự báo cung–cầu",
-      state: (isForecasting
+      state: (isForecasting || isScanning
         ? "running"
         : forecastReady
           ? "done"
@@ -948,7 +938,9 @@ function Pipeline({
             ? "stale"
             : "waiting") as PipelineState,
       command: "forecast.run(model=trained_replay)",
-      result: isForecasting
+      result: isScanning
+        ? "Đang chạy LightGBM để dự báo cho 5 phút sau"
+        : isForecasting
           ? "Đang chạy model và dải bất định"
         : forecastReady
           ? "Dự báo mới khớp mốc đang xem"
@@ -1099,7 +1091,7 @@ function Pipeline({
                   : "Đang phát và theo dõi lệnh"}</b>
             <small>
               {isScanning && replayTargetAt
-                ? `${formatTimeLabel(replayTargetAt)} · đang đọc dữ liệu 30 zone, không chạy model`
+                ? `${formatTimeLabel(replayTargetAt)} → dự báo +5 phút · dữ liệu 30 zone`
                 : isOptimizing
                   ? "Model đang ghép nguồn–đích theo ràng buộc thật"
                   : stage === "executing"
@@ -1176,7 +1168,6 @@ export function RailActions({
   isGenerating,
   isOptimizing,
   isScanning,
-  isLiveEdge = true,
   missingZoneCount = 0,
   onActivate,
   onApprove,
@@ -1202,7 +1193,6 @@ export function RailActions({
   isGenerating: boolean;
   isOptimizing: boolean;
   isScanning: boolean;
-  isLiveEdge?: boolean;
   missingZoneCount?: number;
   onActivate: () => void;
   onApprove: () => void;
@@ -1220,13 +1210,6 @@ export function RailActions({
 }) {
   const dispatchCommand = onDispatch ?? (() => undefined);
   const currentDispatch = activeDispatch ? dispatchStatusPresentation(activeDispatch) : undefined;
-  if (!isLiveEdge)
-    return (
-      <div className="nf-rail-actions">
-        <button className="btn btn-primary btn-block" disabled type="button">Đang xem dữ liệu quá khứ</button>
-        <small>Replay chỉ đọc dữ liệu đã ghi nhận. Quay về mốc “Hiện tại” để chạy model dự báo và lập phương án.</small>
-      </div>
-    );
   if (snapshotStale)
     return (
       <div className="nf-rail-actions">
@@ -1614,17 +1597,6 @@ function addMinutesLabel(generatedAt: string, minutes: number) {
 
 function formatTimeLabel(value: string) {
   return new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
-}
-
-function formatServerDateTime(value: string) {
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-    second: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date(value));
 }
 
 const formatVnd = (value: number) =>

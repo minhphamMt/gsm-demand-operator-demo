@@ -35,7 +35,7 @@ PlanStatus = Literal["Draft", "Proposed", "Revised", "Approved", "Rejected"]
 CampaignStatus = Literal["NotNeeded", "Pending", "Running", "Closed"]
 
 # `"{t}_h{horizon_min}"`, ví dụ "2026-08-02T17:05:00+07:00_h15" (§4.4).
-ForecastRef = Annotated[str, StringConstraints(pattern=r"^.+_h(5|10|15)$")]
+ForecastRef = Annotated[str, StringConstraints(pattern=r"^.+_h(15|30)$")]
 
 
 class Move(ContractModel):

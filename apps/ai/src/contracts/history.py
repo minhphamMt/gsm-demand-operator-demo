@@ -21,7 +21,7 @@ from src.contracts.plan import Metrics, RelocationPlan
 from src.contracts.response import DeclineReason
 
 # `"{t}_h{horizon}@{model_version}"`, ví dụ "2026-08-02T17:05:00+07:00_h15@lgbm_v2_rainpeak".
-ForecastRefWithVersion = Annotated[str, StringConstraints(pattern=r"^.+_h(5|10|15)@.+$")]
+ForecastRefWithVersion = Annotated[str, StringConstraints(pattern=r"^.+_h(15|30)@.+$")]
 
 PlanDecision = Literal["approved", "rejected", "revised"]
 
