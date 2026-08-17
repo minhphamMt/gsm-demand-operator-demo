@@ -74,4 +74,30 @@ describe('mock operator adapter', () => {
     expect(refreshed.filter((plan) => originalIds.includes(plan.id)).every((plan) => plan.status === 'Stale')).toBe(true)
     vi.useRealTimers()
   })
+
+  it('stales an approved proposal after its unused execution window expires', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-05T10:00:00+07:00'))
+    await mockOperatorAdapter.resetDemo()
+    const original = await mockOperatorAdapter.getPlan('PLN-042')
+    if (!original) throw new Error('Missing proposal fixture')
+    const revised = await mockOperatorAdapter.revisePlan(original.id, {
+      expectedVersion: original.version,
+      moveQuantities: Object.fromEntries(original.moves.map((move) => [move.id, move.quantity])),
+      moveSourceZoneIds: Object.fromEntries(original.moves.map((move) => [move.id, move.sourceZoneId])),
+      targetDriverCount: original.targetDriverCount,
+      campaignDurationMinutes: 5,
+      relocationBonus: original.relocationBonus,
+      zoneTripBonus: original.zoneTripBonus,
+      fareMultiplier: original.fareMultiplier,
+      budgetLimit: original.budgetLimit,
+      note: 'Kiá»ƒm thá»­ proposal Ä‘Ã£ duyá»‡t háº¿t háº¡n',
+    })
+    await mockOperatorAdapter.approvePlan(revised.id, revised.version)
+
+    vi.setSystemTime(new Date('2026-08-05T10:09:00+07:00'))
+
+    expect((await mockOperatorAdapter.getPlan(revised.id))?.status).toBe('Stale')
+    vi.useRealTimers()
+  })
 })

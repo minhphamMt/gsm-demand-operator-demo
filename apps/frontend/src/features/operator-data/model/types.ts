@@ -124,7 +124,7 @@ export type Campaign = {
   suggestedActivation: number
 }
 
-export type AuditAction = 'Created' | 'Revised' | 'Approved' | 'Rejected' | 'ActivationStarted' | 'CampaignCancelled' | 'CampaignTargetReached' | 'OfferAccepted' | 'OfferDeclined' | 'OfferExpired' | 'DispatchReleased' | 'DispatchEventRecorded' | 'DispatchRetryRequested' | 'DispatchCancelled' | 'ScenarioLoaded' | 'DemoReset'
+export type AuditAction = 'Created' | 'Revised' | 'Approved' | 'ProposalExpired' | 'Rejected' | 'ActivationStarted' | 'CampaignCancelled' | 'CampaignTargetReached' | 'OfferAccepted' | 'OfferDeclined' | 'OfferExpired' | 'DispatchReleased' | 'DispatchEventRecorded' | 'DispatchRetryRequested' | 'DispatchCancelled' | 'ScenarioLoaded' | 'DemoReset'
 export type AuditEntry = { id: string; planId: string; entityType?: string; entityId?: string; action: AuditAction; actor: string; actorType?: string; actorId?: string | null; requestId?: string | null; correlationId?: string | null; entityVersion?: number | null; entityHash?: string | null; occurredAt: string; detail: string }
 export type AuditFilters = { page: number; pageSize: number; entityId?: string; entityType?: string; action?: AuditAction; actorType?: string; actorId?: string; from?: string; to?: string }
 export type AuditPage = { items: readonly AuditEntry[]; page: number; pageSize: number; total: number; totalPages: number; hasPreviousPage: boolean; hasNextPage: boolean; nextCursor?: string | null }

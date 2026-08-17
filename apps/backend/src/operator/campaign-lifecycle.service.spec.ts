@@ -20,26 +20,28 @@ describe('CampaignLifecycleService', () => {
   };
 
   it('runs the idempotent database reconciliation', async () => {
-    const rpc = jest.fn().mockResolvedValue({
-      data: { campaigns_transitioned: 1, offers_expired: 2, request_id: 'lifecycle-1', ran_at: '2026-08-09T00:00:00Z' },
-      error: null,
-    });
+    const rpc = jest.fn((name: string) => Promise.resolve(name === 'expire_stale_approved_proposals'
+      ? { data: { proposals_staled: 1 }, error: null }
+      : { data: { campaigns_transitioned: 1, offers_expired: 2, request_id: 'lifecycle-1', ran_at: '2026-08-09T00:00:00Z' }, error: null }));
     const db = dbWith(rpc);
     const service = new CampaignLifecycleService(db, new ConfigService({ CAMPAIGN_LIFECYCLE_ENABLED: 'false' }));
 
-    await expect(service.reconcile()).resolves.toMatchObject({ campaigns_transitioned: 1, offers_expired: 2 });
+    await expect(service.reconcile()).resolves.toMatchObject({ campaigns_transitioned: 1, offers_expired: 2, proposals_staled: 1 });
+    expect(rpc).toHaveBeenCalledWith('expire_stale_approved_proposals', expect.objectContaining({ p_request_id: expect.stringMatching(/^lifecycle-/) }));
     expect(rpc).toHaveBeenCalledWith('reconcile_campaign_lifecycle', expect.objectContaining({ p_request_id: expect.stringMatching(/^lifecycle-/) }));
   });
 
   it('does not overlap two reconciliation runs', async () => {
     let resolveRpc!: (value: unknown) => void;
-    const rpc = jest.fn(() => new Promise((resolve) => { resolveRpc = resolve; }));
+    const rpc = jest.fn()
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveRpc = resolve; }))
+      .mockResolvedValueOnce({ data: { campaigns_transitioned: 0, offers_expired: 0, request_id: 'lifecycle-1', ran_at: '2026-08-09T00:00:00Z' }, error: null });
     const db = dbWith(rpc);
     const service = new CampaignLifecycleService(db, new ConfigService({ CAMPAIGN_LIFECYCLE_ENABLED: 'false' }));
 
     const first = service.reconcile();
     await expect(service.reconcile()).resolves.toBeNull();
-    resolveRpc({ data: { campaigns_transitioned: 0, offers_expired: 0 }, error: null });
+    resolveRpc({ data: { proposals_staled: 0 }, error: null });
     await first;
   });
 

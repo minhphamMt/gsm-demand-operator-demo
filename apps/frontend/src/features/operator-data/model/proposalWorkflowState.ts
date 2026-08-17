@@ -1,11 +1,12 @@
 import { createAgentPlans } from '@/features/operator-data/model/mockProposalEngine'
 import { isPlanInputFresh } from '@/features/operator-data/model/proposalRules'
-import type { AuditEntry, DemoDriver, DemoScenarioId, Proposal } from '@/features/operator-data/model/types'
+import type { AuditEntry, Campaign, DemoDriver, DemoScenarioId, Proposal } from '@/features/operator-data/model/types'
 
 type ProposalQueueState = {
   scenarioId: DemoScenarioId
   nextProposalNumber: number
   plans: Proposal[]
+  campaigns?: readonly Pick<Campaign, 'planId'>[]
   drivers: DemoDriver[]
   audit: AuditEntry[]
 }
@@ -22,7 +23,10 @@ export function withLiveEligibility(plan: Proposal, drivers: readonly DemoDriver
 }
 
 export function refreshStaleProposalQueue<TState extends ProposalQueueState>(state: TState): TState {
-  const stalePlans = state.plans.filter((plan) => (plan.status === 'UnderReview' || plan.status === 'Revised') && !isPlanInputFresh(plan.inputFreshUntil))
+  const executedPlanIds = new Set((state.campaigns ?? []).map((campaign) => campaign.planId))
+  const stalePlans = state.plans.filter((plan) => ['UnderReview', 'Revised', 'Approved'].includes(plan.status)
+    && !executedPlanIds.has(plan.id)
+    && !isPlanInputFresh(plan.inputFreshUntil))
   if (!stalePlans.length) return state
   const staleIds = new Set(stalePlans.map((plan) => plan.id))
   const generated = createAgentPlans(state.scenarioId, state.nextProposalNumber).slice(0, stalePlans.length)

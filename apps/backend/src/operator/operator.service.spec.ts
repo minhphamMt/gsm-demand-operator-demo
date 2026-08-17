@@ -248,6 +248,36 @@ describe('OperatorService snapshot selection', () => {
     }));
   });
 
+  it('blocks dispatch for an approved proposal after its execution window expires', async () => {
+    const previousDispatchFlag = process.env.OPERATOR_DISPATCH_ENABLED;
+    process.env.OPERATOR_DISPATCH_ENABLED = 'true';
+    const rpc = jest.fn();
+    const db = {
+      client: {
+        from: jest.fn((table: string) => {
+          if (table === 'proposals') return new ReadQuery([{
+            id: 'proposal-expired',
+            status: 'APPROVED',
+            window_end_at: '2020-01-01T00:00:00.000Z',
+          }]);
+          throw new Error(`Unexpected table ${table}`);
+        }),
+        rpc,
+      },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    };
+
+    try {
+      await expect(new OperatorService(db as never).releaseDispatch(
+        'proposal-expired', 'actor-1', 'request-1', 'dispatch-1',
+      )).rejects.toMatchObject({ response: expect.objectContaining({ code: 'STALE_PROPOSAL' }) });
+      expect(rpc).not.toHaveBeenCalled();
+    } finally {
+      if (previousDispatchFlag === undefined) delete process.env.OPERATOR_DISPATCH_ENABLED;
+      else process.env.OPERATOR_DISPATCH_ENABLED = previousDispatchFlag;
+    }
+  });
+
   it('rejects a revision submitted from an older proposal version before calling the RPC', async () => {
     const proposalRead = {
       eq: jest.fn(),

@@ -31,6 +31,7 @@ const auditActionAliases: Record<string, string[]> = {
   Created: ['Created', 'CREATE'],
   Revised: ['Revised', 'REVISE'],
   Approved: ['Approved', 'APPROVE'],
+  ProposalExpired: ['ProposalExpired'],
   Rejected: ['Rejected', 'REJECT'],
   ActivationStarted: ['ActivationStarted', 'ACTIVATE'],
   CampaignCancelled: ['CampaignCancelled', 'CANCEL_CAMPAIGN'],
@@ -552,6 +553,19 @@ export class OperatorService {
       throw new UnprocessableEntityException({
         code: 'CAPABILITY_DISABLED',
         message: 'Live dispatch is installed but disabled until the limited-dispatch gate is enabled.',
+      });
+    }
+    const { data: proposal, error: proposalError } = await this.db.client
+      .from('proposals')
+      .select('id,status,window_end_at')
+      .eq('id', id)
+      .maybeSingle();
+    if (proposalError) this.db.unwrap(null, proposalError);
+    if (!proposal) throw new NotFoundException(`Proposal ${id} was not found`);
+    if (!proposal.window_end_at || new Date(proposal.window_end_at).getTime() <= Date.now()) {
+      throw new ConflictException({
+        code: 'STALE_PROPOSAL',
+        message: 'Proposal input window has expired; run the model again before dispatch.',
       });
     }
     await assertNoActiveExecution(this.db, id);

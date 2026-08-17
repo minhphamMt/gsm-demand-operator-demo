@@ -1,4 +1,5 @@
 import type { Campaign, DispatchBatch, Proposal } from '@/features/operator-data/model/types'
+import { isPlanInputFresh } from '@/features/operator-data/model/proposalRules'
 
 const newestProposalFirst = (left: Proposal, right: Proposal) =>
   Date.parse(right.createdAt) - Date.parse(left.createdAt) || left.rank - right.rank
@@ -6,11 +7,15 @@ const newestProposalFirst = (left: Proposal, right: Proposal) =>
 export function latestAgentProposalForSnapshot(
   plans: readonly Proposal[] | undefined,
   snapshotId: string,
+  now = new Date(),
 ) {
   return plans
     ?.filter(
       (plan) =>
-        plan.generatorType === 'AGENT' && plan.inputSnapshotId === snapshotId,
+        plan.generatorType === 'AGENT'
+        && plan.inputSnapshotId === snapshotId
+        && !['Rejected', 'Stale'].includes(plan.status)
+        && (plan.status !== 'Approved' || isPlanInputFresh(plan.inputFreshUntil, now)),
     )
     .sort(newestProposalFirst)[0]
 }
@@ -24,6 +29,7 @@ export function latestApprovedProposalAwaitingExecution(
   plans: readonly Proposal[] | undefined,
   campaigns: readonly Campaign[] | undefined,
   dispatches: readonly DispatchBatch[] | undefined,
+  now = new Date(),
 ) {
   const executedPlanIds = new Set([
     ...(campaigns ?? []).map((campaign) => campaign.planId),
@@ -31,6 +37,8 @@ export function latestApprovedProposalAwaitingExecution(
   ])
 
   return plans
-    ?.filter((plan) => plan.status === 'Approved' && !executedPlanIds.has(plan.id))
+    ?.filter((plan) => plan.status === 'Approved'
+      && isPlanInputFresh(plan.inputFreshUntil, now)
+      && !executedPlanIds.has(plan.id))
     .sort(newestProposalFirst)[0]
 }

@@ -159,6 +159,7 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
   startCampaign: (planId, mode = 'mixed') => requestLocal(() => {
     const plan = planFor(planId)
     if (plan?.status !== 'Approved') throw new Error('Chỉ phát hành offer sau khi phê duyệt plan.')
+    if (plan && !isPlanInputFresh(plan.inputFreshUntil)) throw new Error('Phương án đã hết hiệu lực. Hãy tính lại trước khi thực hiện.')
     if (!plan.targetZoneId) throw new Error('Proposal must have a target zone before campaign activation.')
     const existing = state.campaigns.find((item) => item.planId === planId)
     if (existing) return clone(existing)

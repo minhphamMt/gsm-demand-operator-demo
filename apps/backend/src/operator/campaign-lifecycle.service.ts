@@ -8,6 +8,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 export interface LifecycleResult {
   campaigns_transitioned: number;
   offers_expired: number;
+  proposals_staled: number;
   request_id: string;
   ran_at: string;
 }
@@ -38,10 +39,17 @@ export class CampaignLifecycleService implements OnModuleInit, OnModuleDestroy {
     this.running = true;
     const requestId = `lifecycle-${randomUUID()}`;
     try {
+      const { data: proposalData, error: proposalError } = await this.db.client.rpc('expire_stale_approved_proposals', { p_request_id: requestId });
+      const proposalResult = this.db.unwrap(proposalData as Pick<LifecycleResult, 'proposals_staled'> | null, proposalError);
       const { data, error } = await this.db.client.rpc('reconcile_campaign_lifecycle', { p_request_id: requestId });
-      const result = this.db.unwrap(data as LifecycleResult | null, error);
+      const campaignResult = this.db.unwrap(data as Omit<LifecycleResult, 'proposals_staled'> | null, error);
+      if (!campaignResult) throw new Error('Campaign lifecycle reconciliation returned no result');
+      const result: LifecycleResult = {
+        ...campaignResult,
+        proposals_staled: proposalResult?.proposals_staled ?? 0,
+      };
       const driversReleased = await releaseAllTerminalDriverStates(this.db);
-      if (result.campaigns_transitioned || result.offers_expired) {
+      if (result.proposals_staled || result.campaigns_transitioned || result.offers_expired) {
         this.logger.log(JSON.stringify({ event: 'campaign_lifecycle_reconciled', ...result, drivers_released: driversReleased }));
       }
       return result;
