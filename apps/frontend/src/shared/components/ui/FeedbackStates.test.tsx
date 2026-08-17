@@ -21,8 +21,8 @@ describe('feedback states', () => {
     const retry = vi.fn()
     render(<><p>Dữ liệu cache</p><DataRefreshState hasError isFetching={false} onRetry={retry} /></>)
     expect(screen.getByText('Dữ liệu cache')).toBeInTheDocument()
-    expect(screen.getByText('Dữ liệu đang hiển thị có thể đã cũ.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Tải lại dữ liệu' }))
+    expect(screen.getByText('Dữ liệu cũ')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Tải lại' }))
     expect(retry).toHaveBeenCalledOnce()
   })
 

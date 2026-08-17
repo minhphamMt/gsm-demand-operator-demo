@@ -15,7 +15,7 @@ export function ErrorState({ onRetry }: { onRetry?: () => void }) {
 }
 
 export function DataRefreshState({ hasError, isFetching, onRetry }: { hasError: boolean; isFetching: boolean; onRetry: () => void }) {
-  if (hasError) return <div className="flex flex-col justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 sm:flex-row sm:items-center" role="alert"><div><p className="font-semibold">Dữ liệu đang hiển thị có thể đã cũ.</p><p className="mt-0.5 text-sm">Lần cập nhật gần nhất thất bại; dữ liệu đã tải trước đó vẫn được giữ nguyên.</p></div><Button className="shrink-0" onClick={onRetry} variant="secondary"><RefreshCw className="size-4" />Tải lại dữ liệu</Button></div>
-  if (isFetching) return <div aria-live="polite" className="nf-data-refresh-indicator" role="status"><RefreshCw className="size-3.5 animate-spin" />Đang đồng bộ</div>
+  if (hasError) return <div aria-live="assertive" className="nf-data-refresh-indicator is-error" role="alert"><RefreshCw className="size-3.5" /><span>Dữ liệu cũ</span><button onClick={onRetry} type="button">Tải lại</button></div>
+  if (isFetching) return <div aria-live="polite" className="nf-data-refresh-indicator" role="status"><RefreshCw className="size-3.5 animate-spin" /><span>Đang đồng bộ</span></div>
   return null
 }
