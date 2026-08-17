@@ -94,9 +94,24 @@ export function buildFlowCollections(zones: readonly Zone[], moves: readonly Mov
   return { labels: featureCollection(labels), routes: featureCollection(routes) }
 }
 
+const coreMapZoneIdMax = 7
+
+function isCoreMapZone(zone: Zone) {
+  // The map view is geographic, so do not use a live risk tier such as
+  // `high` to decide which districts belong to the city core. The AI zone
+  // contract keeps the first seven zones as the central Hanoi operating area.
+  if (Number.isFinite(zone.aiZoneId)) return zone.aiZoneId >= 1 && zone.aiZoneId <= coreMapZoneIdMax
+
+  const code = zone.zoneCode || zone.id
+  const match = /^AI-Z0*(\d+)$/.exec(code)
+  if (match) return Number(match[1]) <= coreMapZoneIdMax
+
+  return zone.tier === 'core'
+}
+
 export function zonesForMapView(zones: readonly Zone[], view: 'city' | 'core') {
   if (view === 'city') return zones
-  const coreZones = zones.filter((zone) => zone.tier === 'core' || zone.tier === 'high')
+  const coreZones = zones.filter(isCoreMapZone)
   return coreZones.length ? coreZones : zones
 }
 

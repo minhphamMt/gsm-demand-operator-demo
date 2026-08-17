@@ -27,6 +27,7 @@ import {
   hasExactForecastRun,
   hasOperationalObservation,
   getSnapshotFreshness,
+  isCampaignOverdue,
   isCampaignOperational,
   latestAgentProposalForSnapshot,
   latestApprovedProposalAwaitingExecution,
@@ -492,6 +493,7 @@ export function OperatorConsoleDashboard() {
               audit={audit.data}
               drivers={drivers.data}
               execution={execution}
+              now={serverNow ? Date.parse(serverNow) : undefined}
               offers={offers.data}
               onRetryMove={(batchId, moveId) => actions.retryDispatch.mutate({ batchId, moveId, reason: "Operator requested retry from the operation log." })}
             />
@@ -573,6 +575,7 @@ export function OperatorConsoleDashboard() {
               audit={audit.data}
               drivers={drivers.data}
               execution={execution}
+              now={serverNow ? Date.parse(serverNow) : undefined}
               offers={offers.data}
               onOpenExecution={() => navigate(routes.operator.execution)}
               onStop={(target) => setStopTarget(target)}
@@ -852,18 +855,20 @@ function ExecutionLogPanel({
   audit,
   drivers,
   execution,
+  now,
   offers,
   onRetryMove,
 }: {
   audit: readonly AuditEntry[] | undefined;
   drivers: readonly DemoDriver[] | undefined;
   execution: ActiveExecution;
+  now: number | undefined;
   offers: readonly Offer[] | undefined;
   onRetryMove: (batchId: string, moveId: string) => void;
 }) {
   const dispatch = execution.dispatch;
   const progress = dispatch ? dispatchProgress(dispatch) : undefined;
-  const dispatchState = dispatch ? dispatchStatusPresentation(dispatch) : undefined;
+  const dispatchState = dispatch ? dispatchStatusPresentation(dispatch, now) : undefined;
   const campaignOffers = execution.campaign
     ? (offers ?? []).filter((offer) => offer.campaignId === execution.campaign?.id)
     : [];
@@ -1444,6 +1449,7 @@ function ActiveExecutionRail({
   audit,
   drivers,
   execution,
+  now,
   offers,
   onOpenExecution,
   onStop,
@@ -1451,14 +1457,17 @@ function ActiveExecutionRail({
   audit: readonly AuditEntry[] | undefined;
   drivers: readonly DemoDriver[] | undefined;
   execution: ActiveExecution;
+  now: number | undefined;
   offers: readonly Offer[] | undefined;
   onOpenExecution: () => void;
   onStop: (target: ActiveStopTarget) => void;
 }) {
   const dispatchState = execution.dispatch
-    ? dispatchStatusPresentation(execution.dispatch)
+    ? dispatchStatusPresentation(execution.dispatch, now)
     : undefined;
   const progress = execution.dispatch ? dispatchProgress(execution.dispatch) : undefined;
+  const campaignOverdue = execution.campaign ? isCampaignOverdue(execution.campaign, now) : false;
+  const isOverdue = Boolean(dispatchState?.isOverdue || campaignOverdue);
   const stopTarget = execution.dispatch && dispatchState?.canCancel
     ? { id: execution.dispatch.id, kind: "dispatch" as const }
     : execution.campaign
@@ -1476,6 +1485,12 @@ function ActiveExecutionRail({
   const openOffers = campaignOffers.filter((offer) => offer.status === "Open").length;
   const cancelledOffers = campaignOffers.filter((offer) => offer.status === "Cancelled").length;
   const expiredOffers = campaignOffers.filter((offer) => offer.status === "Expired").length;
+  const overdueTitle = dispatchState?.isOverdue
+    ? "Phương án đã quá ETA"
+    : "Offer đã quá thời hạn";
+  const overdueDetail = dispatchState?.isOverdue
+    ? `${(progress?.activeMoves ?? 0) + (progress?.waitingMoves ?? 0)} lệnh chưa hoàn tất. Cần kiểm tra hoặc hủy ngay.`
+    : `Campaign chưa hoàn tất nhưng đã quá hạn ${execution.campaign ? formatTimeLabel(execution.campaign.expiresAt) : "thời gian quy định"}.`;
 
   return (
     <section aria-label="Phương án đang chạy" className="nf-active-rail">
@@ -1486,11 +1501,18 @@ function ActiveExecutionRail({
         </div>
         <span className="nf-active-rail-badge">KHÓA DỰ BÁO</span>
       </header>
-      <div className="nf-active-rail-status">
+      <div className={`nf-active-rail-status${isOverdue ? " is-overdue" : ""}`}>
         <i />
         <strong>{statusLabel}</strong>
         <small>{execution.plan ? `Revision v${execution.plan.version}` : execution.planId.slice(0, 12)}</small>
       </div>
+      {isOverdue && (
+        <div aria-live="assertive" className="nf-active-rail-overdue" role="alert">
+          <b>{overdueTitle}</b>
+          <span>{overdueDetail}</span>
+          {stopTarget && <button className="btn btn-danger btn-block" onClick={() => onStop(stopTarget)} type="button">Hủy ngay</button>}
+        </div>
+      )}
       <div className="nf-active-rail-summary">
         {progress ? (
           <span>

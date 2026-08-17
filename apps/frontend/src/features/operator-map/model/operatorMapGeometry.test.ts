@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Move, Zone } from '@/features/operator-data'
+import { createZones } from '@/features/operator-data/model/zoneGeometry'
 import { buildFlowCollections, mapLayerThresholds, zoneFillColor, zonesForMapView } from './operatorMapGeometry'
 
 describe('buildFlowCollections', () => {
@@ -27,14 +28,24 @@ describe('buildFlowCollections', () => {
     expect(zonesForMapView(zones, 'core').map((zone) => zone.id)).toEqual(['AI-Z01'])
   })
 
-  it('uses the high tier from the live DB contract as the operational core', () => {
+  it('uses geographic AI zone ids instead of risk tiers for the operational core', () => {
     const liveZones = [
-      { id: 'AI-Z01', tier: 'medium' },
-      { id: 'AI-Z02', tier: 'high' },
-      { id: 'AI-Z03', tier: 'low' },
+      { id: 'AI-Z01', aiZoneId: 1, tier: 'medium' },
+      { id: 'AI-Z02', aiZoneId: 2, tier: 'high' },
+      { id: 'AI-Z14', aiZoneId: 14, tier: 'low' },
     ] as Zone[]
-    expect(zonesForMapView(liveZones, 'core').map((zone) => zone.id)).toEqual(['AI-Z02'])
+    expect(zonesForMapView(liveZones, 'core').map((zone) => zone.id)).toEqual(['AI-Z01', 'AI-Z02'])
     expect(zonesForMapView(liveZones, 'city')).toHaveLength(liveZones.length)
+  })
+
+  it('keeps the core view focused on the seven central districts, including Hoàn Kiếm and Ba Đình', () => {
+    const coreZones = zonesForMapView(createZones(), 'core')
+
+    expect(coreZones).toHaveLength(7)
+    expect(coreZones.map((zone) => zone.label)).toEqual([
+      'Ba Đình', 'Hoàn Kiếm', 'Hai Bà Trưng', 'Đống Đa', 'Tây Hồ', 'Cầu Giấy', 'Thanh Xuân',
+    ])
+    expect(coreZones.some((zone) => zone.label === 'Gia Lâm')).toBe(false)
   })
 
   it('uses per-zone bands that match the project dataset scale', () => {
