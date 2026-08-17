@@ -20,7 +20,7 @@ function actionErrorMessage(errors: readonly (Error | null)[]) {
   return `${error.message}${error instanceof AppError && error.requestId ? ` Mã yêu cầu: ${error.requestId}.` : ''}`
 }
 
-export function PlanDetail({ planId }: { planId: string }) {
+export function PlanDetail({ activationRoute = routes.operator.campaigns, detailRoute = routes.operator.planDetail, planId }: { activationRoute?: string; detailRoute?: (planId: string) => string; planId: string }) {
   const plan = useQuery(planQuery(planId))
   const plans = useQuery(plansQuery())
   const audit = useQuery(auditQuery())
@@ -40,14 +40,14 @@ export function PlanDetail({ planId }: { planId: string }) {
   const history = audit.data?.filter((entry) => versionIds.has(entry.planId)) ?? []
   const linkedCampaign = campaigns.data?.find((campaign) => campaign.planId === proposal.id)
   const hasOperationalCampaign = Boolean(linkedCampaign && isCampaignOperational(linkedCampaign))
-  const decisionActions = <PlanDecisionActions plan={proposal} campaignStatus={linkedCampaign?.status} hasOperationalCampaign={hasOperationalCampaign} error={decisionError} isWorking={actions.approve.isPending || actions.reject.isPending || actions.activate.isPending} onApprove={(note) => actions.approve.mutate({ planId: proposal.id, expectedVersion: proposal.version, note })} onReject={(request) => actions.reject.mutate({ planId: proposal.id, request: { ...request, expectedVersion: proposal.version } })} onActivate={() => actions.activate.mutate({ planId: proposal.id, mode: 'human' }, { onSuccess: () => navigate(routes.operator.campaigns) })} />
+  const decisionActions = <PlanDecisionActions plan={proposal} campaignStatus={linkedCampaign?.status} hasOperationalCampaign={hasOperationalCampaign} error={decisionError} isWorking={actions.approve.isPending || actions.reject.isPending || actions.activate.isPending} onApprove={(note) => actions.approve.mutate({ planId: proposal.id, expectedVersion: proposal.version, note })} onReject={(request) => actions.reject.mutate({ planId: proposal.id, request: { ...request, expectedVersion: proposal.version } })} onActivate={() => actions.activate.mutate({ planId: proposal.id, mode: 'human' }, { onSuccess: () => navigate(activationRoute) })} />
 
-  return <div className="space-y-5">
+  return <div className="nf-plan-detail-stack space-y-5">
     <DataRefreshState hasError={queries.some((query) => query.isRefetchError)} isFetching={queries.some((query) => query.isFetching)} onRetry={retryAll} />
     <ProposalReviewHeader plan={proposal} hasCampaign={Boolean(linkedCampaign)} actions={decisionActions} />
     {proposal.status === 'Approved' && !linkedCampaign && <Card className="border-emerald-200 bg-emerald-50"><div className="flex gap-3"><CircleCheckBig className="size-5 shrink-0 text-emerald-700" /><div><h3 className="font-semibold text-emerald-950">Proposal đã được khóa và phê duyệt</h3><p className="mt-1 text-sm text-emerald-800">Chưa có offer nào được gửi tự động. Điều phối viên phải xác nhận riêng “Thiết lập huy động thêm” nếu muốn xử lý residual gap.</p></div></div></Card>}
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="space-y-5"><SimulationComparison plan={proposal} /><ProposalReviewForm plan={proposal} error={actions.revise.error} isSaving={actions.revise.isPending} onRevise={(request) => actions.revise.mutate({ planId: proposal.id, request }, { onSuccess: (revised) => navigate(routes.operator.planDetail(revised.id), { replace: true }) })} /></div>
+      <div className="space-y-5"><SimulationComparison plan={proposal} /><ProposalReviewForm plan={proposal} error={actions.revise.error} isSaving={actions.revise.isPending} onRevise={(request) => actions.revise.mutate({ planId: proposal.id, request }, { onSuccess: (revised) => navigate(detailRoute(revised.id), { replace: true }) })} /></div>
       <div className="space-y-5"><ProposalEvidence plan={proposal} /><PlanAuditTrail entries={history} /></div>
     </div>
   </div>

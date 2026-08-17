@@ -63,4 +63,20 @@ describe('OperatorShell server clock', () => {
 
     expect(screen.getByRole('link', { name: 'Đang vận hành' })).toHaveClass('is-active')
   })
+
+  it('keeps the operating navigation active on the plan detail route', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    queryClient.setQueryData(['operator', 'capabilities'], capabilities)
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/operator/execution/plan/PLAN-017']}>
+          <OperatorShell />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Đang vận hành' })).toHaveClass('is-active')
+    expect(screen.getByRole('link', { name: 'Điều hành' })).not.toHaveClass('is-active')
+  })
 })

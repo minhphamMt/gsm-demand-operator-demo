@@ -1,0 +1,91 @@
+.nf-workspace-body:has(.nf-plan-review-shell) {
+  background: #f3f7f6;
+  padding: 18px 22px 32px;
+}
+
+.nf-workspace-page:has(.nf-plan-review-shell) .nf-workspace-heading {
+  background: linear-gradient(115deg, #ffffff 0%, #f2fbf9 100%);
+}
+
+.nf-plan-review-shell {
+  width: min(1480px, 100%);
+  margin: 0 auto;
+}
+
+.nf-plan-review-crumb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: var(--color-neutral-600);
+  font-size: 10px;
+}
+
+.nf-plan-review-crumb a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--nf-ok-ink);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.nf-plan-review-crumb a:hover {
+  color: var(--color-text);
+}
+
+.nf-plan-review-crumb span {
+  color: var(--color-neutral-600);
+  font-weight: 700;
+}
+
+.nf-plan-detail-stack > .rounded-panel {
+  overflow: hidden;
+  border-color: #d5e3e1;
+  border-radius: 14px;
+  box-shadow: 0 7px 18px rgba(20, 48, 46, .05);
+}
+
+.nf-plan-detail-stack > .rounded-panel:first-child {
+  border-color: #b9dedb;
+  background: linear-gradient(135deg, #ffffff 0%, #f4fbfa 100%);
+}
+
+.nf-plan-detail-stack > .rounded-panel:first-child h2 {
+  font-size: 22px;
+  letter-spacing: -.02em;
+}
+
+.nf-plan-detail-stack > .rounded-panel:first-child > ol {
+  background: #fbfdfd;
+}
+
+.nf-plan-detail-stack > .rounded-panel:first-child > dl > div {
+  min-height: 82px;
+  background: rgba(255, 255, 255, .55);
+}
+
+.nf-plan-detail-stack .rounded-panel h3 {
+  letter-spacing: -.01em;
+}
+
+.nf-plan-detail-stack .rounded-panel table th {
+  background: #f5f9f8;
+}
+
+.nf-plan-detail-stack .rounded-panel table tr:hover {
+  background: #f7fbfa;
+}
+
+@media (max-width: 900px) {
+  .nf-workspace-body:has(.nf-plan-review-shell) {
+    padding: 12px;
+  }
+
+  .nf-plan-review-crumb {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+}

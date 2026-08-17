@@ -39,6 +39,8 @@ const router = createBrowserRouter([
       { path: routes.operator.segments.planDetail, element: lazyPage(PlanDetailPage) },
       { path: routes.operator.segments.campaigns, element: lazyPage(CampaignsPage) },
       { path: routes.operator.segments.execution, element: lazyPage(ExecutionPage) },
+      { path: routes.operator.segments.executionPlanDetail, element: lazyPage(PlanDetailPage) },
+      { path: routes.operator.segments.executionOffersRoot, element: lazyPage(ExecutionOffersPage) },
       { path: routes.operator.segments.executionOffers, element: lazyPage(ExecutionOffersPage) },
       { path: routes.operator.segments.reports, element: lazyPage(ReportsPage) },
       { path: routes.operator.segments.history, element: lazyPage(HistoryPage) },
