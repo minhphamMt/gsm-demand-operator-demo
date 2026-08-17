@@ -13,8 +13,8 @@ type ZoneDetailsDialogProps = {
 
 export function ZoneDetailsDialog({ forecastMinutes, onClose, zone }: ZoneDetailsDialogProps) {
   const timeLabel = forecastMinutes === 0 ? 'Dữ liệu hiện tại' : `Dự báo sau ${forecastMinutes} phút`
-  const demandRange = forecastMinutes === 5 ? zone?.demandRange5 : forecastMinutes === 10 ? zone?.demandRange10 : forecastMinutes === 15 ? zone?.demandRange15 : null
-  const supplyRange = forecastMinutes === 5 ? zone?.supplyRange5 : forecastMinutes === 10 ? zone?.supplyRange10 : forecastMinutes === 15 ? zone?.supplyRange15 : null
+  const demandRange = forecastMinutes === 15 ? zone?.demandRange15 : forecastMinutes === 30 ? zone?.demandRange30 : null
+  const supplyRange = forecastMinutes === 15 ? zone?.supplyRange15 : forecastMinutes === 30 ? zone?.supplyRange30 : null
 
   return (
     <Dialog isOpen={Boolean(zone)} onClose={onClose} title={zone ? `Chi tiết ${zone.label}` : 'Chi tiết zone'}>

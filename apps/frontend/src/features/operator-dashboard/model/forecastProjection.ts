@@ -1,6 +1,6 @@
 import { hasOperationalObservation, operationalGapFor, type Zone } from '@/features/operator-data'
 
-const MAX_FORECAST_MINUTES = 15
+const MAX_FORECAST_MINUTES = 30
 
 export function projectZonesAtMinute(
   zones: readonly Zone[],
@@ -28,22 +28,21 @@ export function projectZonesAtMinute(
 function confidenceAtMinute(zone: Zone, minute: number) {
   if (minute === 0) return zone.confidence
   if (minute <= 5) return zone.confidence5 ?? zone.confidence
-  if (minute <= 10) return zone.confidence10 ?? zone.confidence
   if (minute <= 15) return zone.confidence15 ?? zone.confidence
-  return zone.confidence15 ?? zone.confidence
+  return zone.confidence30 ?? zone.confidence
 }
 
 function projectUpperDemand(zone: Zone, minute: number) {
   if (minute === 0) return zone.demand ?? 0
   const upper5 = zone.demandRange5?.[1] ?? zone.forecast5 ?? zone.demand ?? 0
-  const upper10 = zone.demandRange10?.[1] ?? zone.forecast10 ?? upper5
   const upper15 = zone.demandRange15?.[1] ?? zone.forecast15
+  const upper30 = zone.demandRange30?.[1] ?? zone.forecast30
   if (minute <= 5) return interpolate(zone.demand ?? 0, upper5, minute / 5)
-  if (minute <= 10) return interpolate(upper5, upper10, (minute - 5) / 5)
-  return interpolate(upper10, upper15, (minute - 10) / 5)
+  if (minute <= 15) return interpolate(upper5, upper15, (minute - 5) / 10)
+  return interpolate(upper15, upper30, (minute - 15) / 15)
 }
 
-export function forecastSteps(horizonMinutes: 5 | 10 | 15): readonly number[] {
+export function forecastSteps(horizonMinutes: 15 | 30): readonly number[] {
   return Array.from({ length: horizonMinutes / 5 + 1 }, (_, index) => index * 5)
 }
 
@@ -55,11 +54,11 @@ export function meanRainAtMinute(zones: readonly Zone[], minute: number) {
 function projectSupply(zone: Zone, minute: number) {
   if (minute === 0) return zone.supply ?? 0
   const forecast5 = zone.forecastSupply5 ?? zone.supply ?? 0
-  const forecast10 = zone.forecastSupply10 ?? forecast5
   const forecast15 = zone.forecastSupply15 ?? zone.supply ?? 0
+  const forecast30 = zone.forecastSupply30 ?? forecast15
   if (minute <= 5) return interpolate(zone.supply ?? 0, forecast5, minute / 5)
-  if (minute <= 10) return interpolate(forecast5, forecast10, (minute - 5) / 5)
-  return interpolate(forecast10, forecast15, (minute - 10) / 5)
+  if (minute <= 15) return interpolate(forecast5, forecast15, (minute - 5) / 10)
+  return interpolate(forecast15, forecast30, (minute - 15) / 15)
 }
 
 function projectDemand(zone: Zone, minute: number) {
@@ -75,10 +74,9 @@ function projectRain(zone: Zone, minute: number) {
 
 function interpolateForecast(zone: Zone, minute: number) {
   const forecast5 = zone.forecast5 ?? zone.demand ?? 0
-  const forecast10 = zone.forecast10 ?? forecast5
   if (minute <= 5) return interpolate(zone.demand ?? 0, forecast5, minute / 5)
-  if (minute <= 10) return interpolate(forecast5, forecast10, (minute - 5) / 5)
-  return interpolate(forecast10, zone.forecast15, (minute - 10) / 5)
+  if (minute <= 15) return interpolate(forecast5, zone.forecast15, (minute - 5) / 10)
+  return interpolate(zone.forecast15, zone.forecast30, (minute - 15) / 15)
 }
 
 function interpolate(from: number, to: number, progress: number) {

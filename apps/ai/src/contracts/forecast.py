@@ -17,7 +17,7 @@ from src.contracts import (
 )
 
 # Chỉ hai tầm dự báo, không giá trị nào khác (§4.2).
-HorizonMin = Literal[5, 10, 15]
+HorizonMin = Literal[5, 15, 30]
 
 
 class ZoneForecast(ContractModel):

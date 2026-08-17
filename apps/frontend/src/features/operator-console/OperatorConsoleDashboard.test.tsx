@@ -30,11 +30,11 @@ describe('operator console safety states', () => {
 
   it('renders all forecast horizons declared by the server capability', () => {
     const changeHorizon = vi.fn()
-    render(<ScenarioBar fleet={214} forecastMinutes={5} generatedAt="2026-08-14T08:55:00Z" horizons={[5, 10, 15]} modelVersion="lgbm" onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" zoneCount={30} />)
+    render(<ScenarioBar fleet={214} forecastMinutes={5} generatedAt="2026-08-14T08:55:00Z" horizons={[5, 15, 30]} modelVersion="lgbm" onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" zoneCount={30} />)
 
     expect(screen.getByRole('radio', { name: '5 phút' })).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: '10 phút' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '15 phút' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '30 phút' })).toBeInTheDocument()
   })
 
   it('keeps the selected horizon stable and runs only after explicit confirmation', async () => {

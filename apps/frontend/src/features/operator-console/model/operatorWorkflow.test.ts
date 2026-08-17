@@ -5,8 +5,8 @@ import { planningHorizonFor, resolveWorkflowStage } from '@/features/operator-co
 describe('planningHorizonFor', () => {
   it('optimizes against the exact forecast visible to the operator', () => {
     expect(planningHorizonFor(5)).toBe(5)
-    expect(planningHorizonFor(10)).toBe(10)
     expect(planningHorizonFor(15)).toBe(15)
+    expect(planningHorizonFor(30)).toBe(30)
   })
 })
 
