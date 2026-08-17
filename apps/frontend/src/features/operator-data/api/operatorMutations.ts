@@ -47,7 +47,13 @@ export function useOperatorActions() {
   return {
     runReplayStep: useMutation({
       mutationFn: (sourceAt: string) => operatorAdapter.runReplayStep(sourceAt),
-      onSuccess: (replaySnapshot) => queryClient.setQueryData(operatorQueryKeys.snapshot('baseline', 'rain-peak', 0), replaySnapshot),
+      onSuccess: (replaySnapshot, sourceAt) => {
+        const normalizedSnapshot = replaySnapshot.sourceAt === sourceAt
+          ? replaySnapshot
+          : { ...replaySnapshot, sourceAt }
+        queryClient.setQueryData(operatorQueryKeys.replaySnapshot(sourceAt), normalizedSnapshot)
+        queryClient.setQueryData(operatorQueryKeys.snapshot('baseline', 'rain-peak', 0), normalizedSnapshot)
+      },
     }),
     generateAiDecision: useMutation({
       mutationFn: ({ snapshotId, horizonMinutes }: { snapshotId: number; horizonMinutes: ForecastHorizon }) => operatorAdapter.generateAiDecision(snapshotId, horizonMinutes),

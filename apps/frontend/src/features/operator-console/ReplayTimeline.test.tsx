@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ReplayTimeline } from './ReplayTimeline'
 
@@ -10,6 +10,11 @@ const steps = [
 ]
 
 describe('ReplayTimeline', () => {
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+  })
+
   it('requests the exact real bucket selected by the operator', async () => {
     const onSourceChange = vi.fn()
     render(<ReplayTimeline isLoading={false} onSourceChange={onSourceChange} selectedSourceAt={steps[0]!.sourceAt} steps={steps} />)
@@ -32,5 +37,19 @@ describe('ReplayTimeline', () => {
     view.rerender(<ReplayTimeline hasError isLoading={false} onSourceChange={vi.fn()} selectedSourceAt={steps[0]!.sourceAt} steps={steps} />)
     expect(await screen.findByRole('button', { name: 'Phát replay' })).toBeInTheDocument()
     expect(screen.getByText('Đã dừng do lỗi')).toBeInTheDocument()
+  })
+
+  it('keeps autoplay scheduled when the dashboard refreshes its callback', () => {
+    vi.useFakeTimers()
+    const firstCallback = vi.fn()
+    const view = render(<ReplayTimeline isLoading={false} onSourceChange={firstCallback} selectedSourceAt={steps[0]!.sourceAt} steps={steps} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /replay/ }))
+    const refreshedCallback = vi.fn()
+    view.rerender(<ReplayTimeline isLoading={false} onSourceChange={refreshedCallback} selectedSourceAt={steps[0]!.sourceAt} steps={steps} />)
+    vi.advanceTimersByTime(1500)
+
+    expect(refreshedCallback).toHaveBeenCalledWith(steps[1]!.sourceAt)
+    expect(firstCallback).not.toHaveBeenCalled()
   })
 })

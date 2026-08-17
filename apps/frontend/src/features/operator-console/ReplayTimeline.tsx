@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, LoaderCircle, Pause, Play } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { ReplayTimelineStep } from '@/features/operator-data'
 
@@ -14,15 +14,20 @@ type ReplayTimelineProps = {
 
 export function ReplayTimeline({ displayTimeForSource = (sourceAt) => sourceAt, hasError = false, isLoading, onSourceChange, selectedSourceAt, steps }: ReplayTimelineProps) {
   const [isPlaying, setIsPlaying] = useState(false)
-  const selectedIndex = Math.max(0, steps.findIndex((step) => step.sourceAt === selectedSourceAt))
+  const onSourceChangeRef = useRef(onSourceChange)
+  onSourceChangeRef.current = onSourceChange
+  const matchedIndex = steps.findIndex((step) => step.sourceAt === selectedSourceAt)
+  // A live snapshot can briefly be rendered before its replay source is known.
+  // Treat that state as the latest bucket instead of silently jumping to bucket 2.
+  const selectedIndex = matchedIndex >= 0 ? matchedIndex : steps.length - 1
   const maxRain = Math.max(0.01, ...steps.map((step) => step.meanRainMmH))
 
   useEffect(() => {
     if (!isPlaying || isLoading) return undefined
     if (selectedIndex >= steps.length - 1) { setIsPlaying(false); return undefined }
-    const timeout = window.setTimeout(() => onSourceChange(steps[selectedIndex + 1]!.sourceAt), 1500)
+    const timeout = window.setTimeout(() => onSourceChangeRef.current(steps[selectedIndex + 1]!.sourceAt), 1500)
     return () => window.clearTimeout(timeout)
-  }, [isLoading, isPlaying, onSourceChange, selectedIndex, steps])
+  }, [isLoading, isPlaying, selectedIndex, steps])
 
   useEffect(() => {
     if (hasError) setIsPlaying(false)
@@ -37,6 +42,7 @@ export function ReplayTimeline({ displayTimeForSource = (sourceAt) => sourceAt, 
 
   const togglePlay = () => {
     if (isPlaying) { setIsPlaying(false); return }
+    if (!steps.length) return
     if (selectedIndex >= steps.length - 1 && steps[0]) onSourceChange(steps[0].sourceAt)
     setIsPlaying(true)
   }

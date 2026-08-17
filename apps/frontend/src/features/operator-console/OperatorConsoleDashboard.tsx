@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
   ChevronRight,
@@ -34,6 +34,7 @@ import {
   operationalGapFor,
   plansQuery,
   offersQuery,
+  replaySnapshotQuery,
   replayWindowQuery,
   snapshotQuery,
   supportedForecastHorizons,
@@ -41,6 +42,7 @@ import {
   isDispatchExecutionActive,
   isProposalReviewable,
 } from "@/features/operator-data";
+import { operatorQueryKeys } from "@/features/operator-data/api/operatorQueries";
 import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, Proposal, Snapshot, Zone } from "@/features/operator-data";
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
 import { Skeleton } from "@/shared/components/ui/FeedbackStates";
@@ -83,6 +85,7 @@ type ActiveExecution = NonNullable<ReturnType<typeof activeExecutionPlan>>;
 
 export function OperatorConsoleDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(5);
   const [replaySnapshot, setReplaySnapshot] = useState<Snapshot>();
   const [selectedZoneId, setSelectedZoneId] = useState<string>();
@@ -135,7 +138,11 @@ export function OperatorConsoleDashboard() {
           window.clearTimeout(autoReplayRetryTimerRef.current);
           autoReplayRetryTimerRef.current = undefined;
         }
-        setReplaySnapshot(nextSnapshot);
+        const normalizedSnapshot = nextSnapshot.sourceAt === replayAnchorAt
+          ? nextSnapshot
+          : { ...nextSnapshot, sourceAt: replayAnchorAt };
+        queryClient.setQueryData(operatorQueryKeys.replaySnapshot(replayAnchorAt), normalizedSnapshot);
+        setReplaySnapshot(normalizedSnapshot);
         setForecastRun(null);
         setOptimizationStopReason(undefined);
         setWorkflowStage("observe");
@@ -153,7 +160,33 @@ export function OperatorConsoleDashboard() {
       },
       onSettled: () => setReplayTargetAt(undefined),
     });
-  }, [actions.runReplayStep, autoReplayRetry, replayAnchorAt, snapshot.data]);
+  }, [actions.runReplayStep, autoReplayRetry, queryClient, replayAnchorAt, snapshot.data]);
+
+  useEffect(() => {
+    const steps = replayWindow.data ?? [];
+    if (!steps.length) return undefined;
+
+    let cancelled = false;
+    let cursor = 0;
+    const missing = steps.filter((step) =>
+      step.sourceAt !== replayAnchorAt
+      && !queryClient.getQueryData(operatorQueryKeys.replaySnapshot(step.sourceAt)),
+    );
+    const worker = async () => {
+      while (!cancelled) {
+        const step = missing[cursor++];
+        if (!step) return;
+        try {
+          await queryClient.fetchQuery(replaySnapshotQuery(step.sourceAt));
+        } catch {
+          // Preloading is best effort. Selecting the bucket later retries
+          // through the visible replay action and reports the real error.
+        }
+      }
+    };
+    void Promise.all(Array.from({ length: Math.min(3, missing.length) }, () => worker()));
+    return () => { cancelled = true };
+  }, [queryClient, replayAnchorAt, replayWindow.data]);
 
   useEffect(() => () => {
     if (autoReplayRetryTimerRef.current !== undefined) {
@@ -330,11 +363,27 @@ export function OperatorConsoleDashboard() {
   };
 
   const changeReplaySource = (nextSourceAt: string) => {
+    const cachedSnapshot = queryClient.getQueryData<Snapshot>(operatorQueryKeys.replaySnapshot(nextSourceAt));
+    if (cachedSnapshot) {
+      actions.runReplayStep.reset();
+      setReplaySnapshot(cachedSnapshot);
+      setForecastRun(null);
+      setOptimizationStopReason(undefined);
+      setWorkflowStage("observe");
+      setMapSource("observed");
+      setReplayTargetAt(undefined);
+      setDrawerOpen(false);
+      return;
+    }
     setReplayTargetAt(nextSourceAt);
     setDrawerOpen(false);
     actions.runReplayStep.mutate(nextSourceAt, {
       onSuccess: (nextSnapshot) => {
-        setReplaySnapshot(nextSnapshot);
+        const normalizedSnapshot = nextSnapshot.sourceAt === nextSourceAt
+          ? nextSnapshot
+          : { ...nextSnapshot, sourceAt: nextSourceAt };
+        queryClient.setQueryData(operatorQueryKeys.replaySnapshot(nextSourceAt), normalizedSnapshot);
+        setReplaySnapshot(normalizedSnapshot);
         setForecastRun(null);
         setOptimizationStopReason(undefined);
         setWorkflowStage("observe");
