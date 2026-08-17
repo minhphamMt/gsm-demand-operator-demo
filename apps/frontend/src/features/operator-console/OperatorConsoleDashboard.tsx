@@ -14,11 +14,14 @@ import { useNavigate } from "react-router";
 
 import {
   campaignsQuery,
+  auditActionLabels,
+  auditQuery,
   capabilitiesQuery,
   activeExecutionPlan,
   dispatchProgress,
   dispatchStatusPresentation,
   dispatchQuery,
+  driversQuery,
   forecastRunForHorizon,
   hasExactForecastRun,
   hasOperationalObservation,
@@ -28,13 +31,14 @@ import {
   latestApprovedProposalAwaitingExecution,
   operationalGapFor,
   plansQuery,
+  offersQuery,
   replayWindowQuery,
   snapshotQuery,
   supportedForecastHorizons,
   useOperatorActions,
   isDispatchExecutionActive,
 } from "@/features/operator-data";
-import type { Campaign, DispatchBatch, ForecastHorizon, Proposal, Snapshot, Zone } from "@/features/operator-data";
+import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, Proposal, Snapshot, Zone } from "@/features/operator-data";
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
 import { Skeleton } from "@/shared/components/ui/FeedbackStates";
 import { routes } from "@/shared/config/routes";
@@ -108,6 +112,9 @@ export function OperatorConsoleDashboard() {
   const plans = useQuery(plansQuery());
   const campaigns = useQuery(campaignsQuery());
   const dispatches = useQuery(dispatchQuery());
+  const offers = useQuery(offersQuery());
+  const drivers = useQuery(driversQuery());
+  const audit = useQuery(auditQuery());
   const actions = useOperatorActions();
   const lastAutoReplayAtRef = useRef<string | undefined>(undefined);
   const autoReplayRetryTimerRef = useRef<number | undefined>(undefined);
@@ -547,7 +554,10 @@ export function OperatorConsoleDashboard() {
         >
           {execution ? (
             <ActiveExecutionRail
+              audit={audit.data}
+              drivers={drivers.data}
               execution={execution}
+              offers={offers.data}
               onOpenExecution={() => navigate(routes.operator.execution)}
               onStop={(target) => setStopTarget(target)}
             />
@@ -646,7 +656,7 @@ export function OperatorConsoleDashboard() {
           isSaving={stopPending}
           onClose={() => setStopTarget(null)}
           onConfirm={stopActiveExecution}
-          title="Dừng phương án đang vận hành?"
+          title={stopTarget?.kind === "campaign" ? "Hủy offer đang phát hành?" : "Dừng phương án đang vận hành?"}
         />
       )}
     </div>
@@ -1326,11 +1336,17 @@ function pipelineStatusLabel(state: PipelineState) {
 }
 
 function ActiveExecutionRail({
+  audit,
+  drivers,
   execution,
+  offers,
   onOpenExecution,
   onStop,
 }: {
+  audit: readonly AuditEntry[] | undefined;
+  drivers: readonly DemoDriver[] | undefined;
   execution: ActiveExecution;
+  offers: readonly Offer[] | undefined;
   onOpenExecution: () => void;
   onStop: (target: ActiveStopTarget) => void;
 }) {
@@ -1345,6 +1361,16 @@ function ActiveExecutionRail({
       : undefined;
   const title = execution.plan?.title ?? "Phương án đang vận hành";
   const statusLabel = dispatchState?.label ?? (execution.campaign ? "Đang kích hoạt" : "Đang thực hiện");
+  const campaignOffers = execution.campaign
+    ? (offers ?? []).filter((offer) => offer.campaignId === execution.campaign?.id)
+    : [];
+  const recentEvents = (audit ?? [])
+    .filter((entry) => entry.planId === execution.planId)
+    .slice(0, 5);
+  const driverName = (driverId: string) => drivers?.find((driver) => driver.id === driverId)?.name ?? driverId;
+  const openOffers = campaignOffers.filter((offer) => offer.status === "Open").length;
+  const cancelledOffers = campaignOffers.filter((offer) => offer.status === "Cancelled").length;
+  const expiredOffers = campaignOffers.filter((offer) => offer.status === "Expired").length;
 
   return (
     <section aria-label="Phương án đang chạy" className="nf-active-rail">
@@ -1392,17 +1418,51 @@ function ActiveExecutionRail({
           {execution.dispatch.moves.length > 4 && <em>+{execution.dispatch.moves.length - 4} lệnh khác</em>}
         </div>
       )}
-      {execution.campaign && !execution.dispatch && (
+      {execution.campaign && (
         <div className="nf-active-rail-campaign">
           <small>CHIẾN DỊCH ĐANG PHẢN HỒI</small>
-          <p>{execution.campaign.offersSent} offer đã gửi · hết hạn {formatTimeLabel(execution.campaign.expiresAt)}</p>
+          <div className="nf-active-rail-offer-grid">
+            <span><b>{openOffers}</b><small>đang chờ</small></span>
+            <span><b>{execution.campaign.accepted}</b><small>đã nhận</small></span>
+            <span><b>{execution.campaign.arrivedVerified}</b><small>xe đã đến</small></span>
+            <span><b>{cancelledOffers + expiredOffers}</b><small>đã hủy / hết hạn</small></span>
+          </div>
+          <p>{execution.campaign.offersSent} offer đã gửi · hạn {formatTimeLabel(execution.campaign.expiresAt)}</p>
+        </div>
+      )}
+      {execution.campaign && campaignOffers.length > 0 && (
+        <div className="nf-active-rail-offers">
+          <div className="nf-active-rail-section-heading"><small>OFFER MỚI NHẤT</small><b>{campaignOffers.length}</b></div>
+          {campaignOffers.slice(0, 4).map((offer) => (
+            <div className="nf-active-rail-offer" key={offer.id}>
+              <span>{driverName(offer.driverId)}</span>
+              <b className={`is-${offer.status.toLowerCase()}`}>{offer.status === "Open" ? "Đang chờ" : offer.status === "Accepted" ? "Đã nhận" : offer.status === "Cancelled" ? "Đã hủy" : offer.status === "Expired" ? "Hết hạn" : "Từ chối"}</b>
+            </div>
+          ))}
+        </div>
+      )}
+      {recentEvents.length > 0 && (
+        <div className="nf-active-rail-events">
+          <div className="nf-active-rail-section-heading"><small>NHẬT KÝ MỚI NHẤT</small><b>{recentEvents.length}</b></div>
+          {recentEvents.map((entry) => (
+            <div className="nf-active-rail-event" key={entry.id}>
+              <i />
+              <span><b>{auditActionLabels[entry.action]}</b><small>{entry.detail}</small></span>
+              <time>{formatTimeLabel(entry.occurredAt)}</time>
+            </div>
+          ))}
         </div>
       )}
       <div className="nf-active-rail-actions">
         <button className="btn btn-primary btn-block" onClick={onOpenExecution} type="button">
           Mở chi tiết phương án
         </button>
-        {stopTarget && (
+        {execution.campaign && (
+          <button className="btn btn-danger btn-block" onClick={() => onStop({ id: execution.campaign!.id, kind: "campaign" })} type="button">
+            Hủy offer đang phát hành
+          </button>
+        )}
+        {stopTarget && (!execution.campaign || stopTarget.kind !== "campaign") && (
           <button className="btn btn-secondary btn-block" onClick={() => onStop(stopTarget)} type="button">
             Dừng phương án đang chạy
           </button>

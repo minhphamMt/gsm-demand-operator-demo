@@ -39,6 +39,6 @@ export function ActiveOperation() {
     <div className="nf-operation-context"><Activity size={17} /><span>Chỉ có một phương án được vận hành tại một thời điểm.</span><b>{execution.plan ? `v${execution.plan.version} · ${execution.plan.title}` : execution.planId.slice(0, 12)}</b></div>
     {execution.dispatch && <DispatchOperation batch={execution.dispatch} isRefreshing={dispatches.isFetching} isRetrying={actions.retryDispatch.isPending} onRefresh={refresh} onRetry={(batchId, moveId) => actions.retryDispatch.mutate({ batchId, moveId, reason: 'Điều phối viên thử lại từ trang phương án đang vận hành.' })} onStop={() => setStopTarget({ id: execution.dispatch!.id, kind: 'dispatch' })} plan={execution.plan} />}
     {execution.campaign && <CampaignOperation campaign={execution.campaign} isRefreshing={campaigns.isFetching} onRefresh={refresh} onStop={() => setStopTarget({ id: execution.campaign!.id, kind: 'campaign' })} plan={execution.plan} />}
-    <StopOperationDialog error={stopError} isOpen={stopTarget !== null} isSaving={isStopping} onClose={() => setStopTarget(null)} onConfirm={stop} title="Dừng phương án đang vận hành?" />
+    <StopOperationDialog error={stopError} isOpen={stopTarget !== null} isSaving={isStopping} onClose={() => setStopTarget(null)} onConfirm={stop} title={stopTarget?.kind === 'campaign' ? 'Hủy offer đang phát hành?' : 'Dừng phương án đang vận hành?'} />
   </>
 }

@@ -23,7 +23,7 @@ describe('OfferTracking', () => {
     queryClient.clear()
   })
 
-  it('lets an operator expire an open offer and records the decision', async () => {
+  it('lets an operator cancel an open offer and records the decision', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const user = userEvent.setup()
     render(
@@ -32,10 +32,10 @@ describe('OfferTracking', () => {
       </QueryClientProvider>,
     )
 
-    const expireButtons = await screen.findAllByRole('button', { name: 'Cho hết hạn' })
-    await user.click(expireButtons[0]!)
-    expect(screen.getByRole('dialog', { name: 'Cho offer hết hạn' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Xác nhận hết hạn' }))
+    const cancelButtons = await screen.findAllByRole('button', { name: 'Hủy offer' })
+    await user.click(cancelButtons[0]!)
+    expect(screen.getByRole('dialog', { name: 'Hủy offer' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Xác nhận hủy offer' }))
 
     await waitFor(async () => {
       expect((await mockOperatorAdapter.listOffers()).some((offer) => offer.status === 'Expired')).toBe(true)

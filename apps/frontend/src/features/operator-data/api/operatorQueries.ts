@@ -24,7 +24,7 @@ export const plansQuery = () => queryOptions({ queryKey: operatorQueryKeys.plans
 export const planQuery = (id: string) => queryOptions({ queryKey: operatorQueryKeys.plan(id), queryFn: () => operatorAdapter.getPlan(id), staleTime: 0 })
 export const campaignsQuery = () => queryOptions({ queryKey: operatorQueryKeys.campaigns, queryFn: operatorAdapter.listCampaigns, refetchInterval: (query) => campaignPollInterval(query.state.data), refetchIntervalInBackground: false })
 export const offersQuery = (campaignId?: string) => queryOptions({ queryKey: operatorQueryKeys.offers(campaignId), queryFn: () => operatorAdapter.listOffers(campaignId), refetchInterval: (query) => offerPollInterval(query.state.data), refetchIntervalInBackground: false })
-export const auditQuery = () => queryOptions({ queryKey: operatorQueryKeys.audit, queryFn: operatorAdapter.listAudit, staleTime: 0 })
+export const auditQuery = () => queryOptions({ queryKey: operatorQueryKeys.audit, queryFn: operatorAdapter.listAudit, refetchInterval: () => visiblePollInterval(), refetchIntervalInBackground: false, staleTime: 0 })
 export const auditPageQuery = (filters: AuditFilters) => queryOptions({ queryKey: operatorQueryKeys.auditPage(filters), queryFn: () => operatorAdapter.queryAudit(filters), staleTime: 0 })
 export const driversQuery = () => queryOptions({ queryKey: operatorQueryKeys.drivers, queryFn: operatorAdapter.listDrivers, refetchInterval: () => visiblePollInterval(), refetchIntervalInBackground: false })
 export const driverViewQuery = (id: string) => queryOptions({ queryKey: operatorQueryKeys.driver(id), queryFn: () => operatorAdapter.getDriverView(id), refetchInterval: 2_000 })

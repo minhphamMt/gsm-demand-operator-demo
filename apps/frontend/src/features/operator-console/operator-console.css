@@ -112,6 +112,8 @@ button { font: inherit; color: inherit; }
 .btn-secondary { border-color: var(--color-divider); }
 .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
 .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+.btn-danger { background: var(--color-accent-600); border-color: var(--color-accent-600); color: #fff; }
+.btn-danger:hover { background: var(--color-accent-700); border-color: var(--color-accent-700); }
 .btn-ghost { color: var(--nf-ok-700); padding-inline: var(--space-1); }
 .btn-ghost:hover { background: color-mix(in srgb, var(--nf-ok) 10%, transparent); }
 .btn-ghost:active { background: color-mix(in srgb, var(--nf-ok) 18%, transparent); }

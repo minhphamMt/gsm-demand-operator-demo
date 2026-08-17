@@ -14,6 +14,7 @@ const PlansPage = lazy(() => import('@/pages/operator/PlansPage').then((module) 
 const PlanDetailPage = lazy(() => import('@/pages/operator/PlanDetailPage').then((module) => ({ default: module.PlanDetailPage })))
 const CampaignsPage = lazy(() => import('@/pages/operator/CampaignsPage').then((module) => ({ default: module.CampaignsPage })))
 const ExecutionPage = lazy(() => import('@/pages/operator/ExecutionPage').then((module) => ({ default: module.ExecutionPage })))
+const ExecutionOffersPage = lazy(() => import('@/pages/operator/ExecutionOffersPage').then((module) => ({ default: module.ExecutionOffersPage })))
 const ReportsPage = lazy(() => import('@/pages/operator/ReportsPage').then((module) => ({ default: module.ReportsPage })))
 const HistoryPage = lazy(() => import('@/pages/operator/HistoryPage').then((module) => ({ default: module.HistoryPage })))
 const DriverPage = lazy(() => import('@/pages/driver/DriverPage').then((module) => ({ default: module.DriverPage })))
@@ -38,6 +39,7 @@ const router = createBrowserRouter([
       { path: routes.operator.segments.planDetail, element: lazyPage(PlanDetailPage) },
       { path: routes.operator.segments.campaigns, element: lazyPage(CampaignsPage) },
       { path: routes.operator.segments.execution, element: lazyPage(ExecutionPage) },
+      { path: routes.operator.segments.executionOffers, element: lazyPage(ExecutionOffersPage) },
       { path: routes.operator.segments.reports, element: lazyPage(ReportsPage) },
       { path: routes.operator.segments.history, element: lazyPage(HistoryPage) },
     ],

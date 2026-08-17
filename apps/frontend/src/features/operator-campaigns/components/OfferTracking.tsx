@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Clock3 } from 'lucide-react'
+import { Ban } from 'lucide-react'
 import { useState } from 'react'
 
 import { getZoneLabel } from '@/features/operator-campaigns/model/zoneLabels'
@@ -14,10 +14,10 @@ import { StatusBadge } from '@/shared/components/ui/StatusBadge'
 import { formatCurrency, formatTime } from '@/shared/lib/format'
 
 type Filter = 'all' | OfferStatus
-const filterOptions: readonly { id: Filter; label: string }[] = [{ id: 'all', label: 'Tất cả' }, { id: 'Open', label: 'Đang chờ' }, { id: 'Accepted', label: 'Chấp nhận' }, { id: 'Declined', label: 'Từ chối' }, { id: 'Expired', label: 'Hết hạn' }]
+const filterOptions: readonly { id: Filter; label: string }[] = [{ id: 'all', label: 'Tất cả' }, { id: 'Open', label: 'Đang chờ' }, { id: 'Accepted', label: 'Chấp nhận' }, { id: 'Declined', label: 'Từ chối' }, { id: 'Expired', label: 'Hết hạn' }, { id: 'Cancelled', label: 'Đã hủy' }]
 
-export function OfferTracking() {
-  const offers = useQuery(offersQuery())
+export function OfferTracking({ campaignId }: { campaignId?: string } = {}) {
+  const offers = useQuery(offersQuery(campaignId))
   const drivers = useQuery(driversQuery())
   const actions = useOperatorActions()
   const [filter, setFilter] = useState<Filter>('all')
@@ -40,10 +40,10 @@ export function OfferTracking() {
       </div>
       {visibleOffers.length ? <DataTable label="Danh sách offer">
         <TableHead><tr><th className="px-3 py-3">Offer / campaign</th><th className="px-3 py-3">Tài xế</th><th className="px-3 py-3">Vùng đích / ETA</th><th className="px-3 py-3">Thưởng</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3">Cập nhật</th><th className="px-3 py-3">Kênh</th><th className="px-3 py-3">Thao tác</th></tr></TableHead>
-        <tbody>{visibleOffers.map((offer) => <tr className="hover:bg-slate-50/70" key={offer.id}><TableCell><span className="font-mono text-xs font-semibold text-slate-900">{offer.id}</span><span className="block text-xs text-slate-500">{offer.campaignId}</span></TableCell><TableCell><span className="font-medium text-slate-900">{driverName(offer.driverId)}</span><span className="block font-mono text-xs text-slate-500">{offer.driverId}</span></TableCell><TableCell>{getZoneLabel(offer.targetZoneId)}<span className="block text-xs text-slate-500">ETA {offer.etaMinutes} phút · {offer.distanceKm.toFixed(1)} km</span></TableCell><TableCell>{formatCurrency(offer.incentiveAmount)}</TableCell><TableCell><StatusBadge status={offer.status} /></TableCell><TableCell>{formatTime(offer.respondedAt ?? offer.expiresAt)}</TableCell><TableCell>{offer.responseSource === 'human' ? 'Ứng dụng tài xế' : offer.responseSource === 'simulated' ? 'Mô phỏng hệ thống' : 'Chờ phản hồi'}</TableCell><TableCell>{offer.status === 'Open' ? <Button disabled={actions.expireOffer.isPending} variant="ghost" onClick={() => setExpiring(offer.id)}><Clock3 className="size-4" />Cho hết hạn</Button> : <span className="text-xs text-slate-400">Đã khóa</span>}</TableCell></tr>)}</tbody>
+        <tbody>{visibleOffers.map((offer) => <tr className="hover:bg-slate-50/70" key={offer.id}><TableCell><span className="font-mono text-xs font-semibold text-slate-900">{offer.id}</span><span className="block text-xs text-slate-500">{offer.campaignId}</span></TableCell><TableCell><span className="font-medium text-slate-900">{driverName(offer.driverId)}</span><span className="block font-mono text-xs text-slate-500">{offer.driverId}</span></TableCell><TableCell>{getZoneLabel(offer.targetZoneId)}<span className="block text-xs text-slate-500">ETA {offer.etaMinutes} phút · {offer.distanceKm.toFixed(1)} km</span></TableCell><TableCell>{formatCurrency(offer.incentiveAmount)}</TableCell><TableCell><StatusBadge status={offer.status} /></TableCell><TableCell>{formatTime(offer.respondedAt ?? offer.expiresAt)}</TableCell><TableCell>{offer.responseSource === 'human' ? 'Ứng dụng tài xế' : offer.responseSource === 'simulated' ? 'Mô phỏng hệ thống' : 'Chờ phản hồi'}</TableCell><TableCell>{offer.status === 'Open' ? <Button disabled={actions.expireOffer.isPending} variant="ghost" onClick={() => setExpiring(offer.id)}><Ban className="size-4" />Hủy offer</Button> : <span className="text-xs text-slate-400">Đã khóa</span>}</TableCell></tr>)}</tbody>
       </DataTable> : <div className="border-t border-slate-200 p-5"><EmptyState title="Không có offer phù hợp" description="Hãy chọn trạng thái khác hoặc xóa bộ lọc." /></div>}
     </Card>
-    <Dialog isOpen={Boolean(expiring)} onClose={() => setExpiring(undefined)} title="Cho offer hết hạn"><p className="text-sm text-slate-600">Offer {expiring} sẽ không thể được tài xế phản hồi sau thao tác này. Quyết định được ghi vào audit log.</p><div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={() => setExpiring(undefined)}>Quay lại</Button><Button variant="danger" isLoading={actions.expireOffer.isPending} onClick={() => { if (expiring) actions.expireOffer.mutate(expiring); setExpiring(undefined) }}>Xác nhận hết hạn</Button></div></Dialog>
+    <Dialog isOpen={Boolean(expiring)} onClose={() => setExpiring(undefined)} title="Hủy offer"><p className="text-sm text-slate-600">Offer {expiring} sẽ bị khóa ngay và tài xế không thể phản hồi nữa. Thao tác được ghi vào audit log.</p><div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={() => setExpiring(undefined)}>Quay lại</Button><Button variant="danger" isLoading={actions.expireOffer.isPending} onClick={() => { if (expiring) actions.expireOffer.mutate(expiring); setExpiring(undefined) }}>Xác nhận hủy offer</Button></div></Dialog>
     {actions.expireOffer.error && <p className="text-sm text-rose-700" role="alert">{actions.expireOffer.error.message}</p>}
   </>
 }
