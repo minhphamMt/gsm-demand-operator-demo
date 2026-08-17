@@ -5,6 +5,7 @@ import { NavLink, Outlet, useLocation } from 'react-router'
 
 import { routes } from '@/shared/config/routes'
 import { capabilitiesQuery } from '@/features/operator-data'
+import { useServerClock } from '@/features/operator-console/hooks/useServerClock'
 import { env } from '@/shared/config/env'
 import '@/features/operator-console/operator-console.css'
 import '@/features/operator-console/operator-shell.css'
@@ -20,8 +21,10 @@ export function OperatorShell({ notifications, onSignOut, userEmail }: { notific
   const location = useLocation()
   const hasFlushWorkspace = location.pathname.startsWith(routes.operator.execution) || location.pathname.startsWith(routes.operator.reports) || location.pathname.startsWith(routes.operator.history)
   const capabilities = useQuery(capabilitiesQuery())
-  const serverTime = capabilities.data?.serverTime ?? new Date().toISOString()
-  const systemTime = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(serverTime))
+  const serverTime = useServerClock(capabilities.data?.serverTime, capabilities.isError)
+  const systemTime = serverTime
+    ? new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(serverTime))
+    : '--:--'
   const health = capabilities.data?.health
 
   return <div className="nf-console">
