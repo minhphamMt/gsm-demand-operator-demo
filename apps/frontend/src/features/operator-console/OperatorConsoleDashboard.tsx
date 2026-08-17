@@ -19,6 +19,7 @@ import {
   capabilitiesQuery,
   activeExecutionPlan,
   dispatchProgress,
+  dispatchMoveLabel,
   dispatchStatusPresentation,
   dispatchQuery,
   driversQuery,
@@ -404,7 +405,12 @@ export function OperatorConsoleDashboard() {
     if (!stopTarget) return;
     const onSuccess = () => setStopTarget(null);
     if (stopTarget.kind === "dispatch") {
-      actions.cancelDispatch.mutate({ batchId: stopTarget.id, reason }, { onSuccess });
+      const stopDispatch = () => actions.cancelDispatch.mutate({ batchId: stopTarget.id, reason }, { onSuccess });
+      if (execution?.campaign) {
+        actions.cancelCampaign.mutate(execution.campaign.id, { onSuccess: stopDispatch });
+      } else {
+        stopDispatch();
+      }
     } else {
       actions.cancelCampaign.mutate(stopTarget.id, { onSuccess });
     }
@@ -481,16 +487,26 @@ export function OperatorConsoleDashboard() {
             }}
             view={mapView}
           />
-          <ZoneFinder
-            isOpen={finderOpen}
-            observationTime={replayTime}
-            onOpenChange={setFinderOpen}
-            onSearch={setSearch}
-            onSelect={setSelectedZoneId}
-            search={search}
-            selectedZoneId={selectedZoneId}
-            zones={visibleZones}
-          />
+          {execution ? (
+            <ExecutionLogPanel
+              audit={audit.data}
+              drivers={drivers.data}
+              execution={execution}
+              offers={offers.data}
+              onRetryMove={(batchId, moveId) => actions.retryDispatch.mutate({ batchId, moveId, reason: "Operator requested retry from the operation log." })}
+            />
+          ) : (
+            <ZoneFinder
+              isOpen={finderOpen}
+              observationTime={replayTime}
+              onOpenChange={setFinderOpen}
+              onSearch={setSearch}
+              onSelect={setSelectedZoneId}
+              search={search}
+              selectedZoneId={selectedZoneId}
+              zones={visibleZones}
+            />
+          )}
           {selectedZone && (
             <ZoneCard
               forecastTime={displayedMapSource === "forecast" ? forecastTime : undefined}
@@ -656,7 +672,11 @@ export function OperatorConsoleDashboard() {
           isSaving={stopPending}
           onClose={() => setStopTarget(null)}
           onConfirm={stopActiveExecution}
-          title={stopTarget?.kind === "campaign" ? "Hủy offer đang phát hành?" : "Dừng phương án đang vận hành?"}
+          title={stopTarget?.kind === "campaign"
+            ? "Hủy offer đang phát hành?"
+            : execution?.campaign
+              ? "Dừng phương án và hủy offer?"
+              : "Dừng phương án đang vận hành?"}
         />
       )}
     </div>
@@ -825,6 +845,91 @@ function MapControls({
         </label>
       </div>
     </div>
+  );
+}
+
+function ExecutionLogPanel({
+  audit,
+  drivers,
+  execution,
+  offers,
+  onRetryMove,
+}: {
+  audit: readonly AuditEntry[] | undefined;
+  drivers: readonly DemoDriver[] | undefined;
+  execution: ActiveExecution;
+  offers: readonly Offer[] | undefined;
+  onRetryMove: (batchId: string, moveId: string) => void;
+}) {
+  const dispatch = execution.dispatch;
+  const progress = dispatch ? dispatchProgress(dispatch) : undefined;
+  const dispatchState = dispatch ? dispatchStatusPresentation(dispatch) : undefined;
+  const campaignOffers = execution.campaign
+    ? (offers ?? []).filter((offer) => offer.campaignId === execution.campaign?.id)
+    : [];
+  const recentEvents = (audit ?? []).filter((entry) => entry.planId === execution.planId).slice(0, 5);
+  const driverName = (driverId: string) => drivers?.find((driver) => driver.id === driverId)?.name ?? driverId;
+  const sourceMoveFor = (move: NonNullable<typeof dispatch>['moves'][number]) => execution.plan?.moves.find((candidate) => candidate.id === move.sourceMoveKey)
+    ?? execution.plan?.moves.find((candidate) => Number(candidate.sourceZoneId.replace(/^AI-Z/i, "")) === move.sourceZoneId && Number(candidate.targetZoneId.replace(/^AI-Z/i, "")) === move.targetZoneId);
+
+  return (
+    <section aria-label="Nhật ký phương án đang chạy" className="nf-execution-log-panel">
+      <header className="nf-execution-log-header">
+        <div>
+          <small>BẢNG CHI TIẾT · {dispatch ? `${progress?.totalMoves ?? 0} LƯỢT` : "OFFER"}</small>
+          <strong>{dispatchState?.label ?? (execution.campaign ? "Offer đang phát hành" : "Phương án đang chạy")}</strong>
+          <p>Cập nhật theo dữ liệu vận hành thực tế.</p>
+        </div>
+      </header>
+      <div className="nf-execution-log-summary">
+        {dispatch && progress ? <>
+          <span><small>XE ĐÃ TỚI</small><b>{progress.availableUnits}</b></span>
+          <span><small>LỆCH KẾ HOẠCH</small><b className="is-risk">{Math.max(0, progress.plannedUnits - progress.availableUnits)}</b></span>
+          <span><small>CÒN THEO DÕI</small><b>{progress.activeMoves + progress.waitingMoves}</b></span>
+        </> : execution.campaign ? <>
+          <span><small>ĐÃ GỬI</small><b>{execution.campaign.offersSent}</b></span>
+          <span><small>ĐÃ NHẬN</small><b>{execution.campaign.accepted}</b></span>
+          <span><small>ĐÃ ĐẾN</small><b>{execution.campaign.arrivedVerified}</b></span>
+        </> : null}
+      </div>
+      <div className="nf-execution-log-scroll nf-scroll">
+        {dispatch && <>
+          <h3>VÒNG ĐỜI LỆNH ĐIỀU CHUYỂN</h3>
+          {dispatch.moves.map((move) => {
+            const sourceMove = sourceMoveFor(move);
+            const isComplete = move.state === "AVAILABLE";
+            const isFailed = move.state === "FAILED";
+            return (
+              <article className="nf-execution-log-item" key={move.id}>
+                <i className={isComplete ? "is-complete" : isFailed ? "is-failed" : "is-active"}>{isComplete ? "✓" : isFailed ? "!" : "·"}</i>
+                <div>
+                  <b>{sourceMove?.sourceZoneLabel ?? `Vùng ${move.sourceZoneId}`} → {sourceMove?.targetZoneLabel ?? `Vùng ${move.targetZoneId}`}</b>
+                  <small>{move.plannedUnits} xe · ETA {formatNumber(move.etaMinutes)} phút · {move.distanceKm.toFixed(1)} km</small>
+                  {isFailed && <em>{move.failedUnits || move.plannedUnits} xe chưa thể thực hiện</em>}
+                </div>
+                <strong className={isComplete ? "is-complete" : isFailed ? "is-failed" : "is-active"}>{dispatchMoveLabel(move.state)}</strong>
+                {isFailed && <button className="btn btn-secondary" onClick={() => onRetryMove(dispatch.id, move.id)} type="button">Thử lại</button>}
+              </article>
+            );
+          })}
+        </>}
+        {execution.campaign && <>
+          <h3>HOẠT ĐỘNG OFFER</h3>
+          {campaignOffers.length === 0 && <p className="nf-execution-log-empty">Đang tải danh sách offer...</p>}
+          {campaignOffers.slice(0, 8).map((offer) => (
+            <article className="nf-execution-log-item" key={offer.id}>
+              <i className={offer.status === "Accepted" ? "is-complete" : offer.status === "Open" ? "is-active" : "is-failed"}>{offer.status === "Accepted" ? "✓" : offer.status === "Open" ? "·" : "!"}</i>
+              <div><b>{driverName(offer.driverId)}</b><small>{offer.targetZoneId} · ETA {offer.etaMinutes} phút · {formatTimeLabel(offer.respondedAt ?? offer.expiresAt)}</small></div>
+              <strong className={offer.status === "Accepted" ? "is-complete" : offer.status === "Open" ? "is-active" : "is-failed"}>{offer.status === "Open" ? "Đang chờ" : offer.status === "Accepted" ? "Đã nhận" : offer.status === "Cancelled" ? "Đã hủy" : offer.status === "Expired" ? "Hết hạn" : "Từ chối"}</strong>
+            </article>
+          ))}
+        </>}
+        {recentEvents.length > 0 && <>
+          <h3>NHẬT KÝ HỆ THỐNG</h3>
+          {recentEvents.map((entry) => <div className="nf-execution-log-event" key={entry.id}><i /> <span><b>{auditActionLabels[entry.action]}</b><small>{entry.detail}</small></span><time>{formatTimeLabel(entry.occurredAt)}</time></div>)}
+        </>}
+      </div>
+    </section>
   );
 }
 
@@ -1459,12 +1564,12 @@ function ActiveExecutionRail({
         </button>
         {execution.campaign && (
           <button className="btn btn-danger btn-block" onClick={() => onStop({ id: execution.campaign!.id, kind: "campaign" })} type="button">
-            Hủy offer đang phát hành
+            {execution.dispatch ? "Hủy offer (giữ điều chuyển)" : "Hủy offer đang phát hành"}
           </button>
         )}
         {stopTarget && (!execution.campaign || stopTarget.kind !== "campaign") && (
           <button className="btn btn-secondary btn-block" onClick={() => onStop(stopTarget)} type="button">
-            Dừng phương án đang chạy
+            {execution.campaign ? "Dừng phương án & hủy offer" : "Dừng phương án đang chạy"}
           </button>
         )}
         <p>Dự báo và tính phương án mới sẽ mở lại sau khi phương án này hoàn tất hoặc được dừng.</p>
