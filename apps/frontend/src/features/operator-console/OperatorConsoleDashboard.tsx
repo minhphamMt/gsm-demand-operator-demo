@@ -39,10 +39,12 @@ import {
   supportedForecastHorizons,
   useOperatorActions,
   isDispatchExecutionActive,
+  isProposalReviewable,
 } from "@/features/operator-data";
 import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, Proposal, Snapshot, Zone } from "@/features/operator-data";
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
 import { Skeleton } from "@/shared/components/ui/FeedbackStates";
+import { AppError } from "@/shared/api/client";
 import { routes } from "@/shared/config/routes";
 import { formatNumber } from "@/shared/lib/format";
 import { ReplayTimeline } from "./ReplayTimeline";
@@ -216,6 +218,7 @@ export function OperatorConsoleDashboard() {
     || (linkedDispatch !== undefined && !isDispatchExecutionActive(linkedDispatch) && !keepJustCompletedDispatch)
   );
   const plan = hasTerminalExecution ? undefined : latestPlan;
+  const canReviewPlan = isProposalReviewable(plan, proposalNow);
   const dispatchStage = dispatch && isDispatchExecutionActive(dispatch)
     ? 'executing'
     : dispatch?.status === 'EXECUTED' || dispatch?.status === 'PARTIALLY_EXECUTED'
@@ -287,6 +290,45 @@ export function OperatorConsoleDashboard() {
     actions.cancelApprovedPlan.isPending;
   const actionPending = pending || actions.releaseDispatch.isPending;
 
+  const refreshAuthoritativePlanState = () => {
+    void Promise.all([
+      plans.refetch(),
+      campaigns.refetch(),
+      dispatches.refetch(),
+    ]);
+  };
+  const closeStaleAction = () => {
+    setDialog(null);
+    setDrawerOpen(false);
+    setRejectNote("");
+    setWorkflowStage("observe");
+    refreshAuthoritativePlanState();
+  };
+  const recoverFromActionConflict = (error: unknown) => {
+    if (!(error instanceof AppError) || ![404, 409, 422].includes(error.status ?? 0)) return;
+    closeStaleAction();
+  };
+  const resetActionErrors = () => {
+    actions.approve.reset();
+    actions.reject.reset();
+    actions.activate.reset();
+    actions.releaseDispatch.reset();
+  };
+  const openDialog = (nextDialog: Exclude<DialogKind, null>) => {
+    const reviewDialog = nextDialog === "approve" || nextDialog === "reject";
+    const executionDialog = nextDialog === "release" || nextDialog === "dispatch";
+    if (!plan || (reviewDialog && !canReviewPlan) || (executionDialog && plan.status !== "Approved")) {
+      closeStaleAction();
+      return;
+    }
+    resetActionErrors();
+    setDialog(nextDialog);
+    // Lifecycle jobs and another operator can change a proposal between the
+    // list poll and opening this dialog. Refresh without blocking the UI; the
+    // dialog guard closes it if the authoritative row changed.
+    void plans.refetch();
+  };
+
   const changeReplaySource = (nextSourceAt: string) => {
     setReplayTargetAt(nextSourceAt);
     setDrawerOpen(false);
@@ -348,23 +390,36 @@ export function OperatorConsoleDashboard() {
   };
 
   const closeDialog = () => {
-    if (!actionPending) setDialog(null);
+    if (!actionPending) {
+      resetActionErrors();
+      setDialog(null);
+    }
   };
   const approve = () => {
-    if (!plan) return;
+    if (!plan || !canReviewPlan) {
+      closeStaleAction();
+      return;
+    }
     actions.approve.mutate(
       { planId: plan.id, expectedVersion: plan.version, note: "Phê duyệt từ bảng chỉ huy vận hành" },
-      { onSuccess: () => { setDialog(null); setWorkflowStage("approved"); } },
+      {
+        onError: recoverFromActionConflict,
+        onSuccess: () => { setDialog(null); setWorkflowStage("approved"); },
+      },
     );
   };
   const reject = () => {
-    if (!plan || rejectNote.trim().length < 3) return;
+    if (!plan || !canReviewPlan || rejectNote.trim().length < 3) {
+      if (plan && !canReviewPlan) closeStaleAction();
+      return;
+    }
     actions.reject.mutate(
       {
         planId: plan.id,
         request: { expectedVersion: plan.version, reasonCode: "other", note: rejectNote.trim() },
       },
       {
+        onError: recoverFromActionConflict,
         onSuccess: () => {
           setDialog(null);
           setRejectNote("");
@@ -375,15 +430,25 @@ export function OperatorConsoleDashboard() {
     );
   };
   const activate = () => {
-    if (!plan || plan.status !== "Approved") return;
+    if (!plan || plan.status !== "Approved") {
+      closeStaleAction();
+      return;
+    }
     actions.activate.mutate(
       { planId: plan.id, mode: "human" },
-      { onSuccess: () => { setDialog(null); setWorkflowStage("campaign"); } },
+      {
+        onError: recoverFromActionConflict,
+        onSuccess: () => { setDialog(null); setWorkflowStage("campaign"); },
+      },
     );
   };
   const releaseDispatch = () => {
-    if (!plan || plan.status !== "Approved") return;
+    if (!plan || plan.status !== "Approved") {
+      closeStaleAction();
+      return;
+    }
     actions.releaseDispatch.mutate(plan.id, {
+      onError: recoverFromActionConflict,
       onSuccess: () => { setDialog(null); setWorkflowStage("executing"); setDrawerOpen(true); },
     });
   };
@@ -444,7 +509,6 @@ export function OperatorConsoleDashboard() {
           else setReplaySnapshot(undefined);
         }}
         regime={activeSnapshot.regime}
-        serverTime={serverNow ?? capabilities.data?.serverTime}
         zoneCount={zones.length}
       />
       <div className="nf-ops-workspace">
@@ -620,9 +684,9 @@ export function OperatorConsoleDashboard() {
                 isDispatching={actions.releaseDispatch.isPending}
                 missingZoneCount={missingZoneCount}
                 snapshotStale={snapshotStale}
-                onActivate={() => setDialog("release")}
-                onDispatch={() => setDialog("dispatch")}
-                onApprove={() => setDialog("approve")}
+                onActivate={() => openDialog("release")}
+                onDispatch={() => openDialog("dispatch")}
+                onApprove={() => openDialog("approve")}
                 onCancelApproved={() => setCancelApprovedOpen(true)}
                 onGenerate={runForecast}
                 onOptimize={optimize}
@@ -630,8 +694,9 @@ export function OperatorConsoleDashboard() {
                 onOpenCampaign={() => navigate(routes.operator.campaigns)}
                 onOpenExecution={() => navigate(routes.operator.execution)}
                 onOpenPlan={() => setDrawerOpen(true)}
-                onReject={() => setDialog("reject")}
+                onReject={() => openDialog("reject")}
                 plan={planReady ? plan : undefined}
+                reviewNow={proposalNow}
                 stage={activeStage}
               />
             </>
@@ -697,7 +762,6 @@ export function ScenarioBar({
   onForecastChange,
   onRefresh,
   regime,
-  serverTime,
   zoneCount,
 }: {
   executionActive?: boolean;
@@ -710,21 +774,19 @@ export function ScenarioBar({
   onForecastChange: (value: ForecastHorizon) => void;
   onRefresh: () => void;
   regime: string;
-  serverTime?: string | undefined;
   zoneCount: number;
 }) {
   const scenario = scenarioPresentation(regime, generatedAt);
   return (
     <div className="nf-scenario-bar">
       <strong>{scenario.heading}</strong>
-      <span className="nf-server-clock">GIỜ MÁY CHỦ {serverTime ? formatServerDateTime(serverTime) : "ĐANG ĐỒNG BỘ"}</span>
       <i />
       <span>
-        <CloudRain size={14} /> Thời tiết: {scenario.weather} · dữ liệu ghi nhận
+        <CloudRain size={14} /> {scenario.weather}
       </span>
       <i />
       <span>
-        Đội xe vận hành {fleet} xe · {zoneCount}/30 zone
+        Đội xe {fleet} · {zoneCount}/30 zone
       </span>
       <span className="nf-model">MODEL {modelVersion ?? "CHƯA XÁC ĐỊNH"}</span>
       {executionActive ? (
@@ -1627,6 +1689,7 @@ export function RailActions({
   onPrepareActivation,
   onReject,
   plan,
+  reviewNow = new Date(),
   snapshotStale = false,
   stage,
 }: {
@@ -1656,12 +1719,14 @@ export function RailActions({
   onPrepareActivation: () => void;
   onReject: () => void;
   plan: Proposal | undefined;
+  reviewNow?: Date;
   snapshotStale?: boolean;
   stage: OperatorWorkflowStage;
 }) {
   const dispatchCommand = onDispatch ?? (() => undefined);
   const cancelApproved = onCancelApproved ?? (() => undefined);
   const currentDispatch = activeDispatch ? dispatchStatusPresentation(activeDispatch) : undefined;
+  const reviewable = plan ? isProposalReviewable(plan, reviewNow) : false;
   if (hasActiveExecution)
     return (
       <div className="nf-rail-actions">
@@ -1816,6 +1881,16 @@ export function RailActions({
         <small>Không thể phê duyệt khi ràng buộc bắt buộc chưa đạt.</small>
       </div>
     );
+  if (!reviewable && plan.status !== "Approved")
+    return (
+      <div className="nf-rail-actions">
+        <button className="btn btn-primary btn-block" disabled={isOptimizing} onClick={onOptimize} type="button">
+          {isOptimizing ? "Đang tính lại phương án…" : "Tính lại phương án"}
+        </button>
+        <button className="btn btn-secondary" onClick={onOpenPlan} type="button">Xem phương án cũ</button>
+        <small>Phương án đã hết hạn hoặc không còn là phiên bản hiện hành nên không thể phê duyệt.</small>
+      </div>
+    );
   if (campaign)
     return (
       <div className="nf-rail-actions">
@@ -1962,7 +2037,13 @@ function ActionDialog({
   const isApprove = dialog === "approve";
   const isActivate = dialog === "release";
   const isDispatch = dialog === "dispatch";
+  const actionStillValid = (isApprove || dialog === "reject")
+    ? isProposalReviewable(plan)
+    : plan.status === "Approved";
   const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pending && !actionStillValid) onClose();
+  }, [actionStillValid, onClose, pending]);
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialogElement = dialogRef.current;
@@ -2084,17 +2165,6 @@ function addMinutesLabel(generatedAt: string, minutes: number) {
 
 function formatTimeLabel(value: string) {
   return new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
-}
-
-function formatServerDateTime(value: string) {
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-    second: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date(value));
 }
 
 const formatVnd = (value: number) =>

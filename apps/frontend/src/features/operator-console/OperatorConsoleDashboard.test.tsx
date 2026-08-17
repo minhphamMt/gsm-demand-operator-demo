@@ -166,6 +166,37 @@ describe('operator console safety states', () => {
     expect(screen.getByText(/không tự đánh dấu hoàn tất/i)).toBeInTheDocument()
   })
 
+  it('never offers approval for an expired proposal', () => {
+    const plan = {
+      ...createAgentPlans('rain-peak')[0]!,
+      status: 'UnderReview' as const,
+      inputFreshUntil: '2026-08-12T08:19:59Z',
+    }
+    const action = vi.fn()
+
+    render(<RailActions
+      campaign={undefined}
+      forecastReady
+      isGenerating={false}
+      isOptimizing={false}
+      isScanning={false}
+      onActivate={action}
+      onApprove={action}
+      onGenerate={action}
+      onOpenCampaign={action}
+      onOpenPlan={action}
+      onOptimize={action}
+      onPrepareActivation={action}
+      onReject={action}
+      plan={plan}
+      reviewNow={new Date('2026-08-12T08:20:00Z')}
+      stage="plan"
+    />)
+
+    expect(screen.getByRole('button', { name: 'Tính lại phương án' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Phê duyệt phương án' })).not.toBeInTheDocument()
+  })
+
   it('shows expected hybrid coverage from the plan stage', () => {
     const source = createAgentPlans('rain-peak')[0]!
     const plan = {

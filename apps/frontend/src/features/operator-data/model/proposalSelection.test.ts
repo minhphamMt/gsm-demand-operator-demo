@@ -9,6 +9,8 @@ const proposal = (inputSnapshotId: string, createdAt: string, id: string) => ({
   createdAt,
   generatorType: 'AGENT',
   rank: 1,
+  status: 'UnderReview',
+  inputFreshUntil: '2099-01-01T00:00:00Z',
 }) as Proposal
 
 describe('latestAgentProposalForSnapshot', () => {
@@ -25,6 +27,15 @@ describe('latestAgentProposalForSnapshot', () => {
     ], 'snapshot-current')
 
     expect(selected?.id).toBe('newer')
+  })
+
+  it('does not expose an expired review proposal as an actionable plan', () => {
+    const now = new Date('2026-08-12T08:20:00Z')
+    expect(latestAgentProposalForSnapshot([{
+      ...proposal('snapshot-current', '2026-08-12T08:10:00Z', 'expired'),
+      status: 'UnderReview' as const,
+      inputFreshUntil: '2026-08-12T08:19:59Z',
+    }], 'snapshot-current', now)).toBeUndefined()
   })
 })
 

@@ -10,4 +10,5 @@ export { hasOperationalObservation, operationalGapFor } from '@/features/operato
 export { availableForecastHorizons, forecastRunForHorizon, hasExactForecastRun, supportedForecastHorizons } from '@/features/operator-data/model/forecastRun'
 export { isCampaignOperational, isCampaignOverdue } from '@/features/operator-data/model/campaignState'
 export { latestAgentProposalForSnapshot, latestApprovedProposalAwaitingExecution } from '@/features/operator-data/model/proposalSelection'
+export { isPlanInputFresh, isProposalReviewable } from '@/features/operator-data/model/proposalRules'
 export type { AiSnapshotStatus, AuditAction, AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DispatchBatch, DispatchMove, DriverView, ForecastHorizon, ForecastRun, Hotspot, Move, Offer, OfferStatus, OperationsCampaignReport, OperationsReport, OperationsReportFilters, OperatorCapabilities, PersistentNotification, Proposal, Reconciliation, RejectPlanRequest, ReplayTimelineStep, ResponseMode, RevisePlanRequest, Scenario, ScenarioComparison, Snapshot, Zone } from '@/features/operator-data/model/types'

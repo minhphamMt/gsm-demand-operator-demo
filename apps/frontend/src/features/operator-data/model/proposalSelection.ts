@@ -1,5 +1,5 @@
 import type { Campaign, DispatchBatch, Proposal } from '@/features/operator-data/model/types'
-import { isPlanInputFresh } from '@/features/operator-data/model/proposalRules'
+import { isPlanInputFresh, isProposalReviewable } from '@/features/operator-data/model/proposalRules'
 
 const newestProposalFirst = (left: Proposal, right: Proposal) =>
   Date.parse(right.createdAt) - Date.parse(left.createdAt) || left.rank - right.rank
@@ -14,8 +14,8 @@ export function latestAgentProposalForSnapshot(
       (plan) =>
         plan.generatorType === 'AGENT'
         && plan.inputSnapshotId === snapshotId
-        && !['Rejected', 'Stale'].includes(plan.status)
-        && (plan.status !== 'Approved' || isPlanInputFresh(plan.inputFreshUntil, now)),
+        && (isProposalReviewable(plan, now)
+          || (plan.status === 'Approved' && isPlanInputFresh(plan.inputFreshUntil, now))),
     )
     .sort(newestProposalFirst)[0]
 }
