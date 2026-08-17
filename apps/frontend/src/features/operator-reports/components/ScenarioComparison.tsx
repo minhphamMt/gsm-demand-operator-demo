@@ -25,7 +25,7 @@ export function ScenarioComparison({ plans }: { plans: readonly Proposal[] }) {
   const comparison = actions.compareScenarios.data
   const run = () => { if (selectedPlanId) actions.compareScenarios.mutate(selectedPlanId) }
 
-  return <Card className="nf-workspace-panel">
+  return <Card className="nf-workspace-panel nf-report-compare-card">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div><h2 className="font-semibold text-slate-950">Chọn phương án để so sánh</h2><p className="mt-1 text-xs text-slate-500">Cùng dữ liệu đầu vào và cùng lần chạy dự báo</p></div>
       <div className="flex min-w-72 gap-2">

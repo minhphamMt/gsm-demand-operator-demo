@@ -8,7 +8,7 @@ import { routes } from '@/shared/config/routes'
 
 export function AuditTable({ entries }: { entries: readonly AuditEntry[] }) {
   let previousDate = ''
-  return <DataTable label="Lịch sử quyết định và audit">
+  return <div className="nf-history-table"><DataTable label="Lịch sử quyết định và audit">
     <TableHead><tr><th className="px-3 py-3">Thời gian</th><th className="px-3 py-3">Sự kiện</th><th className="px-3 py-3">Người thực hiện</th><th className="px-3 py-3">Thực thể</th><th className="px-3 py-3">Kết quả</th></tr></TableHead>
     <tbody>{entries.map((entry) => {
       const dateKey = new Date(entry.occurredAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -19,7 +19,7 @@ export function AuditTable({ entries }: { entries: readonly AuditEntry[] }) {
         <AuditRow entry={entry} key={entry.id} />,
       ]
     })}</tbody>
-  </DataTable>
+  </DataTable></div>
 }
 
 function AuditRow({ entry }: { entry: AuditEntry }) {

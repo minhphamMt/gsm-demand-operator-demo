@@ -1,0 +1,253 @@
+.nf-workspace-body:has(.nf-activity-page) {
+  background: #f3f7f6;
+  padding: 18px 22px 32px;
+}
+
+.nf-workspace-page:has(.nf-activity-page) .nf-workspace-heading {
+  background: linear-gradient(115deg, #ffffff 0%, #f2fbf9 100%);
+}
+
+.nf-activity-page {
+  width: min(1480px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nf-activity-page .nf-workspace-stack {
+  gap: 12px;
+}
+
+.nf-activity-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.nf-activity-kpi-grid > div {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--color-divider);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 5px 15px rgba(20, 48, 46, .045);
+}
+
+.nf-activity-kpi-grid > div.is-good {
+  border-color: #a9d8d3;
+  background: linear-gradient(135deg, #f2fcfb 0%, #ffffff 100%);
+}
+
+.nf-activity-kpi-grid > div.is-warning {
+  border-color: #e7bd61;
+  background: #fffaf0;
+}
+
+.nf-activity-kpi-grid small {
+  display: block;
+  color: var(--color-neutral-600);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.nf-activity-kpi-grid strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--color-text);
+  font: 800 23px/1 var(--font-display);
+}
+
+.nf-activity-kpi-grid span {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--color-neutral-600);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-offer-card,
+.nf-report-page .nf-workspace-panel,
+.nf-history-page .nf-workspace-panel {
+  border-color: #d5e3e1;
+  border-radius: 14px;
+  box-shadow: 0 7px 18px rgba(20, 48, 46, .05);
+}
+
+.nf-offer-card-header {
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-divider);
+  background: #fbfdfd;
+}
+
+.nf-offer-card-header h2,
+.nf-report-page h2,
+.nf-history-page h2 {
+  color: var(--color-text);
+  font: 800 15px/1.15 var(--font-display);
+}
+
+.nf-offer-card-header p {
+  margin-top: 4px;
+  color: var(--color-neutral-600);
+  font-size: 10px;
+}
+
+.nf-offer-filters {
+  border: 1px solid var(--color-divider);
+  background: var(--color-neutral-100);
+}
+
+.nf-offer-filters button {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--color-neutral-700);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.nf-offer-filters button:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.nf-offer-filters button.is-active {
+  background: var(--nf-ok-ink);
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(12, 110, 105, .16);
+}
+
+.nf-offer-card table,
+.nf-history-card table,
+.nf-report-page table {
+  font-size: 11px;
+}
+
+.nf-offer-card table th,
+.nf-history-card table th,
+.nf-report-page table th {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background: #f5f9f8;
+  color: var(--color-neutral-700);
+  font-size: 8px;
+  letter-spacing: .08em;
+}
+
+.nf-offer-card table td,
+.nf-history-card table td,
+.nf-report-page table td {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.nf-offer-card table tbody tr:hover,
+.nf-history-card table tbody tr:hover,
+.nf-report-page table tbody tr:hover {
+  background: #f7fbfa;
+}
+
+.nf-report-filter-card {
+  padding: 14px;
+}
+
+.nf-report-filter-card label > span,
+.nf-history-filter-card label > span {
+  color: var(--color-neutral-600);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.nf-report-page .nf-quick-facts,
+.nf-history-page .nf-quick-facts {
+  min-height: 38px;
+  border-color: #d5e3e1;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.nf-report-page .nf-quick-facts span,
+.nf-history-page .nf-quick-facts span {
+  padding: 8px 12px;
+  font-size: 10px;
+}
+
+.nf-report-summary {
+  gap: 10px;
+}
+
+.nf-report-page .nf-report-visual-card {
+  border-color: #d5e3e1;
+  border-radius: 14px;
+  box-shadow: 0 7px 18px rgba(20, 48, 46, .05);
+}
+
+.nf-report-chart-heading p {
+  margin-top: 3px;
+  color: var(--color-neutral-600);
+  font-size: 9px;
+}
+
+.nf-report-compare-card {
+  padding: 14px;
+}
+
+.nf-report-compare-card > div:first-child p {
+  color: var(--color-neutral-600);
+  font-size: 9px;
+}
+
+.nf-history-overview {
+  background: #fbfdfd;
+}
+
+.nf-history-filter-card {
+  padding: 13px;
+}
+
+.nf-history-card > div:first-child {
+  padding: 13px 16px;
+  background: #fbfdfd;
+}
+
+.nf-history-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.nf-history-table table {
+  min-width: 800px;
+}
+
+.nf-history-table .nf-audit-saved {
+  font-size: 10px;
+}
+
+@media (max-width: 900px) {
+  .nf-workspace-body:has(.nf-activity-page) {
+    padding: 12px;
+  }
+
+  .nf-activity-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .nf-activity-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nf-offer-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

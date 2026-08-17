@@ -13,6 +13,8 @@ import { DataRefreshState, EmptyState, ErrorState, Skeleton } from '@/shared/com
 import { StatusBadge } from '@/shared/components/ui/StatusBadge'
 import { formatCurrency, formatTime } from '@/shared/lib/format'
 
+import '@/shared/components/layout/operator-activity-pages.css'
+
 type Filter = 'all' | OfferStatus
 const filterOptions: readonly { id: Filter; label: string }[] = [{ id: 'all', label: 'Tất cả' }, { id: 'Open', label: 'Đang chờ' }, { id: 'Accepted', label: 'Chấp nhận' }, { id: 'Declined', label: 'Từ chối' }, { id: 'Expired', label: 'Hết hạn' }, { id: 'Cancelled', label: 'Đã hủy' }]
 
@@ -31,12 +33,25 @@ export function OfferTracking({ campaignId }: { campaignId?: string } = {}) {
   const driverName = (driverId: string) => drivers.data.find((driver) => driver.id === driverId)?.name ?? driverId
   const visibleOffers = offers.data.filter((offer) => filter === 'all' || offer.status === filter).sort((left, right) => Number(left.status !== 'Open') - Number(right.status !== 'Open'))
 
-  return <>
+  const counts = {
+    accepted: offers.data.filter((offer) => offer.status === 'Accepted').length,
+    closed: offers.data.filter((offer) => offer.status === 'Declined' || offer.status === 'Expired' || offer.status === 'Cancelled').length,
+    open: offers.data.filter((offer) => offer.status === 'Open').length,
+    total: offers.data.length,
+  }
+
+  return <div className="nf-activity-page nf-offer-page">
     <DataRefreshState hasError={offers.isRefetchError || drivers.isRefetchError} isFetching={offers.isFetching || drivers.isFetching} onRetry={retryAll} />
-    <Card className="p-0">
-      <div className="flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-end">
+    <section className="nf-activity-kpi-grid nf-offer-kpis">
+      <div><small>TỔNG OFFER</small><strong>{counts.total}</strong><span>Đang theo dõi</span></div>
+      <div className="is-warning"><small>ĐANG CHỜ</small><strong>{counts.open}</strong><span>Chưa có phản hồi</span></div>
+      <div className="is-good"><small>ĐÃ NHẬN</small><strong>{counts.accepted}</strong><span>Tài xế chấp nhận</span></div>
+      <div><small>ĐÓNG / HẾT HẠN</small><strong>{counts.closed}</strong><span>Không còn hiệu lực</span></div>
+    </section>
+    <Card className="nf-offer-card p-0">
+      <div className="nf-offer-card-header flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-end">
         <div><h2 className="font-semibold text-slate-950">Quản lý Offer</h2><p className="mt-1 text-sm text-slate-500">Trạng thái gửi, phản hồi và ETA đến vùng của từng tài xế.</p></div>
-        <div className="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1" aria-label="Lọc trạng thái offer">{filterOptions.map((option) => <button className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${filter === option.id ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`} key={option.id} type="button" onClick={() => setFilter(option.id)}>{option.label}</button>)}</div>
+        <div className="nf-offer-filters flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1" aria-label="Lọc trạng thái offer">{filterOptions.map((option) => <button className={filter === option.id ? 'is-active' : ''} key={option.id} type="button" onClick={() => setFilter(option.id)}>{option.label}</button>)}</div>
       </div>
       {visibleOffers.length ? <DataTable label="Danh sách offer">
         <TableHead><tr><th className="px-3 py-3">Offer / campaign</th><th className="px-3 py-3">Tài xế</th><th className="px-3 py-3">Vùng đích / ETA</th><th className="px-3 py-3">Thưởng</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3">Cập nhật</th><th className="px-3 py-3">Kênh</th><th className="px-3 py-3">Thao tác</th></tr></TableHead>
@@ -45,5 +60,5 @@ export function OfferTracking({ campaignId }: { campaignId?: string } = {}) {
     </Card>
     <Dialog isOpen={Boolean(expiring)} onClose={() => setExpiring(undefined)} title="Hủy offer"><p className="text-sm text-slate-600">Offer {expiring} sẽ bị khóa ngay và tài xế không thể phản hồi nữa. Thao tác được ghi vào audit log.</p><div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={() => setExpiring(undefined)}>Quay lại</Button><Button variant="danger" isLoading={actions.expireOffer.isPending} onClick={() => { if (expiring) actions.expireOffer.mutate(expiring); setExpiring(undefined) }}>Xác nhận hủy offer</Button></div></Dialog>
     {actions.expireOffer.error && <p className="text-sm text-rose-700" role="alert">{actions.expireOffer.error.message}</p>}
-  </>
+  </div>
 }

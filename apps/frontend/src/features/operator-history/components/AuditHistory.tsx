@@ -10,6 +10,8 @@ import { Button } from '@/shared/components/ui/Button'
 import { Card } from '@/shared/components/ui/Card'
 import { DataRefreshState, EmptyState, ErrorState, Skeleton } from '@/shared/components/ui/FeedbackStates'
 
+import '@/shared/components/layout/operator-activity-pages.css'
+
 export function AuditHistory() {
   const [search, setSearch] = useSearchParams()
   const filters = auditFiltersFromUrl(search)
@@ -20,11 +22,11 @@ export function AuditHistory() {
   if (audit.isError && audit.data === undefined) return <ErrorState onRetry={() => void audit.refetch()} />
 
   const page = audit.data
-  return <div className="nf-workspace-stack">
+  return <div className="nf-activity-page nf-history-page nf-workspace-stack">
     <DataRefreshState hasError={audit.isRefetchError} isFetching={audit.isFetching} onRetry={() => void audit.refetch()} />
-    <div className="nf-quick-facts"><span><b>{page.total}</b> bản ghi</span><span>Trang <b>{page.totalPages ? `${page.page}/${page.totalPages}` : '0/0'}</b></span><span><b>Không thể sửa/xóa</b></span></div>
+    <div className="nf-history-overview nf-quick-facts"><span><b>{page.total}</b> sự kiện</span><span>Trang <b>{page.totalPages ? `${page.page}/${page.totalPages}` : '0/0'}</b></span><span><b>Audit bất biến</b></span></div>
     <AuditFilterForm filters={filters} onApply={update} onReset={() => update({ action: '', actorType: '', entityId: '', entityType: '', from: '', page: 1, pageSize: 25, to: '' })} />
-    <Card className="nf-workspace-panel p-0">
+    <Card className="nf-workspace-panel nf-history-card p-0">
       <div className="flex flex-col justify-between gap-3 px-5 py-3 sm:flex-row sm:items-center"><h2 className="font-semibold text-slate-950">Dòng sự kiện</h2><p className="text-xs font-semibold tabular-nums text-slate-500">{page.total} bản ghi</p></div>
       {page.items.length ? <AuditTable entries={page.items} /> : <div className="border-t border-slate-200 p-6"><EmptyState title="Không có bản ghi phù hợp" description="Thử xóa bớt bộ lọc hoặc chọn khoảng ngày khác." /></div>}
       <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row">

@@ -115,6 +115,18 @@ export function zonesForMapView(zones: readonly Zone[], view: 'city' | 'core') {
   return coreZones.length ? coreZones : zones
 }
 
+export type OperatorMapViewport = {
+  center: [longitude: number, latitude: number]
+  zoom: number
+}
+
+/** Keep the two map modes visibly distinct across data refreshes. */
+export function mapViewportForView(view: 'city' | 'core'): OperatorMapViewport {
+  return view === 'core'
+    ? { center: [105.834, 21.03], zoom: 12.25 }
+    : { center: [105.68, 20.98], zoom: 9.35 }
+}
+
 function flowCurve(source: Zone['center'], target: Zone['center']): [number, number][] {
   const [sourceLng, sourceLat] = source
   const [targetLng, targetLat] = target

@@ -5,8 +5,8 @@ import { OperatorWorkspacePage } from '@/shared/components/layout/OperatorWorksp
 
 export function HistoryPage() {
   return <OperatorWorkspacePage
-    description="Theo dõi nhanh ai đã làm gì và kết quả ra sao."
-    eyebrow="KIỂM SOÁT · MINH BẠCH"
+    description="Ai làm gì · kết quả."
+    eyebrow="KIỂM SOÁT · AUDIT"
     icon={<ScrollText size={20} />}
     statusLabel="DỮ LIỆU ĐÃ BẢO TOÀN"
     title="Nhật ký vận hành"

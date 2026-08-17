@@ -5,11 +5,10 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { zoneCentersToFeatureCollection, zonesToFeatureCollection } from '@/features/operator-data'
 import type { Move, Zone } from '@/features/operator-data'
-import { buildFlowCollections, mapLegendFor, mapTheme, zoneDotRadius, zoneFillColor, zoneStrokeColor, zonesForMapView } from '@/features/operator-map/model/operatorMapGeometry'
+import { buildFlowCollections, mapLegendFor, mapTheme, mapViewportForView, zoneDotRadius, zoneFillColor, zoneStrokeColor, zonesForMapView } from '@/features/operator-map/model/operatorMapGeometry'
 import type { FlowState } from '@/features/operator-map/model/operatorMapGeometry'
 import { env } from '@/shared/config/env'
 
-const hanoiCenter: [longitude: number, latitude: number] = [105.8342, 21.0278]
 // Keep the map aligned with the policy/regime threshold used by the AI service.
 const rainThreshold = 0.5
 const mapLoadTimeoutMs = 15_000
@@ -66,12 +65,13 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
     if (!containerRef.current || !env.hasMapboxToken) return undefined
     const container = containerRef.current
     const rainMarkers = rainMarkersRef.current
+    const initialViewport = mapViewportForView(viewRef.current)
     const map = new mapboxgl.Map({
       accessToken: env.mapboxAccessToken,
       container,
       style: 'mapbox://styles/mapbox/light-v11',
-      center: hanoiCenter,
-      zoom: 10,
+      center: initialViewport.center,
+      zoom: initialViewport.zoom,
       pitch: 0,
       bearing: 0,
       attributionControl: false,
@@ -218,7 +218,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
         })
       }
       syncRainMarkers(map, rainMarkers, zonesRef.current)
-      fitMapForView(map, zonesRef.current, viewRef.current)
+      moveMapToView(map, viewRef.current)
       setMapStatus('ready')
     })
     map.on('error', (event) => fail(classifyMapFailure(event.error)))
@@ -277,8 +277,8 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
   useEffect(() => {
     const map = mapRef.current
     if (!map?.isStyleLoaded() || mapStatus !== 'ready') return
-    fitMapForView(map, zones, view, 650)
-  }, [mapStatus, view, zones])
+    moveMapToView(map, view, 650)
+  }, [mapStatus, view])
 
   useEffect(() => {
     const map = mapRef.current
@@ -351,16 +351,9 @@ function syncRainMarkers(map: mapboxgl.Map, markers: Map<string, mapboxgl.Marker
   }
 }
 
-function fitMapToZones(map: mapboxgl.Map, zones: readonly Zone[], duration = 0, maxZoom = 10.7) {
-  const centers = zones.map((zone) => zone.center).filter(([longitude, latitude]) => Number.isFinite(longitude) && Number.isFinite(latitude))
-  if (!centers.length) return
-  const bounds = centers.reduce((current, center) => current.extend(center), new mapboxgl.LngLatBounds(centers[0], centers[0]))
-  map.fitBounds(bounds, { padding: 58, duration, maxZoom })
-}
-
-function fitMapForView(map: mapboxgl.Map, zones: readonly Zone[], view: OperatorMapView, duration = 0) {
-  const visibleZones = zonesForMapView(zones, view)
-  fitMapToZones(map, visibleZones, duration, view === 'core' ? 12 : 10.7)
+function moveMapToView(map: mapboxgl.Map, view: OperatorMapView, duration = 0) {
+  const viewport = mapViewportForView(view)
+  map.easeTo({ center: viewport.center, zoom: viewport.zoom, duration, essential: true })
 }
 
 function MapLegend({ forecastMinutes, layer }: { forecastMinutes: number; layer: OperatorMapLayer }) {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Move, Zone } from '@/features/operator-data'
 import { createZones } from '@/features/operator-data/model/zoneGeometry'
-import { buildFlowCollections, mapLayerThresholds, zoneFillColor, zonesForMapView } from './operatorMapGeometry'
+import { buildFlowCollections, mapLayerThresholds, mapViewportForView, zoneFillColor, zonesForMapView } from './operatorMapGeometry'
 
 describe('buildFlowCollections', () => {
   it('creates a curved route and vehicle label between model-selected zones', () => {
@@ -46,6 +46,15 @@ describe('buildFlowCollections', () => {
       'Ba Đình', 'Hoàn Kiếm', 'Hai Bà Trưng', 'Đống Đa', 'Tây Hồ', 'Cầu Giấy', 'Thanh Xuân',
     ])
     expect(coreZones.some((zone) => zone.label === 'Gia Lâm')).toBe(false)
+  })
+
+  it('uses a wide city viewport and a close central viewport', () => {
+    const city = mapViewportForView('city')
+    const core = mapViewportForView('core')
+
+    expect(city.zoom).toBeLessThan(core.zoom)
+    expect(city.center).toEqual([105.68, 20.98])
+    expect(core.center).toEqual([105.834, 21.03])
   })
 
   it('uses per-zone bands that match the project dataset scale', () => {

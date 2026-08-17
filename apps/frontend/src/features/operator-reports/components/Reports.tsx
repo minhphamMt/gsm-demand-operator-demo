@@ -15,6 +15,8 @@ import { MetricStrip } from '@/shared/components/ui/MetricStrip'
 import { StatusBadge } from '@/shared/components/ui/StatusBadge'
 import { formatCurrency, formatTime } from '@/shared/lib/format'
 
+import '@/shared/components/layout/operator-activity-pages.css'
+
 export function Reports() {
   const [search, setSearch] = useSearchParams()
   const filters = reportFilterState(search)
@@ -34,7 +36,7 @@ export function Reports() {
   const retryAll = () => { void report.refetch(); void campaigns.refetch(); void plans.refetch() }
   if ((report.isError && report.data === undefined) || (campaigns.isError && campaigns.data === undefined) || (plans.isError && plans.data === undefined)) return <ErrorState onRetry={retryAll} />
 
-  return <div className="nf-workspace-stack">
+  return <div className="nf-activity-page nf-report-page nf-workspace-stack">
     <DataRefreshState hasError={report.isRefetchError || campaigns.isRefetchError} isFetching={report.isFetching || campaigns.isFetching} onRetry={retryAll} />
     <div className="nf-workspace-command-grid">
       <ReportFilters campaignId={filters.campaignId} campaigns={campaigns.data.map((campaign) => campaign.id)} fromDate={filters.fromDate} onChange={setFilter} toDate={filters.toDate} />
@@ -50,12 +52,12 @@ export function Reports() {
 }
 
 function ReportFilters({ campaignId, campaigns, fromDate, onChange, toDate }: { campaignId: string; campaigns: readonly string[]; fromDate: string; onChange: (key: 'campaignId' | 'from' | 'to', value: string) => void; toDate: string }) {
-  return <Card className="nf-workspace-panel grid gap-3 sm:grid-cols-3"><div><label className="text-xs font-semibold text-slate-600" htmlFor="report-campaign">Campaign</label><Select className="w-full" id="report-campaign" onChange={(event) => onChange('campaignId', event.target.value)} value={campaignId}><option value="all">Tất cả campaign</option>{campaigns.map((id) => <option key={id} value={id}>{id}</option>)}</Select></div><div><label className="text-xs font-semibold text-slate-600" htmlFor="report-from">Từ ngày</label><Input id="report-from" onChange={(event) => onChange('from', event.target.value)} type="date" value={fromDate} /></div><div><label className="text-xs font-semibold text-slate-600" htmlFor="report-to">Đến ngày</label><Input id="report-to" onChange={(event) => onChange('to', event.target.value)} type="date" value={toDate} /></div></Card>
+  return <Card className="nf-workspace-panel nf-report-filter-card grid gap-3 sm:grid-cols-3"><div><label className="text-xs font-semibold text-slate-600" htmlFor="report-campaign">Campaign</label><Select className="w-full" id="report-campaign" onChange={(event) => onChange('campaignId', event.target.value)} value={campaignId}><option value="all">Tất cả campaign</option>{campaigns.map((id) => <option key={id} value={id}>{id}</option>)}</Select></div><div><label className="text-xs font-semibold text-slate-600" htmlFor="report-from">Từ</label><Input id="report-from" onChange={(event) => onChange('from', event.target.value)} type="date" value={fromDate} /></div><div><label className="text-xs font-semibold text-slate-600" htmlFor="report-to">Đến</label><Input id="report-to" onChange={(event) => onChange('to', event.target.value)} type="date" value={toDate} /></div></Card>
 }
 
 function ReportSummary({ report }: { report: OperationsReport }) {
   const summary = report.summary
-  return <section className="nf-workspace-stack" aria-label="Tổng quan báo cáo"><div className="nf-quick-facts">
+  return <section className="nf-report-summary nf-workspace-stack" aria-label="Tổng quan báo cáo"><div className="nf-quick-facts">
     <span>Cập nhật <b>{formatTime(report.generatedAt)}</b></span>
     <span><b>{report.dataMode === 'DB_LEDGER' ? 'Dữ liệu DB' : 'Mô phỏng'}</b></span>
     <span><b>{summary.campaigns}</b> campaign</span>

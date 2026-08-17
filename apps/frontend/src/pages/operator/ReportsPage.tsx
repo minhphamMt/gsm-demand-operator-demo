@@ -5,8 +5,8 @@ import { OperatorWorkspacePage } from '@/shared/components/layout/OperatorWorksp
 
 export function ReportsPage() {
   return <OperatorWorkspacePage
-    description="Nhìn nhanh tác động, chi phí và phương án phù hợp nhất."
-    eyebrow="PHÂN TÍCH · CÙNG ĐẦU VÀO"
+    description="Tác động · chi phí · hiệu quả."
+    eyebrow="PHÂN TÍCH · ĐỐI CHIẾU"
     icon={<GitCompareArrows size={20} />}
     statusLabel="DỮ LIỆU GỐC ĐÃ KHÓA"
     title="So sánh kịch bản"
