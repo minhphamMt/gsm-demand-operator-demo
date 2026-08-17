@@ -39,10 +39,23 @@ export function ActiveOperation() {
   if (hasError) return <ErrorState onRetry={refresh} />
   if (!execution) return <div className="nf-operation-empty-page"><EmptyState description="Khi một phương án được áp dụng, tiến độ và thao tác vận hành sẽ xuất hiện tại đây." title="Không có phương án đang vận hành" /><Link className="btn btn-primary" to={routes.operator.root}><ArrowLeft size={15} />Về trang điều hành</Link></div>
 
-  return <>
-    <div className="nf-operation-context"><Activity size={17} /><span>Chỉ có một phương án được vận hành tại một thời điểm.</span><b>{execution.plan ? `v${execution.plan.version} · ${execution.plan.title}` : execution.planId.slice(0, 12)}</b></div>
-    {execution.dispatch && <DispatchOperation batch={execution.dispatch} isRefreshing={dispatches.isFetching} isRetrying={actions.retryDispatch.isPending} onRefresh={refresh} onRetry={(batchId, moveId) => actions.retryDispatch.mutate({ batchId, moveId, reason: 'Điều phối viên thử lại từ trang phương án đang vận hành.' })} onStop={() => setStopTarget({ id: execution.dispatch!.id, kind: 'dispatch' })} plan={execution.plan} />}
-    {execution.campaign && <CampaignOperation campaign={execution.campaign} isRefreshing={campaigns.isFetching} onRefresh={refresh} onStop={() => setStopTarget({ id: execution.campaign!.id, kind: 'campaign' })} plan={execution.plan} />}
+  return <div className="nf-operation-shell">
+    <div className="nf-operation-context">
+      <span aria-hidden="true" className="nf-operation-context-icon"><Activity size={18} /></span>
+      <div className="nf-operation-context-copy">
+        <small>LIVE CONTROL TOWER</small>
+        <strong>Đang theo dõi phương án</strong>
+        <span>Chỉ có một phương án được vận hành tại một thời điểm.</span>
+      </div>
+      <div className="nf-operation-context-meta">
+        <b>{execution.plan ? `v${execution.plan.version} · ${execution.plan.title}` : execution.planId.slice(0, 12)}</b>
+        <span><i />Tự động cập nhật 2 giây</span>
+      </div>
+    </div>
+    <div className="nf-operation-content">
+      {execution.dispatch && <DispatchOperation batch={execution.dispatch} isRefreshing={dispatches.isFetching} isRetrying={actions.retryDispatch.isPending} onRefresh={refresh} onRetry={(batchId, moveId) => actions.retryDispatch.mutate({ batchId, moveId, reason: 'Điều phối viên thử lại từ trang phương án đang vận hành.' })} onStop={() => setStopTarget({ id: execution.dispatch!.id, kind: 'dispatch' })} plan={execution.plan} />}
+      {execution.campaign && <CampaignOperation campaign={execution.campaign} isRefreshing={campaigns.isFetching} onRefresh={refresh} onStop={() => setStopTarget({ id: execution.campaign!.id, kind: 'campaign' })} plan={execution.plan} />}
+    </div>
     <StopOperationDialog error={stopError} isOpen={stopTarget !== null} isSaving={isStopping} onClose={() => setStopTarget(null)} onConfirm={stop} title={stopTarget?.kind === 'campaign' ? 'Hủy offer đang phát hành?' : execution.campaign ? 'Dừng phương án và hủy offer?' : 'Dừng phương án đang vận hành?'} />
-  </>
+  </div>
 }

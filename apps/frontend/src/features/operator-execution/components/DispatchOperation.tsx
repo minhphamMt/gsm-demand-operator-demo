@@ -21,17 +21,17 @@ export function DispatchOperation({ batch, isRefreshing, isRetrying, onRefresh, 
   const progress = dispatchProgress(batch)
   const reconciliation = batch.reconciliations[0]
   return <div className="nf-operation-stack">
-    {(status.isQueued || status.isOverdue) && <div className={`nf-operation-alert ${status.isOverdue ? 'is-warning' : ''}`} role="status">
+    {(status.isQueued || status.isOverdue) && <div className={`nf-operation-alert ${status.isOverdue ? 'is-warning' : ''}`} role={status.isOverdue ? 'alert' : 'status'}>
       {status.isOverdue ? <AlertTriangle size={18} /> : <Clock3 size={18} />}
       <div><strong>{status.label}</strong><span>{status.isOverdue ? 'Đã vượt ETA dự kiến. Hãy kiểm tra telemetry, thử lại lệnh lỗi hoặc dừng phương án.' : 'Lệnh đã lưu trong DB nhưng chưa có telemetry SENT; hệ thống không còn hiển thị giả là đang chạy.'}</span></div>
     </div>}
     <section className="nf-operation-overview">
-      <div><small>TRẠNG THÁI</small><strong className={status.isAnimating ? 'is-live' : ''}>{status.label}</strong><span>Phát lúc {formatTime(batch.releasedAt)}</span></div>
+      <div className={status.isOverdue ? 'is-overdue' : status.isQueued ? 'is-queued' : 'is-status'}><small>TRẠNG THÁI</small><strong className={status.isAnimating ? 'is-live' : ''}>{status.label}</strong><span>Phát lúc {formatTime(batch.releasedAt)}</span></div>
       <div><small>TIẾN ĐỘ LỆNH</small><strong>{progress.finishedMoves}/{progress.totalMoves}</strong><span>{progress.activeMoves} đang đi · {progress.waitingMoves} chờ</span></div>
       <div><small>XE SẴN SÀNG</small><strong>{progress.availableUnits}/{progress.plannedUnits}</strong><span>{progress.failedMoves} lệnh lỗi</span></div>
       <div><small>ĐỐI SOÁT</small><strong>{reconciliation ? `Lần ${reconciliation.revision}` : 'Đang chờ'}</strong><span>{reconciliation?.isSnapshotFresh ? 'Snapshot mới' : 'Chưa có snapshot mới'}</span></div>
     </section>
-    <div className="nf-operation-progress"><span style={{ width: `${progress.completionPercent}%` }} /><b>{progress.completionPercent}% lệnh đã kết thúc</b></div>
+    <div className={`nf-operation-progress${status.isOverdue ? ' is-overdue' : ''}`}><span style={{ width: `${progress.completionPercent}%` }} /><b>{progress.completionPercent}% lệnh đã kết thúc</b></div>
     <div className="nf-operation-toolbar"><div><strong>{plan?.title ?? 'Phương án điều chuyển'}</strong><span>Batch {batch.id.slice(0, 8)}… · phiên bản {batch.proposalVersion}</span></div><div><Link className="btn btn-secondary" to={routes.operator.planDetail(batch.proposalId)}>Xem phương án</Link><Button onClick={onRefresh} variant="secondary"><RefreshCw className={isRefreshing ? 'animate-spin' : ''} size={15} />Cập nhật</Button>{status.canCancel && <Button onClick={onStop} variant="danger"><Square size={14} />Dừng</Button>}</div></div>
     <section className="nf-operation-panel"><header><div><small>ĐIỀU CHUYỂN</small><h2>Trạng thái từng lệnh</h2></div><span>{progress.totalMoves} tuyến</span></header><div className="nf-operation-moves">
       {batch.moves.map((move) => {
