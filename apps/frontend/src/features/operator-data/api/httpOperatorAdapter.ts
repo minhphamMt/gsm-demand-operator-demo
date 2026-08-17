@@ -146,6 +146,9 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
       method: 'POST', headers: { 'x-idempotency-key': idempotencyKey }, body: body(request),
     }), isProposal, 'proposal'),
   ),
+  cancelApprovedPlan: async (planId, reason) => parseEntity(await requestJson(`/operator/proposals/${planId}/cancel`, {
+    method: 'POST', body: body({ reason }),
+  }), isProposal, 'proposal'),
   startCampaign: async (planId, mode = 'human') => parseEntity(await requestJson(`/operator/proposals/${planId}/activate`, {
     method: 'POST', body: body({ responseMode: mode }),
   }), isCampaign, 'campaign'),

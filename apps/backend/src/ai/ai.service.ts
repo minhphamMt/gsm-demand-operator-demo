@@ -89,6 +89,7 @@ export class AiService {
   }
 
   async runNext(horizonMinutes: 5 | 10 | 15, regime?: DatasetRegime) {
+    await assertNoActiveExecution(this.db);
     const snapshot = await this.ingestNext(regime);
     const decision = await this.generate(horizonMinutes, snapshot.id, false, true);
     return { snapshot, decision };
@@ -101,8 +102,14 @@ export class AiService {
   }
 
   async forecast(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
+    await assertNoActiveExecution(this.db);
     const decision = await this.generate(horizonMinutes, snapshotId, false, true);
     return { decision };
+  }
+
+  async generateForOperator(horizonMinutes: 5 | 10 | 15) {
+    await assertNoActiveExecution(this.db);
+    return this.generate(horizonMinutes);
   }
 
   async runReplay(sourceAt: string) {

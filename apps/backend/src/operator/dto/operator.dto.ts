@@ -301,6 +301,14 @@ export class ActivateProposalDto {
   driverIds?: string[];
 }
 
+export class CancelApprovedProposalDto {
+  @ApiProperty({ example: 'Nhu cau da thay doi, khong con can phuong an nay.', maxLength: 500 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason: string;
+}
+
 export class CancelCampaignDto {
   @ApiProperty({ example: 'Dá»¯ liá»‡u cung cáº§u Ä‘Ã£ thay Ä‘á»•i.', maxLength: 500 })
   @IsString()

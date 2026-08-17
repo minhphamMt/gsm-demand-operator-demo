@@ -24,6 +24,7 @@ import {
   ActivateProposalDto,
   AuditQueryDto,
   ApproveProposalDto,
+  CancelApprovedProposalDto,
   CancelCampaignDto,
   CancelDispatchDto,
   DispatchEventDto,
@@ -172,6 +173,21 @@ export class OperatorController {
     @Req() request: RequestWithId & { user: AuthenticatedUser },
   ) {
     return this.service.reviewProposal(id, 'REJECTED', dto, request.user.id, request.requestId, request.idempotencyKey);
+  }
+
+  @Post('operator/proposals/:id/cancel')
+  @SensitiveMutation()
+  @Roles('OPERATOR')
+  @ApiCreatedResponse({ type: ProposalResponseDto })
+  @ApiNotFoundResponse({ description: 'Proposal was not found.', type: ApiErrorDto })
+  @ApiConflictResponse({ description: 'Only an approved proposal that has not been applied can be cancelled.', type: ApiErrorDto })
+  @ApiUnprocessableEntityResponse({ description: 'A cancellation reason is required.', type: ApiErrorDto })
+  cancelApprovedProposal(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelApprovedProposalDto,
+    @Req() request: RequestWithId & { user: AuthenticatedUser },
+  ) {
+    return this.service.cancelApprovedProposal(id, dto, request.user.id, request.requestId);
   }
 
   @Post('operator/proposals/:id/activate')

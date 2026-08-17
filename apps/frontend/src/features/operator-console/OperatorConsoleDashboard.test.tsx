@@ -10,7 +10,13 @@ import { mockOperatorAdapter } from '@/features/operator-data/api/mockOperatorAd
 import { createAgentPlans } from '@/features/operator-data/model/mockProposalEngine'
 import type { Zone } from '@/features/operator-data'
 
-function renderDashboard() {
+function renderDashboard({ withActiveExecution = false }: { withActiveExecution?: boolean } = {}) {
+  if (!withActiveExecution) {
+    const listCampaigns = mockOperatorAdapter.listCampaigns
+    vi.spyOn(mockOperatorAdapter, 'listCampaigns').mockImplementation(async () =>
+      (await listCampaigns()).map((campaign) => campaign.status === 'Running' ? { ...campaign, status: 'Closed' as const } : campaign),
+    )
+  }
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={queryClient}><MemoryRouter><OperatorConsoleDashboard /></MemoryRouter></QueryClientProvider>)
   return queryClient
@@ -26,6 +32,14 @@ describe('operator console safety states', () => {
     expect(await screen.findByText('Không thể nạp snapshot vận hành.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument()
     queryClient.clear()
+  })
+
+  it('shows only the active operation and hides forecasting while it is running', async () => {
+    renderDashboard({ withActiveExecution: true })
+
+    expect(await screen.findByRole('button', { name: 'Dừng' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Chạy dự báo/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Bản đồ vận hành')).not.toBeInTheDocument()
   })
 
   it('renders all forecast horizons declared by the server capability', () => {

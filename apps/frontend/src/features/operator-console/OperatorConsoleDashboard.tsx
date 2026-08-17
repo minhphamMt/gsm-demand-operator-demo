@@ -43,6 +43,8 @@ import { ExecutionDrawer } from "./components/ExecutionDrawer";
 import { ForecastDrawer } from "./components/ForecastDrawer";
 import { ForecastRunStatus } from "./components/ForecastRunStatus";
 import { PlanDrawer } from "./components/PlanDrawer";
+import { ActiveOperation } from "@/features/operator-execution/components/ActiveOperation";
+import { StopOperationDialog } from "@/features/operator-execution/components/StopOperationDialog";
 import { useCurrentReplayAnchor } from "./hooks/useCurrentReplayAnchor";
 import { useServerClock } from "./hooks/useServerClock";
 import { SnapshotStaleAlert } from "@/features/operator-dashboard/components/SnapshotStaleAlert";
@@ -90,6 +92,7 @@ export function OperatorConsoleDashboard() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
   const [dialog, setDialog] = useState<DialogKind>(null);
+  const [cancelApprovedOpen, setCancelApprovedOpen] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
   const snapshot = useQuery(snapshotQuery("baseline"));
   const capabilities = useQuery(capabilitiesQuery());
@@ -144,6 +147,17 @@ export function OperatorConsoleDashboard() {
     }
   }, []);
 
+  if (plans.isPending || campaigns.isPending || dispatches.isPending)
+    return (
+      <div className="nf-console-loading">
+        <Skeleton />
+      </div>
+    );
+
+  const execution = activeExecutionPlan(plans.data, campaigns.data, dispatches.data);
+  const hasExecution = Boolean(execution);
+  if (hasExecution) return <ActiveOperation />;
+
   if (snapshot.isPending)
     return (
       <div className="nf-console-loading">
@@ -164,7 +178,6 @@ export function OperatorConsoleDashboard() {
       </div>
     );
   const activeSnapshot = replaySnapshot ?? snapshot.data;
-  const execution = activeExecutionPlan(plans.data, campaigns.data, dispatches.data);
   const proposalNow = serverNow ? new Date(serverNow) : new Date();
   const approvedPlan = latestApprovedProposalAwaitingExecution(
     plans.data,
@@ -258,7 +271,8 @@ export function OperatorConsoleDashboard() {
   const pending =
     actions.approve.isPending ||
     actions.reject.isPending ||
-    actions.activate.isPending;
+    actions.activate.isPending ||
+    actions.cancelApprovedPlan.isPending;
   const actionPending = pending || actions.releaseDispatch.isPending;
 
   const changeReplaySource = (nextSourceAt: string) => {
@@ -276,7 +290,7 @@ export function OperatorConsoleDashboard() {
     });
   };
   const runForecastFor = (horizon: ForecastHorizon) => {
-    if (!isLiveEdge || !dataComplete || snapshotStale || actions.generateAiDecision.isPending) return;
+    if (hasExecution || !isLiveEdge || !dataComplete || snapshotStale || actions.generateAiDecision.isPending) return;
     requestedForecastRef.current = horizon;
     actions.generateAiDecision.mutate({ snapshotId: Number(activeSnapshot.replayStep), horizonMinutes: horizon }, {
       onSuccess: (forecastSnapshot) => {
@@ -302,7 +316,7 @@ export function OperatorConsoleDashboard() {
   const runForecast = () => runForecastFor(forecastMinutes);
 
   const optimize = () => {
-    if (!isLiveEdge || !forecastReady || !dataComplete || snapshotStale || execution) return;
+    if (!isLiveEdge || !forecastReady || !dataComplete || snapshotStale || hasExecution) return;
     const parsedSnapshotId = Number(activeSnapshot.replayStep);
     const snapshotId = Number.isInteger(parsedSnapshotId) ? parsedSnapshotId : 0;
     actions.optimizeAiDecision.mutate(
@@ -360,6 +374,19 @@ export function OperatorConsoleDashboard() {
     actions.releaseDispatch.mutate(plan.id, {
       onSuccess: () => { setDialog(null); setWorkflowStage("executing"); setDrawerOpen(true); },
     });
+  };
+  const cancelApproved = (reason: string) => {
+    if (!plan || plan.status !== "Approved") return;
+    actions.cancelApprovedPlan.mutate(
+      { planId: plan.id, reason },
+      {
+        onSuccess: () => {
+          setCancelApprovedOpen(false);
+          setDrawerOpen(false);
+          setWorkflowStage("observe");
+        },
+      },
+    );
   };
 
   return (
@@ -539,12 +566,13 @@ export function OperatorConsoleDashboard() {
             isLiveEdge={isLiveEdge}
             dispatchEnabled={capabilities.data?.capabilities.dispatchRelease.enabled ?? false}
             isDispatching={actions.releaseDispatch.isPending}
-            hasActiveExecution={execution !== undefined}
+            hasActiveExecution={hasExecution}
             missingZoneCount={missingZoneCount}
             snapshotStale={snapshotStale}
             onActivate={() => setDialog("release")}
             onDispatch={() => setDialog("dispatch")}
             onApprove={() => setDialog("approve")}
+            onCancelApproved={() => setCancelApprovedOpen(true)}
             onGenerate={runForecast}
             onOptimize={optimize}
             onPrepareActivation={() => { setWorkflowStage("activation_draft"); setDrawerOpen(true); }}
@@ -575,6 +603,16 @@ export function OperatorConsoleDashboard() {
           plan={plan}
           rejectNote={rejectNote}
           setRejectNote={setRejectNote}
+        />
+      )}
+      {plan && (
+        <StopOperationDialog
+          error={actions.cancelApprovedPlan.error?.message}
+          isOpen={cancelApprovedOpen}
+          isSaving={actions.cancelApprovedPlan.isPending}
+          onClose={() => setCancelApprovedOpen(false)}
+          onConfirm={cancelApproved}
+          title="Hủy phương án đã duyệt?"
         />
       )}
     </div>
@@ -1262,6 +1300,7 @@ export function RailActions({
   optimizationStopReason,
   onActivate,
   onApprove,
+  onCancelApproved,
   onDispatch,
   onGenerate,
   onOpenCampaign,
@@ -1290,6 +1329,7 @@ export function RailActions({
   optimizationStopReason?: string | undefined;
   onActivate: () => void;
   onApprove: () => void;
+  onCancelApproved?: () => void;
   onDispatch?: () => void;
   onGenerate: () => void;
   onOpenCampaign: () => void;
@@ -1303,7 +1343,17 @@ export function RailActions({
   stage: OperatorWorkflowStage;
 }) {
   const dispatchCommand = onDispatch ?? (() => undefined);
+  const cancelApproved = onCancelApproved ?? (() => undefined);
   const currentDispatch = activeDispatch ? dispatchStatusPresentation(activeDispatch) : undefined;
+  if (hasActiveExecution)
+    return (
+      <div className="nf-rail-actions">
+        <button className="btn btn-primary btn-block" onClick={onOpenExecution} type="button">
+          Mở phương án đang vận hành
+        </button>
+        <small>Đang có phương án thực hiện. Hãy theo dõi hoặc hủy tại trang điều hành trước khi chạy dự báo mới.</small>
+      </div>
+    );
   if (!isLiveEdge)
     return (
       <div className="nf-rail-actions">
@@ -1397,6 +1447,7 @@ export function RailActions({
       return (
         <div className="nf-rail-actions">
           <button className="btn btn-primary btn-block" onClick={onActivate} type="button">Phát hành offer activation</button>
+          <button className="btn btn-secondary" onClick={cancelApproved} type="button">Hủy phương án đã duyệt</button>
           <button className="btn btn-secondary" onClick={onOpenPlan} type="button">Xem phương án đã duyệt</button>
           <small>Proposal đã được duyệt riêng; bước này mới tạo campaign và gửi offer tới tài xế thật.</small>
         </div>
@@ -1405,6 +1456,7 @@ export function RailActions({
     return (
       <div className="nf-rail-actions">
         <button className="btn btn-primary btn-block" disabled={!dispatchEnabled || isDispatching} onClick={dispatchCommand} type="button">{isDispatching ? "Đang phát lệnh…" : dispatchEnabled ? "Đưa vào thực hiện" : "Chưa kết nối phát lệnh điều chuyển"}</button>
+        <button className="btn btn-secondary" onClick={cancelApproved} type="button">Hủy phương án đã duyệt</button>
         <button className="btn btn-secondary" onClick={onOpenPlan} type="button">Xem phương án đã duyệt</button>
         <small>{dispatchEnabled ? "Bước phát lệnh tách riêng khỏi phê duyệt và dùng đúng revision/hash đã duyệt." : "Capability dispatchRelease đang tắt; hệ thống không tự đánh dấu hoàn tất và phương án đã duyệt vẫn an toàn ở chế độ chỉ đọc."}</small>
       </div>
@@ -1477,6 +1529,7 @@ export function RailActions({
         >
           Đưa vào thực hiện
         </button>
+        <button className="btn btn-secondary" onClick={cancelApproved} type="button">Hủy phương án đã duyệt</button>
         <button
           className="btn btn-secondary"
           onClick={onOpenPlan}

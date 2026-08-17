@@ -156,6 +156,18 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     audit(planId, 'Rejected', 'Điều phối viên', `[${request.reasonCode}] ${request.note}`)
     return clone(rejected)
   }),
+  cancelApprovedPlan: (planId, reason) => requestLocal(() => {
+    const plan = planFor(planId)
+    if (!plan || plan.status !== 'Approved') throw new Error('Chỉ có thể hủy phương án đã duyệt.')
+    if (state.campaigns.some((item) => item.planId === planId) || dispatches.some((item) => item.proposalId === planId)) {
+      throw new Error('Phương án đã được đưa vào thực hiện; hãy dừng ở trang điều hành.')
+    }
+    if (reason.trim().length < 3) throw new Error('Cần lý do hủy phương án.')
+    const cancelled = { ...plan, status: 'Stale' as const }
+    state = { ...state, plans: state.plans.map((item) => item.id === planId ? cancelled : item) }
+    audit(planId, 'ProposalCancelled', 'Điều phối viên', `Hủy phương án đã duyệt: ${reason.trim()}`)
+    return clone(cancelled)
+  }),
   startCampaign: (planId, mode = 'mixed') => requestLocal(() => {
     const plan = planFor(planId)
     if (plan?.status !== 'Approved') throw new Error('Chỉ phát hành offer sau khi phê duyệt plan.')

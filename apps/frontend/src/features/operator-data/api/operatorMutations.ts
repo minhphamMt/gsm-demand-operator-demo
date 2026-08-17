@@ -91,6 +91,17 @@ export function useOperatorActions() {
       onError: refreshProposalAfterUncertainMutation,
       onSuccess: async (proposal) => { cacheProposal(proposal); await refreshPlans() },
     }),
+    cancelApprovedPlan: useMutation({
+      mutationFn: ({ planId, reason }: { planId: string; reason: string }) => operatorAdapter.cancelApprovedPlan(planId, reason),
+      onError: refreshProposalAfterUncertainMutation,
+      onSuccess: async (proposal) => {
+        cacheProposal(proposal)
+        await Promise.all([
+          refreshPlans(),
+          queryClient.invalidateQueries({ queryKey: operatorQueryKeys.audit }),
+        ])
+      },
+    }),
     activate: useMutation({
       mutationFn: (input: string | { planId: string; mode: ResponseMode }) => operatorAdapter.startCampaign(typeof input === 'string' ? input : input.planId, typeof input === 'string' ? 'human' : input.mode),
       onError: refreshProposalAfterUncertainMutation,

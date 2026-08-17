@@ -24,7 +24,7 @@ export class AiController {
   @ApiOperation({ summary: 'Generate and persist an AI proposal from the latest live snapshot' })
   @ApiOkResponse({ description: 'Persisted forecast/hotspot/plan output.' })
   generate(@Body() body: GenerateAiDecisionDto) {
-    return this.service.generate(body.horizonMinutes);
+    return this.service.generateForOperator(body.horizonMinutes);
   }
 
   @Post('run-next')

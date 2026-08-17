@@ -12,6 +12,7 @@ import {
   ActivateProposalDto,
   ApproveProposalDto,
   AuditQueryDto,
+  CancelApprovedProposalDto,
   CancelCampaignDto,
   DispatchEventDto,
   DriverStatusDto,
@@ -32,6 +33,7 @@ const auditActionAliases: Record<string, string[]> = {
   Revised: ['Revised', 'REVISE'],
   Approved: ['Approved', 'APPROVE'],
   ProposalExpired: ['ProposalExpired'],
+  ProposalCancelled: ['ProposalCancelled'],
   Rejected: ['Rejected', 'REJECT'],
   ActivationStarted: ['ActivationStarted', 'ACTIVATE'],
   CampaignCancelled: ['CampaignCancelled', 'CANCEL_CAMPAIGN'],
@@ -528,6 +530,17 @@ export class OperatorService {
     const campaignId = typeof data === 'string' ? data : data?.campaign_id ?? data?.id;
     if (!campaignId) throw new UnprocessableEntityException('Activation did not return a campaign');
     return this.getCampaign(campaignId);
+  }
+
+  async cancelApprovedProposal(id: string, dto: CancelApprovedProposalDto, actorId: string, requestId: string) {
+    const { data, error } = await this.db.client.rpc('cancel_approved_proposal', {
+      p_proposal_id: id,
+      p_actor_id: actorId,
+      p_reason: dto.reason,
+      p_request_id: requestId,
+    });
+    if (error) this.db.unwrap(null, error);
+    return this.getProposal(String(data));
   }
 
   private async assertProposalSnapshotCurrent(proposal: any, proposalId: string) {
