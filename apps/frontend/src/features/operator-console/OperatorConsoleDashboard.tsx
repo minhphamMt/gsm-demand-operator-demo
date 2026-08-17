@@ -24,6 +24,7 @@ import {
   getSnapshotFreshness,
   isCampaignOperational,
   latestAgentProposalForSnapshot,
+  latestApprovedProposalAwaitingExecution,
   operationalGapFor,
   plansQuery,
   replayWindowQuery,
@@ -164,8 +165,13 @@ export function OperatorConsoleDashboard() {
     );
   const activeSnapshot = replaySnapshot ?? snapshot.data;
   const execution = activeExecutionPlan(plans.data, campaigns.data, dispatches.data);
+  const approvedPlan = latestApprovedProposalAwaitingExecution(
+    plans.data,
+    campaigns.data,
+    dispatches.data,
+  );
   const snapshotPlan = latestAgentProposalForSnapshot(plans.data, activeSnapshot.replayStep);
-  const latestPlan = execution?.plan ?? snapshotPlan;
+  const latestPlan = execution?.plan ?? approvedPlan ?? snapshotPlan;
   const linkedCampaign = campaigns.data?.find((item) => item.planId === latestPlan?.id);
   const campaign = execution?.campaign ?? campaigns.data?.find(
     (item) => item.planId === latestPlan?.id && isCampaignOperational(item),

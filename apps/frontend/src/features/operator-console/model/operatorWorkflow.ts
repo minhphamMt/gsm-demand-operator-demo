@@ -41,6 +41,7 @@ export const resolveWorkflowStage = (
 ): OperatorWorkflowStage => {
   if (hasOperationalCampaign) return "campaign";
   if (localStage === "campaign") return "observe";
+  if (planStatus === "Approved") return "approved";
   if (localStage === "not_required") return "not_required";
   if (localStage === "no_solution" && planStatus === "FailedGeneration") {
     return "no_solution";

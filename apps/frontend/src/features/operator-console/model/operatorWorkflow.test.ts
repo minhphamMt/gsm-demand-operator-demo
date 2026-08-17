@@ -11,6 +11,10 @@ describe('planningHorizonFor', () => {
 })
 
 describe('resolveWorkflowStage', () => {
+  it('restores the approved stage from persisted proposal state after navigation', () => {
+    expect(resolveWorkflowStage('observe', false, 'Approved')).toBe('approved')
+  })
+
   it('removes campaign execution state as soon as the linked campaign is terminal', () => {
     expect(resolveWorkflowStage('campaign', false)).toBe('observe')
   })
