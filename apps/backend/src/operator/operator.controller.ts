@@ -316,6 +316,14 @@ export class OperatorController {
     return this.service.listNotifications(request.user.id);
   }
 
+  @Post('operator/notifications/acknowledge-all')
+  @SensitiveMutation()
+  @Roles('OPERATOR')
+  @ApiCreatedResponse({ schema: { type: 'array', items: { type: 'object', additionalProperties: true } } })
+  acknowledgeAllNotifications(@Req() request: RequestWithId & { user: AuthenticatedUser }) {
+    return this.service.acknowledgeAllNotifications(request.user.id, request.requestId);
+  }
+
   @Post('operator/notifications/:id/acknowledge')
   @SensitiveMutation()
   @Roles('OPERATOR')

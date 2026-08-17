@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { operatorAdapter } from '@/features/operator-data/api/operatorAdapter'
 import { operatorQueryKeys } from '@/features/operator-data/api/operatorQueries'
-import type { Campaign, ForecastHorizon, Proposal, RejectPlanRequest, ResponseMode, RevisePlanRequest } from '@/features/operator-data/model/types'
+import type { Campaign, ForecastHorizon, PersistentNotification, Proposal, RejectPlanRequest, ResponseMode, RevisePlanRequest } from '@/features/operator-data/model/types'
 import { AppError } from '@/shared/api/client'
 
 export function useOperatorActions() {
@@ -139,7 +139,37 @@ export function useOperatorActions() {
     compareScenarios: useMutation({ mutationFn: operatorAdapter.compareScenarios }),
     acknowledgeNotification: useMutation({
       mutationFn: operatorAdapter.acknowledgeNotification,
-      onSuccess: async () => queryClient.invalidateQueries({ queryKey: operatorQueryKeys.notifications }),
+      onMutate: async (notificationId) => {
+        await queryClient.cancelQueries({ queryKey: operatorQueryKeys.notifications })
+        const previous = queryClient.getQueryData<readonly PersistentNotification[]>(operatorQueryKeys.notifications)
+        queryClient.setQueryData(operatorQueryKeys.notifications, (current: readonly PersistentNotification[] | undefined) =>
+          current?.map((notification) => notification.id === notificationId
+            ? { ...notification, status: 'ACKNOWLEDGED' as const }
+            : notification),
+        )
+        return { previous }
+      },
+      onError: (_error, _notificationId, context) => {
+        if (context?.previous) queryClient.setQueryData(operatorQueryKeys.notifications, context.previous)
+      },
+      onSettled: async () => queryClient.invalidateQueries({ queryKey: operatorQueryKeys.notifications }),
+    }),
+    acknowledgeAllNotifications: useMutation({
+      mutationFn: operatorAdapter.acknowledgeAllNotifications,
+      onMutate: async () => {
+        await queryClient.cancelQueries({ queryKey: operatorQueryKeys.notifications })
+        const previous = queryClient.getQueryData<readonly PersistentNotification[]>(operatorQueryKeys.notifications)
+        queryClient.setQueryData(operatorQueryKeys.notifications, (current: readonly PersistentNotification[] | undefined) =>
+          current?.map((notification) => notification.status === 'UNREAD'
+            ? { ...notification, status: 'ACKNOWLEDGED' as const }
+            : notification),
+        )
+        return { previous }
+      },
+      onError: (_error, _variables, context) => {
+        if (context?.previous) queryClient.setQueryData(operatorQueryKeys.notifications, context.previous)
+      },
+      onSettled: async () => queryClient.invalidateQueries({ queryKey: operatorQueryKeys.notifications }),
     }),
     expireOffer: useMutation({ mutationFn: operatorAdapter.expireOffer, onError: refreshCampaignConflict, onSuccess: refreshCampaignFlow }),
   }

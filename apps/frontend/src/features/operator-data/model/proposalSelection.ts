@@ -4,20 +4,36 @@ import { isPlanInputFresh, isProposalReviewable } from '@/features/operator-data
 const newestProposalFirst = (left: Proposal, right: Proposal) =>
   Date.parse(right.createdAt) - Date.parse(left.createdAt) || left.rank - right.rank
 
-export function latestAgentProposalForSnapshot(
+/**
+ * Return the latest model record for the exact snapshot, including a failed
+ * generation. Failed records are useful evidence for the operator flow, but
+ * they must not be treated as reviewable proposals.
+ */
+export function latestAgentProposalRecordForSnapshot(
   plans: readonly Proposal[] | undefined,
   snapshotId: string,
   now = new Date(),
 ) {
   return plans
     ?.filter(
-      (plan) =>
-        plan.generatorType === 'AGENT'
+      (plan) => plan.generatorType === 'AGENT'
         && plan.inputSnapshotId === snapshotId
-        && (isProposalReviewable(plan, now)
-          || (plan.status === 'Approved' && isPlanInputFresh(plan.inputFreshUntil, now))),
+        && !['Rejected', 'Stale'].includes(plan.status)
+        && (plan.status !== 'Approved' || isPlanInputFresh(plan.inputFreshUntil, now)),
     )
     .sort(newestProposalFirst)[0]
+}
+
+export function latestAgentProposalForSnapshot(
+  plans: readonly Proposal[] | undefined,
+  snapshotId: string,
+  now = new Date(),
+) {
+  const proposal = latestAgentProposalRecordForSnapshot(plans, snapshotId, now)
+  return proposal && (isProposalReviewable(proposal, now)
+    || (proposal.status === 'Approved' && isPlanInputFresh(proposal.inputFreshUntil, now)))
+    ? proposal
+    : undefined
 }
 
 /**

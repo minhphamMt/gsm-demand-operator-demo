@@ -302,4 +302,13 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     notifications = notifications.map((notification) => notification.id === notificationId ? updated : notification)
     return clone(updated)
   }),
+  acknowledgeAllNotifications: () => requestLocal(() => {
+    const updated = notifications.filter((notification) => notification.status === 'UNREAD').map((notification) => ({
+      ...notification,
+      status: 'ACKNOWLEDGED' as const,
+    }))
+    const updatedById = new Map(updated.map((notification) => [notification.id, notification]))
+    notifications = notifications.map((notification) => updatedById.get(notification.id) ?? notification)
+    return clone(updated)
+  }),
 }

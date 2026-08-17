@@ -297,6 +297,32 @@ describe('operator console safety states', () => {
     expect(screen.queryByRole('button', { name: 'Tính phương án điều chuyển' })).not.toBeInTheDocument()
   })
 
+  it('explains an optimizer result with no operational solution', () => {
+    const action = vi.fn()
+    render(<RailActions
+      campaign={undefined}
+      forecastReady
+      isGenerating={false}
+      isOptimizing={false}
+      isScanning={false}
+      onActivate={action}
+      onApprove={action}
+      onGenerate={action}
+      onOpenCampaign={action}
+      onOpenPlan={action}
+      onOptimize={action}
+      onPrepareActivation={action}
+      onReject={action}
+      optimizationStopReason="NO_SOLUTION"
+      plan={undefined}
+      stage="not_required"
+    />)
+
+    expect(screen.getByText('Chưa có phương án khả thi')).toBeInTheDocument()
+    expect(screen.getByText(/chưa tìm thấy nguồn xe hoặc hành động an toàn/i)).toBeInTheDocument()
+    expect(screen.getByText('NO_SOLUTION')).toBeInTheDocument()
+  })
+
   it('keeps a stale snapshot view-only and blocks model actions with a reason', () => {
     const action = vi.fn()
     render(<RailActions

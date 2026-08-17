@@ -60,7 +60,7 @@ export function OperatorNotifications() {
   const unreadCount = notifications.filter((notification) => !isRead(notification.id)).length
   const markRead = (id: string) => env.isLiveData ? actions.acknowledgeNotification.mutate(id) : setReadIds((current) => new Set([...current, id]))
   const markAllRead = () => env.isLiveData
-    ? (persisted.data ?? []).filter((notification) => notification.status === 'UNREAD').forEach((notification) => actions.acknowledgeNotification.mutate(notification.id))
+    ? actions.acknowledgeAllNotifications.mutate()
     : setReadIds(new Set(notifications.map((notification) => notification.id)))
 
   useEffect(() => {

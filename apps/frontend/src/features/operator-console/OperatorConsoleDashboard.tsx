@@ -1727,6 +1727,8 @@ export function RailActions({
   const cancelApproved = onCancelApproved ?? (() => undefined);
   const currentDispatch = activeDispatch ? dispatchStatusPresentation(activeDispatch) : undefined;
   const reviewable = plan ? isProposalReviewable(plan, reviewNow) : false;
+  const noOperationalPlan = optimizationStopReason === "NO_SOLUTION"
+    || optimizationStopReason === "NO_VALID_OPERATIONAL_PLAN";
   if (hasActiveExecution)
     return (
       <div className="nf-rail-actions">
@@ -1790,13 +1792,17 @@ export function RailActions({
         <div className="nf-no-action-result" role="status" aria-live="polite">
           <Check size={18} />
           <span>
-            <b>Không cần điều chuyển</b>
-            <small>Không có hotspot nào đạt điều kiện chính sách. Các vùng thiếu ở p90 vẫn là cảnh báo rủi ro, nhưng chưa được dùng để tự tạo phương án.</small>
+            <b>{noOperationalPlan ? "Chưa có phương án khả thi" : "Không cần điều chuyển"}</b>
+            <small>{noOperationalPlan
+              ? "Model đã đánh giá nhưng chưa tìm thấy nguồn xe hoặc hành động an toàn để điều phối ở snapshot này."
+              : "Không có hotspot nào đạt điều kiện chính sách. Các vùng thiếu ở p90 vẫn là cảnh báo rủi ro, nhưng chưa được dùng để tự tạo phương án."}</small>
             <code>{optimizationStopReason ?? "NO_ACTION_REQUIRED"}</code>
           </span>
         </div>
         <button className="btn btn-secondary" onClick={onOpenPlan} type="button">Xem lại kết quả dự báo</button>
-        <small>Không có proposal, lệnh điều chuyển hoặc campaign nào được tạo.</small>
+        <small>{noOperationalPlan
+          ? "Chưa có proposal hợp lệ; bạn có thể làm mới snapshot rồi tính lại."
+          : "Không có proposal, lệnh điều chuyển hoặc campaign nào được tạo."}</small>
       </div>
     );
   if (!plan)

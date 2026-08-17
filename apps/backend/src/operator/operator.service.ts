@@ -945,6 +945,45 @@ export class OperatorService {
     };
   }
 
+  async acknowledgeAllNotifications(ownerId: string, requestId: string) {
+    const acknowledgedAt = new Date().toISOString();
+    const { data, error } = await this.db.client.from('operator_notifications').update({
+      owner_id: ownerId,
+      status: 'ACKNOWLEDGED',
+      read_at: acknowledgedAt,
+      acknowledged_at: acknowledgedAt,
+    }).or(`owner_id.eq.${ownerId},owner_id.is.null`).eq('status', 'UNREAD').select('*');
+    const rows = this.db.unwrap(data, error) as any[];
+    if (!rows.length) return [];
+
+    const { error: auditError } = await this.db.client.from('audit_logs').insert(rows.map((row) => ({
+      actor_id: ownerId,
+      actor_type: 'OPERATOR',
+      entity_type: 'notification',
+      entity_id: row.id,
+      action: 'NotificationAcknowledged',
+      before_data: { status: 'UNREAD' },
+      after_data: { status: 'ACKNOWLEDGED' },
+      request_id: requestId,
+      correlation_id: requestId,
+    })));
+    if (auditError) this.db.unwrap(null, auditError);
+    return rows.map((row) => ({
+      id: row.id,
+      ownerId: row.owner_id,
+      severity: row.severity,
+      category: row.category,
+      title: row.title,
+      message: row.message,
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      requestId: row.request_id,
+      status: row.status,
+      escalateAt: row.escalate_at,
+      createdAt: row.created_at,
+    }));
+  }
+
   async listOffers(campaignId?: string) {
     let query = this.db.client.from('driver_offers').select('*, campaigns(*)').order('created_at', { ascending: false });
     if (campaignId) query = query.eq('campaign_id', campaignId);

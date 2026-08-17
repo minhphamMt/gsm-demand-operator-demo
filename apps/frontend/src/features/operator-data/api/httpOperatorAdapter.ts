@@ -17,12 +17,23 @@ import {
 } from '@/features/operator-data/api/responseGuards'
 import { runIdempotentCommand } from '@/features/operator-data/api/commandIdempotency'
 import type { AuditFilters, DemoScenario, OperationsReportFilters, OperatorDataAdapter, Proposal } from '@/features/operator-data/model/types'
-import { latestAgentProposalForSnapshot } from '@/features/operator-data/model/proposalSelection'
+import {
+  latestAgentProposalForSnapshot,
+  latestAgentProposalRecordForSnapshot,
+} from '@/features/operator-data/model/proposalSelection'
 import { AppError, requestJson } from '@/shared/api/client'
 
 const body = (value: unknown) => JSON.stringify(value)
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 const aiZoneNumber = (value: string) => Number(value.replace(/^AI-Z/i, ''))
+const failedOptimizationReason = (decision: Record<string, unknown> | undefined) => {
+  const plan = decision?.plan
+  if (isRecord(plan) && Array.isArray(plan.warnings)) {
+    const warning = plan.warnings.find((item) => isRecord(item) && item.code === 'NO_SOLUTION')
+    if (isRecord(warning) && typeof warning.code === 'string') return warning.code
+  }
+  return 'NO_VALID_OPERATIONAL_PLAN'
+}
 const auditSearch = (filters: AuditFilters) => {
   const search = new URLSearchParams({ page: String(filters.page), pageSize: String(filters.pageSize) })
   for (const [key, value] of Object.entries(filters)) if (key !== 'page' && key !== 'pageSize' && value) search.set(key, String(value))
@@ -65,6 +76,10 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
       }
     }
     const proposals = parseEntities(await requestJson('/operator/proposals'), isProposal, 'proposals')
+    const latestRecord = latestAgentProposalRecordForSnapshot(proposals, String(snapshotId))
+    if (latestRecord?.status === 'FailedGeneration') {
+      return { planningStatus: 'not_required', reasonCode: failedOptimizationReason(decision) }
+    }
     const proposal = latestAgentProposalForSnapshot(proposals, String(snapshotId))
     if (!proposal) throw new AppError('Model không trả về phương án cho đúng snapshot đang xem.', { code: 'AI_PROPOSAL_SNAPSHOT_MISMATCH' })
     return { planningStatus: 'proposal_created', proposal }
@@ -191,6 +206,9 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
     method: 'POST', body: body({ proposalId: planId }),
   }), isScenarioComparison, 'so sÃ¡nh ká»‹ch báº£n'),
   listNotifications: async () => parseEntities(await requestJson('/operator/notifications'), isPersistentNotification, 'thÃ´ng bÃ¡o'),
+  acknowledgeAllNotifications: async () => parseEntities(await requestJson('/operator/notifications/acknowledge-all', {
+    method: 'POST', body: body({}),
+  }), isPersistentNotification, 'notifications'),
   acknowledgeNotification: async (notificationId) => parseEntity(await requestJson(`/operator/notifications/${notificationId}/acknowledge`, {
     method: 'POST', body: body({}),
   }), isPersistentNotification, 'thÃ´ng bÃ¡o'),

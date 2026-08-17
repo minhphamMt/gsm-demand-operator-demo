@@ -28,4 +28,34 @@ describe('httpOperatorAdapter.optimizeAiDecision', () => {
     expect(request).toHaveBeenCalledTimes(1)
     expect(request).toHaveBeenCalledWith('/operator/ai/optimize', expect.any(Object))
   })
+
+  it('turns an exact-snapshot failed generation into a no-solution result', async () => {
+    request
+      .mockResolvedValueOnce({
+        decision: {
+          planning_status: 'optimizer_evaluated',
+          plan: { warnings: [{ code: 'NO_SOLUTION' }] },
+        },
+      })
+      .mockResolvedValueOnce([{
+        id: 'failed-proposal',
+        status: 'FailedGeneration',
+        title: 'No solution',
+        targetZoneId: null,
+        confidence: null,
+        simulationAvailable: false,
+        moves: [],
+        policyChecks: [],
+        generatorType: 'AGENT',
+        inputSnapshotId: '461',
+        createdAt: '2026-08-17T08:00:00.000Z',
+        rank: 1,
+        inputFreshUntil: '2026-08-17T08:15:00.000Z',
+      }])
+
+    await expect(httpOperatorAdapter.optimizeAiDecision(461, 15)).resolves.toEqual({
+      planningStatus: 'not_required',
+      reasonCode: 'NO_SOLUTION',
+    })
+  })
 })

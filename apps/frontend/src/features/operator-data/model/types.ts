@@ -212,4 +212,5 @@ export type OperatorDataAdapter = {
   compareScenarios: (planId: string) => Promise<ScenarioComparison>
   listNotifications: () => Promise<readonly PersistentNotification[]>
   acknowledgeNotification: (notificationId: string) => Promise<PersistentNotification>
+  acknowledgeAllNotifications: () => Promise<readonly PersistentNotification[]>
 }
