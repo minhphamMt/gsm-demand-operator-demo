@@ -353,7 +353,19 @@ function syncRainMarkers(map: mapboxgl.Map, markers: Map<string, mapboxgl.Marker
 
 function moveMapToView(map: mapboxgl.Map, view: OperatorMapView, duration = 0) {
   const viewport = mapViewportForView(view)
-  map.easeTo({ center: viewport.center, zoom: viewport.zoom, duration, essential: true })
+  map.stop()
+  if (duration === 0) {
+    map.jumpTo({ center: viewport.center, zoom: viewport.zoom })
+    return
+  }
+  map.flyTo({
+    center: viewport.center,
+    zoom: viewport.zoom,
+    duration: 950,
+    essential: true,
+    curve: 1.35,
+    speed: 0.85,
+  })
 }
 
 function MapLegend({ forecastMinutes, layer }: { forecastMinutes: number; layer: OperatorMapLayer }) {

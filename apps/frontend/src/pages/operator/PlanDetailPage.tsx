@@ -13,11 +13,11 @@ export function PlanDetailPage() {
   const isExecutionChild = location.pathname.startsWith(`${routes.operator.execution}/plan/`)
 
   return <OperatorWorkspacePage
-    description={isExecutionChild ? 'Kiểm tra bằng chứng, tác động và ngân sách trong ngữ cảnh phương án đang vận hành.' : 'Kiểm tra bằng chứng AI, tác động và ngân sách; người vận hành quyết định cuối cùng.'}
-    eyebrow={isExecutionChild ? 'ĐANG VẬN HÀNH · KIỂM DUYỆT' : 'NOVAFOUR · AI OPERATIONS'}
+    description={isExecutionChild ? 'Đối chiếu trước khi tiếp tục điều phối.' : 'Đối chiếu tác động trước khi phê duyệt.'}
+    eyebrow={isExecutionChild ? 'ĐANG VẬN HÀNH · PHƯƠNG ÁN' : 'NOVAFOUR · AI OPERATIONS'}
     icon={<ClipboardCheck size={20} />}
     statusLabel={isExecutionChild ? 'NGỮ CẢNH ĐANG VẬN HÀNH' : 'TỰ ĐỘNG CẬP NHẬT 2 GIÂY'}
-    title={isExecutionChild ? 'Xem xét phương án' : 'Phê duyệt phương án'}
+    title={isExecutionChild ? 'Chi tiết phương án' : 'Phê duyệt phương án'}
   >
     <div className="nf-plan-review-shell">
       <div className="nf-plan-review-crumb">

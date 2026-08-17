@@ -47,6 +47,30 @@
   box-shadow: 0 7px 18px rgba(20, 48, 46, .05);
 }
 
+.nf-proposal-review-header {
+  box-shadow: 0 6px 16px rgba(20, 48, 46, .04);
+}
+
+.nf-proposal-review-header > div:first-child {
+  padding: 16px 20px 13px;
+}
+
+.nf-proposal-review-header h2 {
+  font-size: 19px;
+}
+
+.nf-proposal-review-header > ol > li {
+  padding-block: 9px;
+}
+
+.nf-proposal-review-header > dl > div {
+  padding-block: 10px;
+}
+
+.nf-proposal-review-header .lg\:text-right > p {
+  max-width: 240px;
+}
+
 .nf-plan-detail-stack > .rounded-panel:first-child {
   border-color: #b9dedb;
   background: linear-gradient(135deg, #ffffff 0%, #f4fbfa 100%);

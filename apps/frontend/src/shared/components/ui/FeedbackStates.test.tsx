@@ -28,6 +28,6 @@ describe('feedback states', () => {
 
   it('announces a background refresh without replacing loaded content', () => {
     render(<DataRefreshState hasError={false} isFetching onRetry={vi.fn()} />)
-    expect(screen.getByRole('status')).toHaveTextContent('Đang cập nhật dữ liệu')
+    expect(screen.getByRole('status')).toHaveTextContent('Đang đồng bộ')
   })
 })

@@ -1,0 +1,25 @@
+.nf-data-refresh-indicator {
+  position: fixed;
+  top: 68px;
+  right: 16px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in srgb, var(--nf-info) 28%, var(--color-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 94%, var(--nf-info));
+  box-shadow: var(--shadow-sm);
+  color: var(--nf-info);
+  font-size: 10px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  .nf-data-refresh-indicator {
+    top: 60px;
+    right: 10px;
+  }
+}
