@@ -88,19 +88,19 @@ export class AiService {
     return this.request('/health', { method: 'GET' });
   }
 
-  async runNext(horizonMinutes: 5 | 15 | 30, regime?: DatasetRegime) {
+  async runNext(horizonMinutes: 5 | 10 | 15, regime?: DatasetRegime) {
     const snapshot = await this.ingestNext(regime);
     const decision = await this.generate(horizonMinutes, snapshot.id, false, true);
     return { snapshot, decision };
   }
 
-  async optimize(snapshotId: number, horizonMinutes: 5 | 15 | 30) {
+  async optimize(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
     await assertNoActiveExecution(this.db);
     const decision = await this.generate(horizonMinutes, snapshotId, true, true);
     return { decision };
   }
 
-  async forecast(snapshotId: number, horizonMinutes: 5 | 15 | 30) {
+  async forecast(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
     const decision = await this.generate(horizonMinutes, snapshotId, false, true);
     return { decision };
   }
@@ -123,7 +123,7 @@ export class AiService {
     });
   }
 
-  async generate(horizonMinutes: 5 | 15 | 30, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
+  async generate(horizonMinutes: 5 | 10 | 15, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
     const inferenceStartedAt = Date.now();
     let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');
     snapshotQuery = snapshotId

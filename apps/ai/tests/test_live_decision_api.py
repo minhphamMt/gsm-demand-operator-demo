@@ -152,9 +152,9 @@ def test_exact_stored_replay_bucket_runs_trained_five_minute_model() -> None:
 
 def test_curated_demo_buckets_create_editable_advisory_plans_from_forecast_risk() -> None:
     source_times = (
-        "2026-09-25T08:00:00+07:00",
-        "2026-09-25T08:05:00+07:00",
-        "2026-09-25T08:10:00+07:00",
+        "2026-09-25T08:30:00+07:00",
+        "2026-09-25T08:35:00+07:00",
+        "2026-09-25T08:40:00+07:00",
     )
     with TestClient(app) as client:
         decisions = []
@@ -165,7 +165,7 @@ def test_curated_demo_buckets_create_editable_advisory_plans_from_forecast_risk(
             ).json()["zones"]
             raining_zones = sum(zone["rain_mm_h"] >= 0.5 for zone in zones)
             assert 0 < raining_zones < len(zones)
-            for horizon in (5, 15, 30):
+            for horizon in (5, 10, 15):
                 payload = _request()
                 payload["zones"] = zones
                 payload["horizon_min"] = horizon
@@ -325,7 +325,7 @@ def test_model_bundle_manifest_verifies_all_eighteen_artifacts() -> None:
 
     assert bundle["verified"] is True
     assert bundle["artifacts"] == 18
-    assert bundle["horizons"] == [5, 15, 30]
+    assert bundle["horizons"] == [5, 10, 15]
     training_data = bundle["training_data"]
     assert isinstance(training_data, dict)
     assert training_data["source_kind"] == "hybrid_synthetic"

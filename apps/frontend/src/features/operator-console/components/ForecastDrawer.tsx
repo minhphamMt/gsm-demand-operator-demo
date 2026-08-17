@@ -21,17 +21,17 @@ type ForecastDrawerProps = {
 function demandQuantiles(zone: Zone, horizon: number) {
   const range = horizon === 5
     ? zone.demandRange5
+    : horizon === 10
+      ? zone.demandRange10
     : horizon === 15
       ? zone.demandRange15
-    : horizon === 30
-      ? zone.demandRange30
       : null;
   const p50 = horizon === 5
     ? zone.forecast5
+    : horizon === 10
+      ? zone.forecast10
     : horizon === 15
       ? zone.forecast15
-    : horizon === 30
-      ? zone.forecast30
       : null;
   return { p10: range?.[0] ?? null, p50: p50 ?? null, p90: range?.[1] ?? null };
 }

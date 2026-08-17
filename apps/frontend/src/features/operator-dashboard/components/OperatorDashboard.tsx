@@ -42,7 +42,7 @@ export function OperatorDashboard() {
         isLiveData={env.isLiveData}
         isGenerating={actions.generateAiDecision.isPending}
         isLoading={plans.isPending}
-        onGenerate={() => actions.generateAiDecision.mutate({ snapshotId: Number(snapshot.data.replayStep), horizonMinutes: forecastMinutes === 5 || forecastMinutes === 15 || forecastMinutes === 30 ? forecastMinutes : 5 })}
+        onGenerate={() => actions.generateAiDecision.mutate({ snapshotId: Number(snapshot.data.replayStep), horizonMinutes: forecastMinutes === 5 || forecastMinutes === 10 || forecastMinutes === 15 ? forecastMinutes : 5 })}
         plan={aiPlan}
       />
     </div>

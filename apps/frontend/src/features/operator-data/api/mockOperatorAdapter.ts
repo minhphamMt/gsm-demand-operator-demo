@@ -79,7 +79,7 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     serverTime: new Date().toISOString(),
     timezone: 'Asia/Ho_Chi_Minh' as const,
     capabilities: {
-      forecastHorizons: { available: true, enabled: true, values: [5, 15, 30] },
+      forecastHorizons: { available: true, enabled: true, values: [5, 10, 15] },
       proposalReview: { available: true, enabled: true },
       dispatchRelease: { available: true, enabled: true },
       dispatchReconciliation: { available: true, enabled: true },
@@ -108,10 +108,10 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
       regime: scenario.regime,
       ai: {
         zoneContract: 'AI_ZONE_1_30', registeredZones: 30, liveZones: 30, forecastedZones: 30,
-        horizons: [5, 15, 30], modelVersion: 'mock-forecast-v1', forecastMode: 'simulated',
+        horizons: [5, 10, 15], modelVersion: 'mock-forecast-v1', forecastMode: 'simulated',
         dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), forecastRunId: `mock-${replayIndex}`,
         forecastStatus: 'COMPLETED',
-        forecastRuns: ([5, 15, 30] as const).map((horizonMinutes) => ({
+        forecastRuns: ([5, 10, 15] as const).map((horizonMinutes) => ({
           id: `mock-${replayIndex}-${horizonMinutes}`, horizonMinutes, status: 'COMPLETED' as const,
           modelVersion: 'mock-forecast-v1', featureVersion: 'mock-feature-v1', policyVersion: 'mock-policy-v1', inputHash: `mock-input-${replayIndex}-${horizonMinutes}`,
           forecastMode: 'simulated', dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), completedAt: new Date().toISOString(), zoneCount: 30,

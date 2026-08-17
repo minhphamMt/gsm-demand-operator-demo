@@ -65,7 +65,7 @@ export class OperatorService {
       timezone: 'Asia/Ho_Chi_Minh',
       health: { api: 'UP', database: databaseError ? 'DEGRADED' : 'UP', ai: 'AVAILABLE', map: 'CLIENT' },
       capabilities: {
-        forecastHorizons: { available: true, enabled: true, values: [5, 15, 30] },
+        forecastHorizons: { available: true, enabled: true, values: [5, 10, 15] },
         proposalReview: { available: true, enabled: true },
         dispatchRelease: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },
         dispatchReconciliation: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },
@@ -179,12 +179,12 @@ export class OperatorService {
     const selectedRuns = [...latestRunByHorizon.values()]
       .filter((candidate) => candidate.zoneIds.size === registeredZoneCount);
     const latestForecasts = selectedRuns.flatMap((candidate) => candidate.forecasts);
-    const forecastsByZone = new Map<number, { horizon5?: any; horizon15?: any; horizon30?: any }>();
+    const forecastsByZone = new Map<number, { horizon5?: any; horizon10?: any; horizon15?: any }>();
     for (const forecast of latestForecasts) {
       const current = forecastsByZone.get(Number(forecast.zone_id)) ?? {};
       if (Number(forecast.horizon_min) === 5) current.horizon5 = forecast;
+      if (Number(forecast.horizon_min) === 10) current.horizon10 = forecast;
       if (Number(forecast.horizon_min) === 15) current.horizon15 = forecast;
-      if (Number(forecast.horizon_min) === 30) current.horizon30 = forecast;
       forecastsByZone.set(Number(forecast.zone_id), current);
     }
     const liveZoneIds = new Set((observations ?? []).filter((observation: any) => observation.data_status === 'live').map((observation: any) => Number(observation.zone_id)));
