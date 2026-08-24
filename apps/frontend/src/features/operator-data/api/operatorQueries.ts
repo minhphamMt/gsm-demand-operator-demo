@@ -2,23 +2,27 @@ import { queryOptions } from '@tanstack/react-query'
 
 import { operatorAdapter } from '@/features/operator-data/api/operatorAdapter'
 import { isCampaignOperational } from '@/features/operator-data/model/campaignState'
+import { isDispatchExecutionActive } from '@/features/operator-data/model/activeExecution'
 import { snapshotPollInterval } from '@/features/operator-data/model/snapshotFreshness'
-import type { AuditFilters, Campaign, DemoScenarioId, Offer, OperationsReportFilters, Scenario } from '@/features/operator-data/model/types'
+import type { AuditFilters, Campaign, DemoScenarioId, DispatchBatch, Offer, OperationsReportFilters, Scenario } from '@/features/operator-data/model/types'
 
 // Operator lists are relatively large (audit, drivers, dispatch and
 // notifications). Polling them every two seconds made an idle dashboard
 // continuously download megabytes from Supabase through the API. Keep the
 // console live, but refresh at an interval appropriate for human operations.
-const pollingInterval = 30_000
+const pollingInterval = 60_000
+const activeOperationPollingInterval = 15_000
 const visibility = () => typeof document === 'undefined' ? 'visible' : document.visibilityState
 type CampaignPollingState = Pick<Campaign, 'status'>
-export const campaignPollInterval = (campaigns: readonly CampaignPollingState[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!campaigns || campaigns.some(isCampaignOperational)) ? pollingInterval : false
-export const offerPollInterval = (offers: readonly Pick<Offer, 'status'>[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!offers || offers.some((offer) => offer.status === 'Open')) ? pollingInterval : false
+type DispatchPollingState = Pick<DispatchBatch, 'status'>
+export const campaignPollInterval = (campaigns: readonly CampaignPollingState[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!campaigns || campaigns.some(isCampaignOperational)) ? activeOperationPollingInterval : false
+export const offerPollInterval = (offers: readonly Pick<Offer, 'status'>[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!offers || offers.some((offer) => offer.status === 'Open')) ? activeOperationPollingInterval : false
+export const dispatchPollInterval = (dispatches: readonly DispatchPollingState[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!dispatches || dispatches.some(isDispatchExecutionActive)) ? activeOperationPollingInterval : false
 export const visiblePollInterval = (pageVisibility = visibility()) => pageVisibility === 'visible' ? pollingInterval : false
 
 export const operatorQueryKeys = { capabilities: ['operator', 'capabilities'] as const, dispatch: ['operator', 'dispatch'] as const, notifications: ['operator', 'notifications'] as const, snapshot: (comparison: Scenario, scenario: DemoScenarioId, replay: number) => ['operator', 'snapshot', comparison, scenario, replay] as const, replaySnapshot: (sourceAt: string) => ['operator', 'replay-snapshot', sourceAt] as const, baselines: ['operator', 'baselines'] as const, plans: ['operator', 'plans'] as const, plan: (id: string) => ['operator', 'plans', id] as const, campaigns: ['operator', 'campaigns'] as const, report: (filters: OperationsReportFilters) => ['operator', 'reports', 'operations', filters] as const, offerRoot: ['operator', 'offers'] as const, offers: (campaignId?: string) => ['operator', 'offers', campaignId ?? 'all'] as const, audit: ['operator', 'audit'] as const, auditPage: (filters: AuditFilters) => ['operator', 'audit', 'page', filters] as const, driverRoot: ['driver'] as const, drivers: ['driver', 'list'] as const, driver: (id: string) => ['driver', id] as const }
 export const capabilitiesQuery = () => queryOptions({ queryKey: operatorQueryKeys.capabilities, queryFn: operatorAdapter.getCapabilities, staleTime: 30_000 })
-export const dispatchQuery = () => queryOptions({ queryKey: operatorQueryKeys.dispatch, queryFn: operatorAdapter.listDispatch, refetchInterval: () => visiblePollInterval(), refetchIntervalInBackground: false })
+export const dispatchQuery = () => queryOptions({ queryKey: operatorQueryKeys.dispatch, queryFn: operatorAdapter.listDispatch, refetchInterval: (query) => dispatchPollInterval(query.state.data), refetchIntervalInBackground: false })
 export const notificationsQuery = () => queryOptions({ queryKey: operatorQueryKeys.notifications, queryFn: operatorAdapter.listNotifications, refetchInterval: () => visiblePollInterval(), refetchIntervalInBackground: false })
 export const snapshotQuery = (comparison: Scenario, scenario: DemoScenarioId = 'rain-peak', replay = 0) => queryOptions({ queryKey: operatorQueryKeys.snapshot(comparison, scenario, replay), queryFn: () => operatorAdapter.getSnapshot(comparison, scenario, replay), refetchInterval: () => snapshotPollInterval(), refetchIntervalInBackground: false, staleTime: 0 })
 export const replayWindowQuery = (sourceAt: string) => queryOptions({ enabled: Boolean(sourceAt), queryKey: ['operator', 'replay-window', sourceAt] as const, queryFn: () => operatorAdapter.getReplayWindow(sourceAt), staleTime: Infinity })

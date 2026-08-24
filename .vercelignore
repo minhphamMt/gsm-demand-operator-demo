@@ -1,0 +1,17 @@
+.git
+.github
+.codex
+.claude
+.gemini
+docs
+legacy
+/config/
+runs
+apps/ai
+apps/backend
+docker-compose.yml
+Makefile
+*.md
+**/node_modules
+**/dist
+**/coverage
