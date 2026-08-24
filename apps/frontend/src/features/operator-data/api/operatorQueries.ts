@@ -5,7 +5,11 @@ import { isCampaignOperational } from '@/features/operator-data/model/campaignSt
 import { snapshotPollInterval } from '@/features/operator-data/model/snapshotFreshness'
 import type { AuditFilters, Campaign, DemoScenarioId, Offer, OperationsReportFilters, Scenario } from '@/features/operator-data/model/types'
 
-const pollingInterval = 2_000
+// Operator lists are relatively large (audit, drivers, dispatch and
+// notifications). Polling them every two seconds made an idle dashboard
+// continuously download megabytes from Supabase through the API. Keep the
+// console live, but refresh at an interval appropriate for human operations.
+const pollingInterval = 30_000
 const visibility = () => typeof document === 'undefined' ? 'visible' : document.visibilityState
 type CampaignPollingState = Pick<Campaign, 'status'>
 export const campaignPollInterval = (campaigns: readonly CampaignPollingState[] | undefined, pageVisibility = visibility()) => pageVisibility === 'visible' && (!campaigns || campaigns.some(isCampaignOperational)) ? pollingInterval : false
@@ -24,11 +28,13 @@ export const replaySnapshotQuery = (sourceAt: string) => queryOptions({ enabled:
 }, gcTime: Infinity, retry: false, staleTime: Infinity })
 export const baselinesQuery = () => queryOptions({ queryKey: operatorQueryKeys.baselines, queryFn: operatorAdapter.getBaselines, staleTime: Infinity })
 export const operationsReportQuery = (filters: OperationsReportFilters) => queryOptions({ queryKey: operatorQueryKeys.report(filters), queryFn: () => operatorAdapter.getOperationsReport(filters), staleTime: 0 })
-export const plansQuery = () => queryOptions({ queryKey: operatorQueryKeys.plans, queryFn: operatorAdapter.listPlans, refetchInterval: 10_000, staleTime: 0 })
+// Plans are refreshed by mutations and when the window regains focus. They do
+// not need a background poll because the list is the largest operator payload.
+export const plansQuery = () => queryOptions({ queryKey: operatorQueryKeys.plans, queryFn: operatorAdapter.listPlans, refetchInterval: false, staleTime: 30_000 })
 export const planQuery = (id: string) => queryOptions({ queryKey: operatorQueryKeys.plan(id), queryFn: () => operatorAdapter.getPlan(id), staleTime: 0 })
 export const campaignsQuery = () => queryOptions({ queryKey: operatorQueryKeys.campaigns, queryFn: operatorAdapter.listCampaigns, refetchInterval: (query) => campaignPollInterval(query.state.data), refetchIntervalInBackground: false })
 export const offersQuery = (campaignId?: string) => queryOptions({ queryKey: operatorQueryKeys.offers(campaignId), queryFn: () => operatorAdapter.listOffers(campaignId), refetchInterval: (query) => offerPollInterval(query.state.data), refetchIntervalInBackground: false })
 export const auditQuery = () => queryOptions({ queryKey: operatorQueryKeys.audit, queryFn: operatorAdapter.listAudit, refetchInterval: () => visiblePollInterval(), refetchIntervalInBackground: false, staleTime: 0 })
 export const auditPageQuery = (filters: AuditFilters) => queryOptions({ queryKey: operatorQueryKeys.auditPage(filters), queryFn: () => operatorAdapter.queryAudit(filters), staleTime: 0 })
 export const driversQuery = () => queryOptions({ queryKey: operatorQueryKeys.drivers, queryFn: operatorAdapter.listDrivers, refetchInterval: () => visiblePollInterval(), refetchIntervalInBackground: false })
-export const driverViewQuery = (id: string) => queryOptions({ queryKey: operatorQueryKeys.driver(id), queryFn: () => operatorAdapter.getDriverView(id), refetchInterval: 2_000 })
+export const driverViewQuery = (id: string) => queryOptions({ queryKey: operatorQueryKeys.driver(id), queryFn: () => operatorAdapter.getDriverView(id), refetchInterval: pollingInterval, refetchIntervalInBackground: false })
