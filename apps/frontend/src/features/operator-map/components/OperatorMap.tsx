@@ -5,13 +5,16 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { zoneCentersToFeatureCollection, zonesToFeatureCollection } from '@/features/operator-data'
 import type { Move, Zone } from '@/features/operator-data'
+import relocationCarImageUrl from '@/features/operator-map/assets/relocation-car.png'
 import { buildFlowCollections, mapLegendFor, mapTheme, mapViewportForView, zoneDotRadius, zoneFillColor, zoneStrokeColor, zonesForMapView } from '@/features/operator-map/model/operatorMapGeometry'
 import type { FlowState } from '@/features/operator-map/model/operatorMapGeometry'
+import { routeMotionAt } from '@/features/operator-map/model/relocationVehicleMotion'
 import { env } from '@/shared/config/env'
 
 // Keep the map aligned with the policy/regime threshold used by the AI service.
 const rainThreshold = 0.5
 const mapLoadTimeoutMs = 15_000
+const relocationLoopDurationMs = 8_000
 type MapStatus = 'idle' | 'ready' | 'error'
 export type MapFailureKind = 'network' | 'timeout' | 'token-style' | 'unknown'
 export type OperatorMapLayer = 'gap' | 'demand' | 'supply'
@@ -276,6 +279,57 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
 
   useEffect(() => {
     const map = mapRef.current
+    if (!map || mapStatus !== 'ready' || flowState !== 'executing') return undefined
+
+    const routes = buildFlowCollections(zones, moves).routes.features
+    const animatedRoutes = routes.flatMap((route, routeIndex) => {
+      const coordinates = route.geometry.coordinates.map((coordinate) => [coordinate[0]!, coordinate[1]!] as const)
+      const initialMotion = routeMotionAt(coordinates, 0)
+      if (!initialMotion) return []
+
+      const quantity = Number(route.properties.quantity)
+      const element = relocationVehicleElement(quantity)
+      const marker = new mapboxgl.Marker({
+        anchor: 'center',
+        element,
+        pitchAlignment: 'map',
+        rotationAlignment: 'map',
+      })
+        .setLngLat(initialMotion.coordinate)
+        .setRotation(initialMotion.bearing)
+        .addTo(map)
+
+      return [{ coordinates, marker, phase: routeIndex / Math.max(1, routes.length) }]
+    })
+    if (animatedRoutes.length === 0) return undefined
+
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    let animationFrame: number | undefined
+    let startedAt: number | undefined
+    const positionVehicles = (elapsedMs: number) => {
+      for (const route of animatedRoutes) {
+        const progress = (elapsedMs / relocationLoopDurationMs + route.phase) % 1
+        const motion = routeMotionAt(route.coordinates, progress)
+        if (motion) route.marker.setLngLat(motion.coordinate).setRotation(motion.bearing)
+      }
+    }
+    const animate = (timestamp: number) => {
+      startedAt ??= timestamp
+      positionVehicles(timestamp - startedAt)
+      animationFrame = window.requestAnimationFrame(animate)
+    }
+
+    if (reduceMotion) positionVehicles(relocationLoopDurationMs * 0.55)
+    else animationFrame = window.requestAnimationFrame(animate)
+
+    return () => {
+      if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame)
+      for (const route of animatedRoutes) route.marker.remove()
+    }
+  }, [flowState, mapStatus, moves, zones])
+
+  useEffect(() => {
+    const map = mapRef.current
     if (!map || mapStatus !== 'ready') return undefined
     const frame = window.requestAnimationFrame(() => {
       map.resize()
@@ -327,6 +381,20 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
       {mapStatus === 'error' && <div className="absolute inset-x-4 top-4 z-10 flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><span>{mapFailureCopy(mapFailure ?? 'unknown')}</span><button className="btn btn-secondary shrink-0" onClick={() => { setMapFailure(null); setMapStatus('idle'); setRetryAttempt((value) => value + 1) }} type="button">Thử lại bản đồ</button></div>}
     </div>
   )
+}
+
+function relocationVehicleElement(quantity: number) {
+  const element = document.createElement('div')
+  element.className = 'nf-relocation-vehicle'
+  element.setAttribute('role', 'img')
+  element.setAttribute('aria-label', `${quantity} xe đang điều chuyển`)
+  element.title = `${quantity} xe đang điều chuyển`
+  const image = document.createElement('img')
+  image.alt = ''
+  image.draggable = false
+  image.src = relocationCarImageUrl
+  element.append(image)
+  return element
 }
 
 function syncRainMarkers(map: mapboxgl.Map, markers: Map<string, mapboxgl.Marker>, zones: readonly Zone[]) {
