@@ -24,12 +24,17 @@ export function ScenarioComparison({ plans }: { plans: readonly Proposal[] }) {
   const actions = useOperatorActions()
   const comparison = actions.compareScenarios.data
   const run = () => { if (selectedPlanId) actions.compareScenarios.mutate(selectedPlanId) }
+  const selectPlan = (nextPlanId: string) => {
+    setPlanId(nextPlanId)
+    if (nextPlanId) actions.compareScenarios.mutate(nextPlanId)
+    else actions.compareScenarios.reset()
+  }
 
   return <Card className="nf-workspace-panel nf-report-compare-card">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div><h2 className="font-semibold text-slate-950">Chọn phương án để so sánh</h2><p className="mt-1 text-xs text-slate-500">Cùng dữ liệu đầu vào và cùng lần chạy dự báo</p></div>
       <div className="flex min-w-72 gap-2">
-        <Select aria-label="Phương án so sánh" className="min-w-56" onChange={(event) => setPlanId(event.target.value)} value={selectedPlanId}>
+        <Select aria-label="Phương án so sánh" className="min-w-56" onChange={(event) => selectPlan(event.target.value)} value={selectedPlanId}>
           {comparable.map((plan) => <option key={plan.id} value={plan.id}>v{plan.version} · {plan.title}</option>)}
         </Select>
         <button className="btn btn-primary" disabled={!selectedPlanId || actions.compareScenarios.isPending} onClick={run} type="button">{actions.compareScenarios.isPending ? 'Đang tính…' : 'So sánh'}</button>
