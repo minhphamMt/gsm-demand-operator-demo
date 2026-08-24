@@ -332,6 +332,10 @@
   padding: 14px;
 }
 
+.nf-report-page > .nf-workspace-command-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .nf-report-filter-card label > span,
 .nf-history-filter-card label > span {
   color: var(--color-neutral-600);
