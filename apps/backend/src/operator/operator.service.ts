@@ -53,6 +53,33 @@ const auditEntityAliases: Record<string, string[]> = {
 };
 const canonicalAuditEntity = (entityType: string) => Object.entries(auditEntityAliases).find(([, aliases]) => aliases.includes(entityType))?.[0] ?? entityType;
 
+// Keep operational reads explicit. Besides preventing accidental API contract
+// expansion when a table gains a column, this avoids transferring geography,
+// audit before/after payloads and other large fields that the operator UI never
+// consumes.
+const operatorScopeColumns = 'id,operator_id,market_code,zone_ids,permissions,valid_from,valid_until,created_at';
+const operatorShiftColumns = 'id,operator_id,scope_id,status,starts_at,ends_at,timezone,created_at';
+const handoverTaskColumns = 'id,shift_id,owner_id,entity_type,entity_id,title,status,due_at,acknowledged_at,completed_at,created_at';
+const snapshotColumns = 'id,captured_at,source_at,effective_at,data_source,scenario_code';
+const observationColumns = 'snapshot_id,zone_id,demand_observed,idle_supply,rain_mm_h,rain_forecast_15,rain_forecast_30,data_status,source_name';
+const aiZoneColumns = 'zone_id,zone_code,zone_name,tier,area_km2,is_active,center_geojson,service_area_geojson';
+const forecastColumns = 'forecast_run_id,zone_id,horizon_min,forecast_at,model_version,predicted_demand,predicted_supply,demand_p10,demand_p90,supply_p10,supply_p90,confidence,forecast_mode,data_source,forecast_runs!inner(id,status,completed_at,started_at,model_version,feature_version,policy_version,input_hash,forecast_mode,data_source,error_code,error_message)';
+const previousForecastColumns = 'forecast_run_id,zone_id,predicted_demand,predicted_supply,forecast_runs!inner(id,status,completed_at)';
+const proposalColumns = 'id,hotspot_id,input_snapshot_id,root_proposal_id,parent_proposal_id,version,generator_type,generator_version,status,policy_status,source_plan,target_zone_ids,target_driver_count,offer_count,window_start_at,window_end_at,bonus_amount,fare_multiplier,estimated_cost,simulation_details,explanation,created_at,content_hash,approved_content_hash,approved_version,optimizer_run_id';
+const dispatchBatchColumns = 'id,proposal_id,proposal_version,approved_content_hash,status,released_at,request_id';
+const dispatchMoveColumns = 'id,batch_id,source_move_key,source_zone_id,target_zone_id,planned_units,acknowledged_units,arrived_units,available_units,failed_units,state,route_source,eta_minutes,distance_km,created_at';
+const reconciliationColumns = 'id,batch_id,revision,planned_units,acknowledged_units,arrived_units,available_units,failed_units,actual_contribution,residual_gap,is_snapshot_fresh,created_at';
+const campaignColumns = 'id,proposal_id,status,target_zone_ids,budget_used,budget_limit,bonus_amount,target_driver_count,start_at,created_at,end_at';
+const campaignOfferColumns = 'campaign_id,status,sent_at,viewed_at';
+const campaignParticipationColumns = 'campaign_id,status';
+const campaignTripColumns = 'campaign_id,status';
+const campaignReadColumns = `${campaignColumns},driver_offers(${campaignOfferColumns}),campaign_participations(${campaignParticipationColumns}),trips(${campaignTripColumns})`;
+const offerColumns = 'id,campaign_id,driver_id,status,distance_m,eta_seconds,sent_at,viewed_at,responded_at,expires_at,created_at';
+const offerWithCampaignColumns = `${offerColumns},campaigns(target_zone_ids,display_area_name,bonus_amount)`;
+const driverColumns = 'driver_id,is_online,operational_status,current_h3_index,active_campaign_id,active_trip_id,current_location_geojson';
+const notificationColumns = 'id,owner_id,severity,category,title,message,entity_type,entity_id,request_id,status,escalate_at,created_at';
+const auditColumns = 'id,actor_id,actor_type,entity_type,entity_id,action,metadata,request_id,correlation_id,entity_version,entity_hash,created_at';
+
 @Injectable()
 export class OperatorService {
   constructor(private readonly db: SupabaseService, @Optional() private readonly ai?: AiService) {}
@@ -82,16 +109,16 @@ export class OperatorService {
   async operatorContext(operatorId: string) {
     const now = new Date().toISOString();
     const [scopeResult, shiftResult] = await Promise.all([
-      this.db.client.from('operator_scopes').select('*').eq('operator_id', operatorId)
+      this.db.client.from('operator_scopes').select(operatorScopeColumns).eq('operator_id', operatorId)
         .lte('valid_from', now).or(`valid_until.is.null,valid_until.gt.${now}`).order('valid_from', { ascending: false }).limit(1).maybeSingle(),
-      this.db.client.from('operator_shifts').select('*').eq('operator_id', operatorId)
+      this.db.client.from('operator_shifts').select(operatorShiftColumns).eq('operator_id', operatorId)
         .in('status', ['ACTIVE', 'HANDOVER']).lte('starts_at', now).gte('ends_at', now).order('starts_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (scopeResult.error) this.db.unwrap(null, scopeResult.error);
     if (shiftResult.error) this.db.unwrap(null, shiftResult.error);
     let tasks: any[] = [];
     if (shiftResult.data?.id) {
-      const result = await this.db.client.from('handover_tasks').select('*')
+      const result = await this.db.client.from('handover_tasks').select(handoverTaskColumns)
         .eq('shift_id', shiftResult.data.id).in('status', ['OPEN', 'ACKNOWLEDGED']).order('created_at');
       tasks = this.db.unwrap(result.data, result.error);
     }
@@ -102,7 +129,7 @@ export class OperatorService {
     this.validateSnapshotWindow(query);
     let snapshotQuery = this.db.client
       .from('supply_demand_snapshots')
-      .select('*')
+      .select(snapshotColumns)
       .order('effective_at', { ascending: false })
       .order('captured_at', { ascending: false })
       .order('id', { ascending: false });
@@ -117,7 +144,7 @@ export class OperatorService {
 
   async snapshotWindow(query: SnapshotWindowQueryDto) {
     this.validateSnapshotWindow(query);
-    let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*')
+    let snapshotQuery = this.db.client.from('supply_demand_snapshots').select(snapshotColumns)
       .order('effective_at', { ascending: false })
       .order('captured_at', { ascending: false })
       .order('id', { ascending: false });
@@ -130,18 +157,18 @@ export class OperatorService {
   }
 
   async snapshotById(id: number, query: SnapshotQueryDto = {}) {
-    const { data: snapshot, error } = await this.db.client.from('supply_demand_snapshots').select('*').eq('id', id).maybeSingle();
+    const { data: snapshot, error } = await this.db.client.from('supply_demand_snapshots').select(snapshotColumns).eq('id', id).maybeSingle();
     if (error) this.db.unwrap(null, error);
     if (!snapshot) throw new NotFoundException(`Snapshot ${id} was not found`);
     return this.mapSnapshot(snapshot, query);
   }
 
   private async mapSnapshot(snapshot: any, query: SnapshotQueryDto) {
-    let observationsQuery = this.db.client.from('ai_zone_observations').select('*').eq('snapshot_id', snapshot.id);
-    const aiZoneQuery = this.db.client.from('ai_zone_registry_api_v').select('*').eq('is_active', true).order('zone_id');
+    let observationsQuery = this.db.client.from('ai_zone_observations').select(observationColumns).eq('snapshot_id', snapshot.id);
+    const aiZoneQuery = this.db.client.from('ai_zone_registry_api_v').select(aiZoneColumns).eq('is_active', true).order('zone_id');
     let forecastQuery = this.db.client
       .from('ai_zone_forecasts')
-      .select('*,forecast_runs!inner(id,status,completed_at,started_at,model_version,feature_version,policy_version,input_hash,forecast_mode,data_source,error_code,error_message)')
+      .select(forecastColumns)
       .eq('snapshot_id', snapshot.id)
       .in('forecast_runs.status', ['COMPLETED', 'FALLBACK']);
     if (query.zoneId) {
@@ -274,7 +301,7 @@ export class OperatorService {
 
     const { data, error } = await this.db.client
       .from('ai_zone_forecasts')
-      .select('*,forecast_runs!inner(id,status,completed_at)')
+      .select(previousForecastColumns)
       .eq('snapshot_id', previousSnapshotId)
       .eq('horizon_min', horizon)
       .in('forecast_runs.status', ['COMPLETED', 'FALLBACK', 'SUPERSEDED']);
@@ -282,8 +309,9 @@ export class OperatorService {
     const runs = new Map<string, { forecasts: any[]; completedAt: number; zoneIds: Set<number> }>();
     for (const forecast of forecasts) {
       const runId = String(forecast.forecast_run_id);
+      const relatedRun = Array.isArray(forecast.forecast_runs) ? forecast.forecast_runs[0] : forecast.forecast_runs;
       const current = runs.get(runId) ?? {
-        forecasts: [], completedAt: new Date(forecast.forecast_runs?.completed_at ?? 0).getTime(), zoneIds: new Set<number>(),
+        forecasts: [], completedAt: new Date(relatedRun?.completed_at ?? 0).getTime(), zoneIds: new Set<number>(),
       };
       current.forecasts.push(forecast);
       current.zoneIds.add(Number(forecast.zone_id));
@@ -354,13 +382,13 @@ export class OperatorService {
   async listProposals() {
     const { data, error } = await this.db.client
       .from('proposals')
-      .select('*')
+      .select(proposalColumns)
       .order('created_at', { ascending: false });
     return this.db.unwrap(data, error).map(mapProposal);
   }
 
   async getProposal(id: string) {
-    const { data, error } = await this.db.client.from('proposals').select('*').eq('id', id).maybeSingle();
+    const { data, error } = await this.db.client.from('proposals').select(proposalColumns).eq('id', id).maybeSingle();
     if (error) this.db.unwrap(null, error);
     if (!data) throw new NotFoundException(`Proposal ${id} was not found`);
     return mapProposal(data);
@@ -628,29 +656,58 @@ export class OperatorService {
   }
 
   async listDispatch() {
-    const { data, error } = await this.db.client.from('dispatch_batches').select('*').order('released_at', { ascending: false });
+    const { data, error } = await this.db.client.from('dispatch_batches').select(dispatchBatchColumns).order('released_at', { ascending: false });
     const batches = this.db.unwrap(data, error);
-    return Promise.all(batches.map((batch: any) => this.getDispatch(batch.id)));
+    if (!batches.length) return [];
+
+    const batchIds = batches.map((batch: any) => batch.id);
+    const [moveResult, reconciliationResult] = await Promise.all([
+      this.db.client.from('dispatch_moves').select(dispatchMoveColumns).in('batch_id', batchIds).order('created_at'),
+      this.db.client.from('reconciliations').select(reconciliationColumns).in('batch_id', batchIds).order('revision', { ascending: false }),
+    ]);
+    const moves = this.db.unwrap(moveResult.data, moveResult.error);
+    const reconciliations = this.db.unwrap(reconciliationResult.data, reconciliationResult.error);
+    const movesByBatch = new Map<string, any[]>();
+    const reconciliationsByBatch = new Map<string, any[]>();
+    for (const move of moves) {
+      const rows = movesByBatch.get(move.batch_id) ?? [];
+      rows.push(move);
+      movesByBatch.set(move.batch_id, rows);
+    }
+    for (const reconciliation of reconciliations) {
+      const rows = reconciliationsByBatch.get(reconciliation.batch_id) ?? [];
+      rows.push(reconciliation);
+      reconciliationsByBatch.set(reconciliation.batch_id, rows);
+    }
+    return batches.map((batch: any) => this.mapDispatch(
+      batch,
+      movesByBatch.get(batch.id) ?? [],
+      reconciliationsByBatch.get(batch.id) ?? [],
+    ));
   }
 
   async getDispatch(id: string) {
     const [batchResult, moveResult, reconciliationResult] = await Promise.all([
-      this.db.client.from('dispatch_batches').select('*').eq('id', id).maybeSingle(),
-      this.db.client.from('dispatch_moves').select('*').eq('batch_id', id).order('created_at'),
-      this.db.client.from('reconciliations').select('*').eq('batch_id', id).order('revision', { ascending: false }),
+      this.db.client.from('dispatch_batches').select(dispatchBatchColumns).eq('id', id).maybeSingle(),
+      this.db.client.from('dispatch_moves').select(dispatchMoveColumns).eq('batch_id', id).order('created_at'),
+      this.db.client.from('reconciliations').select(reconciliationColumns).eq('batch_id', id).order('revision', { ascending: false }),
     ]);
     if (batchResult.error) this.db.unwrap(null, batchResult.error);
     if (!batchResult.data) throw new NotFoundException(`Dispatch batch ${id} was not found`);
     const moves = this.db.unwrap(moveResult.data, moveResult.error);
     const reconciliations = this.db.unwrap(reconciliationResult.data, reconciliationResult.error);
+    return this.mapDispatch(batchResult.data, moves, reconciliations);
+  }
+
+  private mapDispatch(batch: any, moves: any[], reconciliations: any[]) {
     return {
-      id: batchResult.data.id,
-      proposalId: batchResult.data.proposal_id,
-      proposalVersion: batchResult.data.proposal_version,
-      approvedContentHash: batchResult.data.approved_content_hash,
-      status: batchResult.data.status,
-      releasedAt: batchResult.data.released_at,
-      requestId: batchResult.data.request_id,
+      id: batch.id,
+      proposalId: batch.proposal_id,
+      proposalVersion: batch.proposal_version,
+      approvedContentHash: batch.approved_content_hash,
+      status: batch.status,
+      releasedAt: batch.released_at,
+      requestId: batch.request_id,
       moves: moves.map((move: any) => ({
         id: move.id,
         sourceMoveKey: move.source_move_key,
@@ -729,26 +786,24 @@ export class OperatorService {
   }
 
   async listCampaigns() {
-    const [campaignResult, offerResult, participationResult, tripResult] = await Promise.all([
-      this.db.client.from('campaigns').select('*').order('created_at', { ascending: false }),
-      this.db.client.from('driver_offers').select('*'),
-      this.db.client.from('campaign_participations').select('*'),
-      this.db.client.from('trips').select('campaign_id,status'),
-    ]);
-    const campaigns = this.db.unwrap(campaignResult.data, campaignResult.error);
-    const offers = this.db.unwrap(offerResult.data, offerResult.error);
-    const participations = this.db.unwrap(participationResult.data, participationResult.error);
-    const trips = this.db.unwrap(tripResult.data, tripResult.error);
-    return campaigns.map((row: any) =>
-      mapCampaign(row, offers, participations, trips),
-    );
+    const { data, error } = await this.db.client.from('campaigns')
+      .select(campaignReadColumns)
+      .order('created_at', { ascending: false });
+    return this.db.unwrap(data, error).map((row: any) => mapCampaign(
+      row,
+      row.driver_offers ?? [],
+      row.campaign_participations ?? [],
+      row.trips ?? [],
+    ));
   }
 
   async operationsReport(query: OperationsReportQueryDto) {
     if (query.from && query.to && new Date(query.from) > new Date(query.to)) {
       throw new UnprocessableEntityException('Report from must be before or equal to report to');
     }
-    let campaignsQuery = this.db.client.from('campaigns').select('*').order('start_at', { ascending: false });
+    let campaignsQuery = this.db.client.from('campaigns')
+      .select('id,status,start_at,created_at,completed_at,budget_used,budget_limit')
+      .order('start_at', { ascending: false });
     if (query.campaignId) campaignsQuery = campaignsQuery.eq('id', query.campaignId);
     if (query.from) campaignsQuery = campaignsQuery.gte('start_at', query.from);
     if (query.to) campaignsQuery = campaignsQuery.lte('start_at', query.to);
@@ -776,10 +831,13 @@ export class OperatorService {
   }
 
   async getCampaign(id: string) {
-    const all = await this.listCampaigns();
-    const campaign = all.find((item: any) => item.id === id);
-    if (!campaign) throw new NotFoundException(`Campaign ${id} was not found`);
-    return campaign;
+    const { data, error } = await this.db.client.from('campaigns')
+      .select(campaignReadColumns)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) this.db.unwrap(null, error);
+    if (!data) throw new NotFoundException(`Campaign ${id} was not found`);
+    return mapCampaign(data, data.driver_offers ?? [], data.campaign_participations ?? [], data.trips ?? []);
   }
 
   async cancelCampaign(id: string, dto: CancelCampaignDto, actorId: string, requestId: string) {
@@ -796,14 +854,20 @@ export class OperatorService {
   }
 
   async compareScenarios(proposalId: string, actorId: string) {
-    const { data: proposal, error } = await this.db.client.from('proposals').select('*').eq('id', proposalId).maybeSingle();
+    const { data: proposal, error } = await this.db.client.from('proposals')
+      .select('id,input_snapshot_id,source_plan,simulation_details')
+      .eq('id', proposalId)
+      .maybeSingle();
     if (error) this.db.unwrap(null, error);
     if (!proposal) throw new NotFoundException(`Proposal ${proposalId} was not found`);
     const forecastRunId = proposal.source_plan?.forecast_run_id;
     if (!forecastRunId) {
       throw new UnprocessableEntityException({ code: 'SCENARIO_INPUT_MISSING', message: 'Proposal has no immutable forecast run.' });
     }
-    const { data: run, error: runError } = await this.db.client.from('forecast_runs').select('*').eq('id', forecastRunId).maybeSingle();
+    const { data: run, error: runError } = await this.db.client.from('forecast_runs')
+      .select('id,model_version,policy_version')
+      .eq('id', forecastRunId)
+      .maybeSingle();
     if (runError) this.db.unwrap(null, runError);
     if (!run) throw new UnprocessableEntityException({ code: 'SCENARIO_INPUT_MISSING', message: 'Forecast run was not found.' });
     const forecastEvaluation = await this.getForecastEvaluation(forecastRunId);
@@ -822,8 +886,9 @@ export class OperatorService {
       status: 'SUCCEEDED',
       created_by: actorId,
       completed_at: new Date().toISOString(),
-    }, { onConflict: 'forecast_run_id,common_input_hash' }).select('*').single();
+    }, { onConflict: 'forecast_run_id,common_input_hash' }).select('id').single();
     if (scenarioError) this.db.unwrap(null, scenarioError);
+    if (!scenarioRun) throw new UnprocessableEntityException('Scenario comparison could not be persisted.');
     const details = proposal.simulation_details ?? {};
     const rows = [
       { type: 'NO_ACTION', metrics: details.metrics_before ?? {}, source: 'forecast_no_action' },
@@ -836,11 +901,12 @@ export class OperatorService {
       scenario_type: row.type,
       estimated_metrics: row.metrics,
       observed_metrics: null,
-      uncertainty: { kind: 'model_quantile_or_policy_assumption', confidence: proposal.confidence ?? null },
+      uncertainty: { kind: 'model_quantile_or_policy_assumption', confidence: null },
       response_source: row.source,
     }));
     const { data: persisted, error: resultError } = await this.db.client.from('scenario_results')
-      .upsert(scenarioResults, { onConflict: 'scenario_run_id,scenario_type' }).select('*');
+      .upsert(scenarioResults, { onConflict: 'scenario_run_id,scenario_type' })
+      .select('scenario_type,estimated_metrics,observed_metrics,uncertainty,response_source');
     if (resultError) this.db.unwrap(null, resultError);
     return {
       id: scenarioRun.id,
@@ -917,7 +983,7 @@ export class OperatorService {
   }
 
   async listNotifications(ownerId: string) {
-    const { data, error } = await this.db.client.from('operator_notifications').select('*')
+    const { data, error } = await this.db.client.from('operator_notifications').select(notificationColumns)
       .or(`owner_id.eq.${ownerId},owner_id.is.null`).order('created_at', { ascending: false }).limit(100);
     return this.db.unwrap(data, error).map((row: any) => ({
       id: row.id,
@@ -936,7 +1002,7 @@ export class OperatorService {
   }
 
   async acknowledgeNotification(id: string, ownerId: string, requestId: string) {
-    const { data: before, error: beforeError } = await this.db.client.from('operator_notifications').select('*')
+    const { data: before, error: beforeError } = await this.db.client.from('operator_notifications').select('id,status,read_at')
       .eq('id', id).or(`owner_id.eq.${ownerId},owner_id.is.null`).maybeSingle();
     if (beforeError) this.db.unwrap(null, beforeError);
     if (!before) throw new NotFoundException(`Notification ${id} was not found`);
@@ -945,8 +1011,9 @@ export class OperatorService {
       status: 'ACKNOWLEDGED',
       read_at: before.read_at ?? new Date().toISOString(),
       acknowledged_at: new Date().toISOString(),
-    }).eq('id', id).select('*').single();
+    }).eq('id', id).select(notificationColumns).single();
     if (error) this.db.unwrap(null, error);
+    if (!data) throw new NotFoundException(`Notification ${id} was not found`);
     const { error: auditError } = await this.db.client.from('audit_logs').insert({
       actor_id: ownerId,
       actor_type: 'OPERATOR',
@@ -982,7 +1049,7 @@ export class OperatorService {
       status: 'ACKNOWLEDGED',
       read_at: acknowledgedAt,
       acknowledged_at: acknowledgedAt,
-    }).or(`owner_id.eq.${ownerId},owner_id.is.null`).eq('status', 'UNREAD').select('*');
+    }).or(`owner_id.eq.${ownerId},owner_id.is.null`).eq('status', 'UNREAD').select(notificationColumns);
     const rows = this.db.unwrap(data, error) as any[];
     if (!rows.length) return [];
 
@@ -1015,7 +1082,7 @@ export class OperatorService {
   }
 
   async listOffers(campaignId?: string) {
-    let query = this.db.client.from('driver_offers').select('*, campaigns(*)').order('created_at', { ascending: false });
+    let query = this.db.client.from('driver_offers').select(offerWithCampaignColumns).order('created_at', { ascending: false });
     if (campaignId) query = query.eq('campaign_id', campaignId);
     const { data, error } = await query;
     return this.db.unwrap(data, error).map(mapOffer);
@@ -1023,7 +1090,7 @@ export class OperatorService {
 
   async listDrivers() {
     const [{ data, error }, { data: profiles, error: profileError }] = await Promise.all([
-      this.db.client.from('driver_states_api_v').select('*'),
+      this.db.client.from('driver_states_api_v').select(driverColumns),
       this.db.client.from('profiles').select('id,full_name').eq('role', 'DRIVER'),
     ]);
     this.db.unwrap(data, error);
@@ -1033,11 +1100,11 @@ export class OperatorService {
   }
 
   async getDriverView(id: string) {
-    const [stateResult, offersResult, rewardsResult] = await Promise.all([
-      this.db.client.from('driver_states_api_v').select('*').eq('driver_id', id).maybeSingle(),
+    const [stateResult, offersResult, rewardsResult, profileResult] = await Promise.all([
+      this.db.client.from('driver_states_api_v').select(driverColumns).eq('driver_id', id).maybeSingle(),
       this.db.client
         .from('driver_offers')
-        .select('*, campaigns(*)')
+        .select(offerWithCampaignColumns)
         .eq('driver_id', id)
         .order('created_at', { ascending: false }),
       this.db.client
@@ -1045,14 +1112,15 @@ export class OperatorService {
         .select('amount,status')
         .eq('driver_id', id)
         .in('status', ['QUALIFIED', 'SIMULATED_PAID']),
+      this.db.client.from('profiles').select('full_name').eq('id', id).maybeSingle(),
     ]);
     if (stateResult.error) this.db.unwrap(null, stateResult.error);
     if (!stateResult.data) throw new NotFoundException(`Driver ${id} was not found`);
     const offers = this.db.unwrap(offersResult.data, offersResult.error).map(mapOffer);
     const rewards = this.db.unwrap(rewardsResult.data, rewardsResult.error);
-    const { data: profile } = await this.db.client.from('profiles').select('full_name').eq('id', id).maybeSingle();
+    if (profileResult.error) this.db.unwrap(null, profileResult.error);
     const driver = {
-      ...mapDriver({ ...stateResult.data, driver_name: profile?.full_name }),
+      ...mapDriver({ ...stateResult.data, driver_name: profileResult.data?.full_name }),
       acceptedOfferIds: offers
         .filter((offer: any) => offer.status === 'Accepted')
         .map((offer: any) => offer.id),
@@ -1073,7 +1141,7 @@ export class OperatorService {
     const offset = filters.cursor ? 0 : (filters.page - 1) * filters.pageSize;
     let query = this.db.client
       .from('audit_logs')
-      .select('*', { count: 'exact' })
+      .select(auditColumns, { count: 'exact' })
       .order('created_at', { ascending: false })
       .order('id', { ascending: false });
     if (filters.entityId) {
@@ -1147,7 +1215,7 @@ export class OperatorService {
     if (mutationError) this.db.unwrap(null, mutationError);
     const { data, error } = await this.db.client
       .from('driver_states')
-      .select('*, profiles!driver_states_driver_id_fkey(full_name)')
+      .select('driver_id,is_online,operational_status,current_h3_index,active_campaign_id,active_trip_id,profiles!driver_states_driver_id_fkey(full_name)')
       .eq('driver_id', id)
       .maybeSingle();
     if (error) this.db.unwrap(null, error);
@@ -1180,7 +1248,7 @@ export class OperatorService {
   }
 
   private async rawOffer(id: string) {
-    const { data, error } = await this.db.client.from('driver_offers').select('*').eq('id', id).maybeSingle();
+    const { data, error } = await this.db.client.from('driver_offers').select('id,driver_id').eq('id', id).maybeSingle();
     if (error) this.db.unwrap(null, error);
     if (!data) throw new NotFoundException(`Offer ${id} was not found`);
     return data;
@@ -1189,7 +1257,7 @@ export class OperatorService {
   private async getOffer(id: string) {
     const { data, error } = await this.db.client
       .from('driver_offers')
-      .select('*, campaigns(*)')
+      .select(offerWithCampaignColumns)
       .eq('id', id)
       .maybeSingle();
     if (error) this.db.unwrap(null, error);

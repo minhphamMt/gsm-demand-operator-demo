@@ -4,11 +4,12 @@ type Row = Record<string, unknown>;
 
 class ReadQuery implements PromiseLike<{ data: Row[]; error: null }> {
   readonly orders: Array<{ ascending: boolean; column: string }> = [];
+  readonly selections: unknown[] = [];
   private limitCount?: number;
 
   constructor(private rows: Row[]) {}
 
-  select() { return this; }
+  select(columns?: unknown) { this.selections.push(columns); return this; }
   in() { return this; }
   lt() { return this; }
   eq() { return this; }
@@ -54,6 +55,64 @@ class ReadQuery implements PromiseLike<{ data: Row[]; error: null }> {
 }
 
 describe('OperatorService snapshot selection', () => {
+  it('loads a dispatch list with three fixed reads instead of three reads per batch', async () => {
+    const batches = new ReadQuery([
+      { id: 'batch-2', proposal_id: 'proposal-2', proposal_version: 2, approved_content_hash: 'hash-2', status: 'IN_PROGRESS', released_at: '2026-08-24T15:02:00.000Z', request_id: 'request-2' },
+      { id: 'batch-1', proposal_id: 'proposal-1', proposal_version: 1, approved_content_hash: 'hash-1', status: 'EXECUTED', released_at: '2026-08-24T15:01:00.000Z', request_id: 'request-1' },
+    ]);
+    const moves = new ReadQuery([
+      { id: 'move-1', batch_id: 'batch-1', source_move_key: '1:2', source_zone_id: 1, target_zone_id: 2, planned_units: 2, acknowledged_units: 2, arrived_units: 2, available_units: 2, failed_units: 0, state: 'AVAILABLE', route_source: 'approved_plan', eta_minutes: 5, distance_km: 1.2, created_at: '2026-08-24T15:01:01.000Z' },
+      { id: 'move-2', batch_id: 'batch-2', source_move_key: '3:4', source_zone_id: 3, target_zone_id: 4, planned_units: 1, acknowledged_units: 1, arrived_units: 0, available_units: 0, failed_units: 0, state: 'EN_ROUTE', route_source: 'approved_plan', eta_minutes: 8, distance_km: 2.4, created_at: '2026-08-24T15:02:01.000Z' },
+    ]);
+    const reconciliations = new ReadQuery([
+      { id: 'reconciliation-1', batch_id: 'batch-1', revision: 1, planned_units: 2, acknowledged_units: 2, arrived_units: 2, available_units: 2, failed_units: 0, actual_contribution: 2, residual_gap: 0, is_snapshot_fresh: true, created_at: '2026-08-24T15:03:00.000Z' },
+    ]);
+    const from = jest.fn((table: string) => ({
+      dispatch_batches: batches,
+      dispatch_moves: moves,
+      reconciliations,
+    })[table]);
+    const service = new OperatorService({
+      client: { from },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    } as never);
+
+    await expect(service.listDispatch()).resolves.toEqual([
+      expect.objectContaining({ id: 'batch-2', moves: [expect.objectContaining({ id: 'move-2' })], reconciliations: [] }),
+      expect.objectContaining({ id: 'batch-1', moves: [expect.objectContaining({ id: 'move-1' })], reconciliations: [expect.objectContaining({ id: 'reconciliation-1' })] }),
+    ]);
+    expect(from.mock.calls.map(([table]) => table)).toEqual(['dispatch_batches', 'dispatch_moves', 'reconciliations']);
+    expect([batches, moves, reconciliations].flatMap((query) => query.selections)).not.toContain('*');
+  });
+
+  it('hydrates campaign funnel counts in one projected relational read', async () => {
+    const campaigns = new ReadQuery([{
+      id: 'campaign-1', proposal_id: 'proposal-1', status: 'ACTIVE', target_zone_ids: [2],
+      target_driver_count: 2, budget_used: 50_000, budget_limit: 100_000, bonus_amount: 25_000,
+      start_at: '2026-08-24T15:00:00.000Z', end_at: '2026-08-24T16:00:00.000Z', created_at: '2026-08-24T14:59:00.000Z',
+      driver_offers: [
+        { campaign_id: 'campaign-1', status: 'ACCEPTED', sent_at: '2026-08-24T15:00:01.000Z', viewed_at: '2026-08-24T15:00:02.000Z' },
+        { campaign_id: 'campaign-1', status: 'DECLINED', sent_at: '2026-08-24T15:00:01.000Z', viewed_at: '2026-08-24T15:00:02.000Z' },
+      ],
+      campaign_participations: [{ campaign_id: 'campaign-1', status: 'EN_ROUTE' }],
+      trips: [{ campaign_id: 'campaign-1', status: 'COMPLETED' }],
+    }]);
+    const from = jest.fn(() => campaigns);
+    const service = new OperatorService({
+      client: { from },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    } as never);
+
+    await expect(service.listCampaigns()).resolves.toEqual([
+      expect.objectContaining({
+        id: 'campaign-1', accepted: 1, declined: 1, enRoute: 1, offersSent: 2, qualifiedTrips: 1, viewed: 2,
+      }),
+    ]);
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(campaigns.selections[0]).toEqual(expect.stringContaining('driver_offers('));
+    expect(campaigns.selections).not.toContain('*');
+  });
+
   it('selects the latest snapshot by replay source time instead of insertion id or captured-at wall clock', async () => {
     const snapshots = new ReadQuery([
       {
