@@ -22,6 +22,12 @@ describe('ReplayTimeline', () => {
     expect(onSourceChange).toHaveBeenCalledWith(steps[1]!.sourceAt)
   })
 
+  it('recognizes the selected bucket when the server serializes it as UTC', () => {
+    render(<ReplayTimeline isLoading={false} onSourceChange={vi.fn()} selectedSourceAt="2026-09-25T01:10:00.000Z" steps={steps} />)
+
+    expect(screen.getByRole('button', { name: /08:10.*0.20 mm\/h/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('locks timeline changes while observed data is loading', () => {
     cleanup()
     render(<ReplayTimeline isLoading onSourceChange={vi.fn()} selectedSourceAt={steps[0]!.sourceAt} steps={steps} />)

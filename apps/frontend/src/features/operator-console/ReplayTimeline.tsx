@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, LoaderCircle, Pause, Play } from 'lucide-rea
 import { useEffect, useRef, useState } from 'react'
 
 import type { ReplayTimelineStep } from '@/features/operator-data'
+import { isSameReplayInstant } from './model/replayClock'
 
 type ReplayTimelineProps = {
   displayTimeForSource?: (sourceAt: string) => string
@@ -16,7 +17,7 @@ export function ReplayTimeline({ displayTimeForSource = (sourceAt) => sourceAt, 
   const [isPlaying, setIsPlaying] = useState(false)
   const onSourceChangeRef = useRef(onSourceChange)
   onSourceChangeRef.current = onSourceChange
-  const matchedIndex = steps.findIndex((step) => step.sourceAt === selectedSourceAt)
+  const matchedIndex = steps.findIndex((step) => isSameReplayInstant(step.sourceAt, selectedSourceAt))
   // A live snapshot can briefly be rendered before its replay source is known.
   // Treat that state as the latest bucket instead of silently jumping to bucket 2.
   const selectedIndex = matchedIndex >= 0 ? matchedIndex : steps.length - 1

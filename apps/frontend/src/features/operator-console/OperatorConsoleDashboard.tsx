@@ -68,7 +68,7 @@ import {
 import { proposalCoverageForStage } from "./model/proposalCoverage";
 import { scenarioPresentation } from "./model/scenarioPresentation";
 import { fleetBalanceSummary } from "./model/fleetBalanceSummary";
-import { observedAtForReplaySource } from "./model/replayClock";
+import { isSameReplayInstant, observedAtForReplaySource } from "./model/replayClock";
 import "./operator-dashboard.css";
 
 const OperatorMap = lazy(() =>
@@ -169,7 +169,7 @@ export function OperatorConsoleDashboard() {
     let cancelled = false;
     let cursor = 0;
     const missing = steps.filter((step) =>
-      step.sourceAt !== replayAnchorAt
+      !isSameReplayInstant(step.sourceAt, replayAnchorAt)
       && !queryClient.getQueryData(operatorQueryKeys.replaySnapshot(step.sourceAt)),
     );
     const worker = async () => {
@@ -260,7 +260,7 @@ export function OperatorConsoleDashboard() {
   const activeStage = resolveWorkflowStage(dispatchStage, Boolean(campaign), plan?.status);
   const planReady = stageHasPlan(activeStage);
   const sourceAt = activeSnapshot.sourceAt ?? activeSnapshot.generatedAt;
-  const isLiveEdge = Boolean(replayAnchorAt && sourceAt === replayAnchorAt);
+  const isLiveEdge = isSameReplayInstant(sourceAt, replayAnchorAt);
   // Replay snapshots are immutable source buckets. `generatedAt` is the time
   // the bucket was first stored in our database, not the operating time shown
   // to the operator. Map the selected bucket onto the current replay clock so
