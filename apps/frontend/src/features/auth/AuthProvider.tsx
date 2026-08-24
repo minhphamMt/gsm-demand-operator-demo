@@ -35,6 +35,11 @@ function isRetryableIdentityFailure(cause: unknown) {
     && (cause.code === 'NETWORK_ERROR' || cause.code === 'TIMEOUT' || (cause.status !== undefined && cause.status >= 500))
 }
 
+type DemoSessionResponse = {
+  access_token: string
+  refresh_token: string
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient()
   const requestVersion = useRef(0)
@@ -93,7 +98,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
       activeIdentity.current = undefined
       setState({ status: 'anonymous', identity: null, error: new Error('Session expired') })
     }
-    void supabase.auth.getSession().then(({ data }) => resolveIdentity(data.session))
+    const bootstrap = async () => {
+      const { data } = await supabase.auth.getSession()
+      if (data.session || !env.autoLogin) {
+        await resolveIdentity(data.session)
+        return
+      }
+
+      try {
+        const demoSession = await requestJson('/auth/demo-session', { method: 'POST' }) as DemoSessionResponse
+        const { data: sessionData, error } = await supabase.auth.setSession({
+          access_token: demoSession.access_token,
+          refresh_token: demoSession.refresh_token,
+        })
+        if (error || !sessionData.session) throw error ?? new Error('No demo session returned')
+        await resolveIdentity(sessionData.session)
+      } catch (cause) {
+        await resolveIdentity(null)
+        if (import.meta.env.DEV) console.warn('Demo auto-login unavailable', cause)
+      }
+    }
+    void bootstrap()
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       // Supabase invokes this callback while its auth lock is still held. Defer
       // getSession-backed identity resolution until the lock has been released.
