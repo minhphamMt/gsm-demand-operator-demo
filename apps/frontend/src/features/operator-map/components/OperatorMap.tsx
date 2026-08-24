@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { zoneCentersToFeatureCollection, zonesToFeatureCollection } from '@/features/operator-data'
 import type { Move, Zone } from '@/features/operator-data'
-import relocationCarImageUrl from '@/features/operator-map/assets/relocation-car.png'
+import relocationCarImageUrl from '@/features/operations-v2/assets/operations-car-cartoon.png'
 import { buildFlowCollections, mapLegendFor, mapTheme, mapViewportForView, zoneDotRadius, zoneFillColor, zoneStrokeColor, zonesForMapView } from '@/features/operator-map/model/operatorMapGeometry'
 import type { FlowState } from '@/features/operator-map/model/operatorMapGeometry'
 import { routeMotionAt } from '@/features/operator-map/model/relocationVehicleMotion'
@@ -289,6 +289,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
 
       const quantity = Number(route.properties.quantity)
       const element = relocationVehicleElement(quantity)
+      element.dataset.moveId = String(route.properties.id)
       const marker = new mapboxgl.Marker({
         anchor: 'center',
         element,

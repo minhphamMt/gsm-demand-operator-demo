@@ -1,0 +1,135 @@
+import { act, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { Move } from '@/features/operator-data'
+import { createZones } from '@/features/operator-data/model/zoneGeometry'
+
+const mapboxMocks = vi.hoisted(() => ({
+  setLngLat: vi.fn(),
+  setRotation: vi.fn(),
+}))
+
+vi.mock('@/shared/config/env', () => ({
+  env: { hasMapboxToken: true, mapboxAccessToken: 'pk.test' },
+}))
+
+vi.mock('mapbox-gl/esm', () => {
+  class MockMap {
+    private readonly canvas = { style: { cursor: '' } }
+
+    addControl() { return this }
+    addLayer() { return this }
+    addSource() { return this }
+    easeTo() { return this }
+    flyTo() { return this }
+    getCanvas() { return this.canvas }
+    getLayer() { return {} }
+    getSource() { return { setData: vi.fn() } }
+    isStyleLoaded() { return true }
+    jumpTo() { return this }
+    off() { return this }
+    on(event: string, ...args: unknown[]) {
+      if (event === 'load') {
+        const handler = args.at(-1) as (() => void)
+        queueMicrotask(handler)
+      }
+      return this
+    }
+    once() { return this }
+    remove() { return undefined }
+    resize() { return this }
+    setFeatureState() { return this }
+    setPaintProperty() { return this }
+    stop() { return this }
+  }
+
+  class MockMarker {
+    private readonly element: HTMLElement
+
+    constructor({ element }: { element: HTMLElement }) {
+      this.element = element
+    }
+    addTo() {
+      document.body.append(this.element)
+      return this
+    }
+    getElement() { return this.element }
+    remove() {
+      this.element.remove()
+      return this
+    }
+    setLngLat(coordinate: unknown) {
+      mapboxMocks.setLngLat(coordinate)
+      this.element.dataset.coordinate = JSON.stringify(coordinate)
+      return this
+    }
+    setRotation(bearing: number) {
+      mapboxMocks.setRotation(bearing)
+      this.element.dataset.bearing = String(bearing)
+      return this
+    }
+  }
+
+  return {
+    AttributionControl: class {},
+    Map: MockMap,
+    Marker: MockMarker,
+    NavigationControl: class {},
+  }
+})
+
+import { OperatorMap } from './OperatorMap'
+
+describe('OperatorMap relocation vehicle', () => {
+  let animationFrames: FrameRequestCallback[]
+
+  beforeEach(() => {
+    mapboxMocks.setLngLat.mockClear()
+    mapboxMocks.setRotation.mockClear()
+    animationFrames = []
+    vi.stubGlobal('ResizeObserver', class {
+      disconnect() { return undefined }
+      observe() { return undefined }
+    })
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      animationFrames.push(callback)
+      return 1
+    }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('renders the project car and advances it along each executing move', async () => {
+    const zones = createZones().slice(0, 2).map((zone) => ({ ...zone, rainMmH: 0 }))
+    const move = {
+      id: 'move-1',
+      sourceZoneId: zones[0]!.id,
+      targetZoneId: zones[1]!.id,
+      quantity: 8,
+    } as Move
+    const commonProps = {
+      forecastMinutes: 5,
+      moves: [move],
+      onZoneSelect: vi.fn(),
+      zones,
+    }
+    const view = render(<OperatorMap {...commonProps} flowState="executing" />)
+
+    const marker = await screen.findByRole('img', { name: '8 xe đang điều chuyển' })
+    expect(marker).toHaveAttribute('data-move-id', 'move-1')
+    expect(marker.querySelector('img')).toHaveAttribute('src', expect.stringContaining('operations-car-cartoon.png'))
+    expect(mapboxMocks.setLngLat).toHaveBeenCalled()
+
+    act(() => animationFrames.splice(0).forEach((callback) => callback(1_000)))
+    const startCoordinate = marker.dataset.coordinate
+    act(() => animationFrames.splice(0).forEach((callback) => callback(3_000)))
+    expect(marker.dataset.coordinate).not.toBe(startCoordinate)
+    expect(mapboxMocks.setRotation).toHaveBeenCalled()
+
+    view.rerender(<OperatorMap {...commonProps} flowState="completed" />)
+    await waitFor(() => expect(screen.queryByRole('img', { name: '8 xe đang điều chuyển' })).not.toBeInTheDocument())
+  })
+})
