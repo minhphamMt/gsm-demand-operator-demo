@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { OperatorConsoleDashboard, RailActions, ScenarioBar, ZoneCard } from '@/features/operator-console/OperatorConsoleDashboard'
 import { currentOperatorReplaySourceAt } from '@/features/operator-console/model/defaultReplay'
+import * as replayAnchorHook from '@/features/operator-console/hooks/useCurrentReplayAnchor'
 import { proposalCoverageForStage } from '@/features/operator-console/model/proposalCoverage'
 import { mockOperatorAdapter } from '@/features/operator-data/api/mockOperatorAdapter'
 import { createAgentPlans } from '@/features/operator-data/model/mockProposalEngine'
@@ -108,6 +109,43 @@ describe('operator console safety states', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Làm mới dữ liệu' }))
     await waitFor(() => expect(replay.mock.calls.length).toBeGreaterThan(callsBeforeRefresh))
 
+    queryClient.clear()
+  })
+
+  it('keeps planning progress pinned when the live replay bucket advances', async () => {
+    const baseline = await mockOperatorAdapter.getSnapshot('baseline')
+    vi.spyOn(mockOperatorAdapter, 'listPlans').mockResolvedValue([])
+    vi.spyOn(mockOperatorAdapter, 'listCampaigns').mockResolvedValue([])
+    vi.spyOn(mockOperatorAdapter, 'listDispatch').mockResolvedValue([])
+    const initialAnchor = currentOperatorReplaySourceAt(new Date())
+    const nextAnchor = new Date(Date.parse(initialAnchor) + 5 * 60_000).toISOString()
+    let replayAnchor = initialAnchor
+    vi.spyOn(replayAnchorHook, 'useCurrentReplayAnchor').mockImplementation(() => replayAnchor)
+    vi.spyOn(mockOperatorAdapter, 'getSnapshot').mockResolvedValue({ ...baseline, sourceAt: initialAnchor })
+    const replay = vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...baseline, sourceAt }))
+    const generate = vi.spyOn(mockOperatorAdapter, 'generateAiDecision')
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const dashboard = () => (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter><OperatorConsoleDashboard /></MemoryRouter>
+      </QueryClientProvider>
+    )
+    const view = render(dashboard())
+
+    await waitFor(() => expect(replay).toHaveBeenCalled())
+    await userEvent.click(await screen.findByRole('button', { name: 'Chạy dự báo cung–cầu' }))
+    await waitFor(() => expect(generate).toHaveBeenCalled())
+    expect(await screen.findByRole('button', { name: 'Tính phương án điều chuyển' })).toBeInTheDocument()
+    const replayCallsDuringPlanning = replay.mock.calls.length
+
+    replayAnchor = nextAnchor
+    await act(async () => {
+      view.rerender(dashboard())
+      await Promise.resolve()
+    })
+
+    expect(replay).toHaveBeenCalledTimes(replayCallsDuringPlanning)
+    expect(screen.getByRole('button', { name: 'Tính phương án điều chuyển' })).toBeInTheDocument()
     queryClient.clear()
   })
 

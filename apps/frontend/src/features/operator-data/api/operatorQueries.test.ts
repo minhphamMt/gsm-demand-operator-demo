@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { campaignPollInterval, dispatchPollInterval, offerPollInterval, visiblePollInterval } from '@/features/operator-data/api/operatorQueries'
+import {
+  campaignPollInterval,
+  dispatchPollInterval,
+  offerPollInterval,
+  snapshotQuery,
+  visiblePollInterval,
+} from '@/features/operator-data/api/operatorQueries'
+
 describe('operator polling policy', () => {
   it('polls only visible active campaigns', () => {
     expect(campaignPollInterval(undefined, 'visible')).toBe(15_000)
@@ -21,5 +28,14 @@ describe('operator polling policy', () => {
     expect(dispatchPollInterval([{ status: 'IN_PROGRESS' }], 'visible')).toBe(15_000)
     expect(dispatchPollInterval([{ status: 'EXECUTED' }], 'visible')).toBe(false)
     expect(dispatchPollInterval([{ status: 'IN_PROGRESS' }], 'hidden')).toBe(false)
+  })
+})
+
+describe('operator snapshot query', () => {
+  it('disables interval refresh while a planning snapshot is pinned', () => {
+    const refetchInterval = snapshotQuery('baseline', 'rain-peak', 0, false).refetchInterval
+    if (typeof refetchInterval !== 'function') throw new Error('Expected a dynamic refetch interval')
+
+    expect(refetchInterval({} as never)).toBe(false)
   })
 })

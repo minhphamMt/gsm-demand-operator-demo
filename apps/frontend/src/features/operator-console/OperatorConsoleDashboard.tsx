@@ -99,6 +99,7 @@ export function OperatorConsoleDashboard() {
     horizon: ForecastHorizon;
     sourceAt: string;
   } | null>(null);
+  const [planningSourceAt, setPlanningSourceAt] = useState<string>();
   const [workflowStage, setWorkflowStage] = useState<OperatorWorkflowStage>("observe");
   const [optimizationStopReason, setOptimizationStopReason] = useState<string>();
   const [autoReplayRetry, setAutoReplayRetry] = useState(0);
@@ -108,7 +109,7 @@ export function OperatorConsoleDashboard() {
   const [cancelApprovedOpen, setCancelApprovedOpen] = useState(false);
   const [stopTarget, setStopTarget] = useState<ActiveStopTarget | null>(null);
   const [rejectNote, setRejectNote] = useState("");
-  const snapshot = useQuery(snapshotQuery("baseline"));
+  const snapshot = useQuery(snapshotQuery("baseline", "rain-peak", 0, planningSourceAt === undefined));
   const capabilities = useQuery(capabilitiesQuery());
   const replayAnchorAt = useCurrentReplayAnchor(
     capabilities.data?.serverTime,
@@ -128,7 +129,13 @@ export function OperatorConsoleDashboard() {
   const requestedForecastRef = useRef<ForecastHorizon | undefined>(undefined);
 
   useEffect(() => {
-    if (!snapshot.data || !replayAnchorAt || lastAutoReplayAtRef.current === replayAnchorAt) return;
+    if (
+      planningSourceAt !== undefined
+      || workflowStage !== "observe"
+      || !snapshot.data
+      || !replayAnchorAt
+      || lastAutoReplayAtRef.current === replayAnchorAt
+    ) return;
     lastAutoReplayAtRef.current = replayAnchorAt;
     setReplayTargetAt(replayAnchorAt);
     setDrawerOpen(false);
@@ -160,7 +167,7 @@ export function OperatorConsoleDashboard() {
       },
       onSettled: () => setReplayTargetAt(undefined),
     });
-  }, [actions.runReplayStep, autoReplayRetry, queryClient, replayAnchorAt, snapshot.data]);
+  }, [actions.runReplayStep, autoReplayRetry, planningSourceAt, queryClient, replayAnchorAt, snapshot.data, workflowStage]);
 
   useEffect(() => {
     const steps = replayWindow.data ?? [];
@@ -260,7 +267,7 @@ export function OperatorConsoleDashboard() {
   const activeStage = resolveWorkflowStage(dispatchStage, Boolean(campaign), plan?.status);
   const planReady = stageHasPlan(activeStage);
   const sourceAt = activeSnapshot.sourceAt ?? activeSnapshot.generatedAt;
-  const isLiveEdge = isSameReplayInstant(sourceAt, replayAnchorAt);
+  const isLiveEdge = isSameReplayInstant(sourceAt, planningSourceAt ?? replayAnchorAt);
   // Replay snapshots are immutable source buckets. `generatedAt` is the time
   // the bucket was first stored in our database, not the operating time shown
   // to the operator. Map the selected bucket onto the current replay clock so
@@ -338,6 +345,7 @@ export function OperatorConsoleDashboard() {
     setDialog(null);
     setDrawerOpen(false);
     setRejectNote("");
+    setPlanningSourceAt(undefined);
     setWorkflowStage("observe");
     refreshAuthoritativePlanState();
   };
@@ -367,6 +375,7 @@ export function OperatorConsoleDashboard() {
   };
 
   const changeReplaySource = (nextSourceAt: string, forceRefresh = false) => {
+    setPlanningSourceAt(undefined);
     const cachedSnapshot = queryClient.getQueryData<Snapshot>(operatorQueryKeys.replaySnapshot(nextSourceAt));
     if (cachedSnapshot && !forceRefresh) {
       actions.runReplayStep.reset();
@@ -399,12 +408,14 @@ export function OperatorConsoleDashboard() {
   const runForecastFor = (horizon: ForecastHorizon) => {
     if (hasExecution || !isLiveEdge || !dataComplete || snapshotStale || actions.generateAiDecision.isPending) return;
     requestedForecastRef.current = horizon;
+    setPlanningSourceAt(sourceAt);
     actions.generateAiDecision.mutate({ snapshotId: Number(activeSnapshot.replayStep), horizonMinutes: horizon }, {
       onSuccess: (forecastSnapshot) => {
         if (requestedForecastRef.current !== horizon) return;
         const forecastSourceAt = forecastSnapshot.sourceAt ?? forecastSnapshot.generatedAt;
         setReplaySnapshot(forecastSnapshot);
         setForecastMinutes(horizon);
+        setPlanningSourceAt(forecastSourceAt);
         setForecastRun({ horizon, sourceAt: forecastSourceAt });
         setOptimizationStopReason(undefined);
         setWorkflowStage("forecast");
@@ -477,6 +488,7 @@ export function OperatorConsoleDashboard() {
           setDialog(null);
           setRejectNote("");
           setDrawerOpen(false);
+          setPlanningSourceAt(undefined);
           setWorkflowStage("observe");
         },
       },
@@ -491,7 +503,7 @@ export function OperatorConsoleDashboard() {
       { planId: plan.id, mode: "human" },
       {
         onError: recoverFromActionConflict,
-        onSuccess: () => { setDialog(null); setWorkflowStage("campaign"); },
+        onSuccess: () => { setDialog(null); setPlanningSourceAt(undefined); setWorkflowStage("campaign"); },
       },
     );
   };
@@ -502,7 +514,7 @@ export function OperatorConsoleDashboard() {
     }
     actions.releaseDispatch.mutate(plan.id, {
       onError: recoverFromActionConflict,
-      onSuccess: () => { setDialog(null); setWorkflowStage("executing"); setDrawerOpen(true); },
+      onSuccess: () => { setDialog(null); setPlanningSourceAt(undefined); setWorkflowStage("executing"); setDrawerOpen(true); },
     });
   };
   const cancelApproved = (reason: string) => {
@@ -513,6 +525,7 @@ export function OperatorConsoleDashboard() {
         onSuccess: () => {
           setCancelApprovedOpen(false);
           setDrawerOpen(false);
+          setPlanningSourceAt(undefined);
           setWorkflowStage("observe");
         },
       },
