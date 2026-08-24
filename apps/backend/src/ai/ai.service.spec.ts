@@ -1,4 +1,4 @@
-import { AiService, replaySourceAtIso } from './ai.service';
+import { AiService, proposalOperationalWindow, replaySourceAtIso } from './ai.service';
 
 function eligibleDriverQuery(count: number) {
   const chain = {
@@ -122,6 +122,13 @@ describe('AiService persistence', () => {
       p_zones: zones,
     }));
     expect(db.client.from).not.toHaveBeenCalled();
+  });
+
+  it('anchors proposal validity to the current operating bucket, not frozen replay time', () => {
+    expect(proposalOperationalWindow(15, new Date('2026-08-24T15:04:37.000Z'))).toEqual({
+      startsAt: '2026-08-24T15:00:00.000Z',
+      endsAt: '2026-08-24T15:15:00.000Z',
+    });
   });
 
   it('persists trained forecasts and gives the proposal a non-zero offer batch', async () => {

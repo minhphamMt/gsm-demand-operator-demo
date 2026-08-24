@@ -76,6 +76,19 @@ export function replaySourceAtIso(sourceAt: unknown) {
   return parsed.toISOString();
 }
 
+/**
+ * Frozen replay provenance identifies model input, but it must not determine
+ * whether a newly generated operational proposal is already expired. Proposal
+ * validity is anchored to the current server-side five-minute operating bucket.
+ */
+export function proposalOperationalWindow(horizonMinutes: number, now = new Date()) {
+  const startsAt = new Date(now);
+  startsAt.setUTCSeconds(0, 0);
+  startsAt.setUTCMinutes(startsAt.getUTCMinutes() - (startsAt.getUTCMinutes() % 5));
+  const endsAt = new Date(startsAt.getTime() + horizonMinutes * 60_000);
+  return { startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() };
+}
+
 function capturedAtNow() {
   const capturedAt = new Date();
   capturedAt.setUTCSeconds(0, 0);
@@ -400,6 +413,7 @@ export class AiService {
   }
 
   private async persistProposal(snapshot: DbRow, decision: AiDecision, modelInputId?: string, forecastRunId?: string, optimizerRunId?: string) {
+    const proposalWindow = proposalOperationalWindow(decision.forecast.horizon_min);
     const activation = decision.activation_recommendation;
     const isRiskAdvisory = decision.reason_code === 'RISK_ADVISORY_PROPOSAL';
     const actionableTargetZoneIds = [...new Set([
@@ -552,8 +566,8 @@ export class AiService {
         eligible_driver_count: eligibleOfferCapacity,
       },
       explanation: `${isRiskAdvisory ? 'Khuyến nghị sớm từ risk p90' : 'Phương án từ hotspot chính sách'}; dự báo ${decision.forecast.model_version} từ ${decision.data_source} của snapshot ${snapshot.id}; ${decision.plan.moves.length} lệnh điều chuyển.`,
-      window_start_at: snapshot.captured_at,
-      window_end_at: decision.forecast.forecast_ts,
+      window_start_at: proposalWindow.startsAt,
+      window_end_at: proposalWindow.endsAt,
     }).select('id').single();
     if (proposalError) this.db.unwrap(null, proposalError);
     if (!proposal) throw new UnprocessableEntityException('AI proposal could not be persisted');
