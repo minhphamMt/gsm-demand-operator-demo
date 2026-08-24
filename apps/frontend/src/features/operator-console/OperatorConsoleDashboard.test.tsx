@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { OperatorConsoleDashboard, RailActions, ScenarioBar, ZoneCard } from '@/features/operator-console/OperatorConsoleDashboard'
+import { currentOperatorReplaySourceAt } from '@/features/operator-console/model/defaultReplay'
 import { proposalCoverageForStage } from '@/features/operator-console/model/proposalCoverage'
 import { mockOperatorAdapter } from '@/features/operator-data/api/mockOperatorAdapter'
 import { createAgentPlans } from '@/features/operator-data/model/mockProposalEngine'
@@ -77,6 +78,38 @@ describe('operator console safety states', () => {
 
     queryClient.clear()
   }, 20_000)
+
+  it('treats a replay bucket at the live edge as fresh even when it was stored earlier', async () => {
+    const baseline = await mockOperatorAdapter.getSnapshot('baseline')
+    const replaySourceAt = currentOperatorReplaySourceAt(new Date())
+    const replaySnapshot = {
+      ...baseline,
+      generatedAt: '2026-08-16T07:15:00.000Z',
+      sourceAt: replaySourceAt,
+    }
+    vi.spyOn(mockOperatorAdapter, 'getSnapshot').mockResolvedValue(replaySnapshot)
+    const replay = vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...replaySnapshot, sourceAt }))
+    const queryClient = renderDashboard()
+
+    await waitFor(() => expect(replay).toHaveBeenCalled())
+    expect(screen.queryByText('Snapshot đang được tự động làm mới')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Snapshot đã cũ — cần làm mới' })).not.toBeInTheDocument()
+
+    queryClient.clear()
+  })
+
+  it('bypasses the replay cache when the operator manually refreshes the dashboard', async () => {
+    const baseline = await mockOperatorAdapter.getSnapshot('baseline')
+    const replay = vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...baseline, sourceAt }))
+    const queryClient = renderDashboard()
+
+    await waitFor(() => expect(replay).toHaveBeenCalled())
+    const callsBeforeRefresh = replay.mock.calls.length
+    await userEvent.click(screen.getByRole('button', { name: 'Làm mới dữ liệu' }))
+    await waitFor(() => expect(replay.mock.calls.length).toBeGreaterThan(callsBeforeRefresh))
+
+    queryClient.clear()
+  })
 
   it('switches between the city and core map views', async () => {
     const queryClient = renderDashboard()

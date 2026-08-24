@@ -261,6 +261,10 @@ export function OperatorConsoleDashboard() {
   const planReady = stageHasPlan(activeStage);
   const sourceAt = activeSnapshot.sourceAt ?? activeSnapshot.generatedAt;
   const isLiveEdge = Boolean(replayAnchorAt && sourceAt === replayAnchorAt);
+  // Replay snapshots are immutable source buckets. `generatedAt` is the time
+  // the bucket was first stored in our database, not the operating time shown
+  // to the operator. Map the selected bucket onto the current replay clock so
+  // a successfully refreshed replay is not falsely marked stale forever.
   const displaySourceAt = replayAnchorAt && serverNow
     ? observedAtForReplaySource(sourceAt, replayAnchorAt, serverNow)
     : sourceAt;
@@ -275,7 +279,7 @@ export function OperatorConsoleDashboard() {
   const missingZoneCount = observedZones.filter((zone) => !hasOperationalObservation(zone)).length;
   const dataComplete = missingZoneCount === 0
     && (activeSnapshot.ai === undefined || activeSnapshot.ai.liveZones >= activeSnapshot.ai.registeredZones);
-  const snapshotStale = getSnapshotFreshness(activeSnapshot.generatedAt).isStale;
+  const snapshotStale = getSnapshotFreshness(displaySourceAt).isStale;
   const horizonCapability = capabilities.data?.capabilities.forecastHorizons;
   const forecastHorizons = supportedForecastHorizons(
     horizonCapability?.available && horizonCapability.enabled
@@ -362,9 +366,9 @@ export function OperatorConsoleDashboard() {
     void plans.refetch();
   };
 
-  const changeReplaySource = (nextSourceAt: string) => {
+  const changeReplaySource = (nextSourceAt: string, forceRefresh = false) => {
     const cachedSnapshot = queryClient.getQueryData<Snapshot>(operatorQueryKeys.replaySnapshot(nextSourceAt));
-    if (cachedSnapshot) {
+    if (cachedSnapshot && !forceRefresh) {
       actions.runReplayStep.reset();
       setReplaySnapshot(cachedSnapshot);
       setForecastRun(null);
@@ -535,11 +539,11 @@ export function OperatorConsoleDashboard() {
     <div className="nf-ops">
       <SnapshotStaleAlert
         autoRefresh
-        generatedAt={activeSnapshot.generatedAt}
+        generatedAt={displaySourceAt}
         isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
         onRefresh={() => {
           void snapshot.refetch();
-          if (replayAnchorAt) changeReplaySource(replayAnchorAt);
+          if (replayAnchorAt) changeReplaySource(replayAnchorAt, true);
           else setReplaySnapshot(undefined);
         }}
       />
@@ -554,7 +558,7 @@ export function OperatorConsoleDashboard() {
         onForecastChange={changeHorizon}
         onRefresh={() => {
           void snapshot.refetch();
-          if (replayAnchorAt) changeReplaySource(replayAnchorAt);
+          if (replayAnchorAt) changeReplaySource(replayAnchorAt, true);
           else setReplaySnapshot(undefined);
         }}
         regime={activeSnapshot.regime}
