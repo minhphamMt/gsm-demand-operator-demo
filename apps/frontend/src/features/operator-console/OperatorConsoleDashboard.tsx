@@ -65,6 +65,7 @@ import {
   resolveWorkflowStage,
   type OperatorWorkflowStage,
 } from "./model/operatorWorkflow";
+import { operatorMapFlowState } from "./operatorMapFlowState";
 import { proposalCoverageForStage } from "./model/proposalCoverage";
 import { scenarioPresentation } from "./model/scenarioPresentation";
 import { fleetBalanceSummary } from "./model/fleetBalanceSummary";
@@ -585,13 +586,7 @@ export function OperatorConsoleDashboard() {
           <Suspense fallback={<Skeleton className="h-full" />}>
             <OperatorMap
               forecastMinutes={displayedMapSource === "forecast" ? displayedHorizon : 0}
-              flowState={
-                activeStage === "executing"
-                  ? "executing"
-                  : ["executed", "campaign"].includes(activeStage)
-                    ? "completed"
-                    : "proposal"
-              }
+              flowState={operatorMapFlowState(dispatchStage, activeStage)}
               layer={layer}
               moves={planReady && plan ? plan.moves : []}
               onZoneSelect={setSelectedZoneId}
