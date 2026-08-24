@@ -103,7 +103,8 @@ export class OperatorService {
     let snapshotQuery = this.db.client
       .from('supply_demand_snapshots')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('effective_at', { ascending: false })
+      .order('captured_at', { ascending: false })
       .order('id', { ascending: false });
     if (query.scenarioCode) snapshotQuery = snapshotQuery.eq('scenario_code', query.scenarioCode);
     if (query.from) snapshotQuery = snapshotQuery.gte('captured_at', query.from);
@@ -116,7 +117,10 @@ export class OperatorService {
 
   async snapshotWindow(query: SnapshotWindowQueryDto) {
     this.validateSnapshotWindow(query);
-    let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*').order('captured_at', { ascending: false }).order('id', { ascending: false });
+    let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*')
+      .order('effective_at', { ascending: false })
+      .order('captured_at', { ascending: false })
+      .order('id', { ascending: false });
     if (query.scenarioCode) snapshotQuery = snapshotQuery.eq('scenario_code', query.scenarioCode);
     if (query.from) snapshotQuery = snapshotQuery.gte('captured_at', query.from);
     if (query.to) snapshotQuery = snapshotQuery.lte('captured_at', query.to);
@@ -201,7 +205,7 @@ export class OperatorService {
     const replaySource = String((observations ?? [])[0]?.source_name ?? '');
     const replayPrefix = ['AI_PARQUET_REPLAY:', 'AI_BRANCH_TEST_REPLAY:']
       .find((prefix) => replaySource.startsWith(prefix));
-    const sourceAt = replayPrefix ? replaySource.slice(replayPrefix.length) : snapshot.captured_at;
+    const sourceAt = snapshot.source_at ?? (replayPrefix ? replaySource.slice(replayPrefix.length) : snapshot.captured_at);
     const kpis = calculateSnapshotKpis(observations ?? []);
     const derivedHotspots = deriveHotspots((latestRun?.forecasts ?? []).map((forecast: any) => ({
       zoneId: `AI-Z${String(forecast.zone_id).padStart(2, '0')}`,
@@ -263,20 +267,15 @@ export class OperatorService {
   }
 
   private async previousHotspotSeverities(snapshot: any, horizon: number, registeredZoneCount: number) {
-    let previousSnapshotQuery = this.db.client
-      .from('supply_demand_snapshots')
-      .select('id')
-      .lt('id', snapshot.id)
-      .order('id', { ascending: false });
-    if (snapshot.scenario_code) previousSnapshotQuery = previousSnapshotQuery.eq('scenario_code', snapshot.scenario_code);
-    const { data: previousSnapshot, error: previousSnapshotError } = await previousSnapshotQuery.limit(1).maybeSingle();
+    const { data: previousSnapshotId, error: previousSnapshotError } = await this.db.client
+      .rpc('previous_snapshot_id', { p_snapshot_id: snapshot.id });
     if (previousSnapshotError) this.db.unwrap(null, previousSnapshotError);
-    if (!previousSnapshot) return new Map<string, 'High' | 'Critical'>();
+    if (!previousSnapshotId) return new Map<string, 'High' | 'Critical'>();
 
     const { data, error } = await this.db.client
       .from('ai_zone_forecasts')
       .select('*,forecast_runs!inner(id,status,completed_at)')
-      .eq('snapshot_id', previousSnapshot.id)
+      .eq('snapshot_id', previousSnapshotId)
       .eq('horizon_min', horizon)
       .in('forecast_runs.status', ['COMPLETED', 'FALLBACK', 'SUPERSEDED']);
     const forecasts = this.db.unwrap(data, error) ?? [];
@@ -311,7 +310,8 @@ export class OperatorService {
     const { data, error } = await this.db.client
       .from('supply_demand_snapshots')
       .select('id,captured_at')
-      .order('created_at', { ascending: false })
+      .order('effective_at', { ascending: false })
+      .order('captured_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(30);
     const snapshots = this.db.unwrap(data, error);
@@ -549,7 +549,8 @@ export class OperatorService {
     const { data: latestSnapshot, error } = await this.db.client
       .from('supply_demand_snapshots')
       .select('id')
-      .order('created_at', { ascending: false })
+      .order('effective_at', { ascending: false })
+      .order('captured_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -852,17 +853,12 @@ export class OperatorService {
 
     // forecast_at follows the displayed server clock. Ground truth must instead
     // advance from the immutable replay source bucket by the forecast horizon.
-    const { data: candidates, error: candidateError } = await this.db.client.from('ai_zone_observations')
-      .select('snapshot_id,source_name')
-      .like('source_name', 'AI_PARQUET_REPLAY:%')
-      .order('snapshot_id', { ascending: false })
-      .limit(2000);
+    const { data: targetSnapshot, error: candidateError } = await this.db.client.from('supply_demand_snapshots')
+      .select('id')
+      .eq('source_at', replayTargetAt)
+      .maybeSingle();
     if (candidateError) this.db.unwrap(null, candidateError);
-    const targetMs = Date.parse(replayTargetAt);
-    const targetSnapshotId = candidates?.find((row: any) => {
-      const sourceAt = String(row.source_name ?? '').slice('AI_PARQUET_REPLAY:'.length);
-      return Number.isFinite(targetMs) && Date.parse(sourceAt) === targetMs;
-    })?.snapshot_id;
+    const targetSnapshotId = targetSnapshot?.id;
     if (!targetSnapshotId) {
       if (!this.ai) return { status: 'PENDING_GROUND_TRUTH', targetAt, evaluatedZones: 0 };
       try {

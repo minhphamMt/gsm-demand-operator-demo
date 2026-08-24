@@ -1,4 +1,4 @@
-import { AiService, isReplaySnapshotReusable } from './ai.service';
+import { AiService, replaySourceAtIso } from './ai.service';
 
 function eligibleDriverQuery(count: number) {
   const chain = {
@@ -17,13 +17,10 @@ function eligibleDriverQuery(count: number) {
 }
 
 describe('AiService persistence', () => {
-  it('does not reuse a replay snapshot beyond the frontend freshness window', () => {
-    const now = new Date('2026-08-15T13:10:00.000Z').getTime();
-
-    expect(isReplaySnapshotReusable('2026-08-15T13:06:00.000Z', now)).toBe(true);
-    expect(isReplaySnapshotReusable('2026-08-15T13:05:00.000Z', now)).toBe(false);
-    expect(isReplaySnapshotReusable('2026-09-25T01:35:00.000Z', now)).toBe(false);
-    expect(isReplaySnapshotReusable('invalid', now)).toBe(false);
+  it('normalizes replay source time to a five-minute UTC identity', () => {
+    expect(replaySourceAtIso('2026-09-25T08:35:00+07:00')).toBe('2026-09-25T01:35:00.000Z');
+    expect(() => replaySourceAtIso('2026-09-25T08:36:00+07:00')).toThrow('Replay source timestamp');
+    expect(() => replaySourceAtIso('invalid')).toThrow('Replay source timestamp');
   });
 
   it('loads an exact replay observation without running a forecast', async () => {
@@ -97,40 +94,34 @@ describe('AiService persistence', () => {
     expect(modelInputUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'COMPLETED' }));
   });
 
-  it('supersedes completed forecasts from older snapshots after ingesting a new replay snapshot', async () => {
-    const existingObservation = {
-      eq: jest.fn(), limit: jest.fn(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }), order: jest.fn(), select: jest.fn(),
-    };
-    existingObservation.eq.mockReturnValue(existingObservation);
-    existingObservation.order.mockReturnValue(existingObservation);
-    existingObservation.limit.mockReturnValue(existingObservation);
-    existingObservation.select.mockReturnValue(existingObservation);
-    const snapshotSingle = jest.fn().mockResolvedValue({ data: { id: 9, captured_at: '2026-08-15T00:00:00.000Z' }, error: null });
-    const snapshotInsert = jest.fn().mockReturnValue({ select: jest.fn().mockReturnValue({ single: snapshotSingle }) });
-    const forecastStatusIn = jest.fn().mockResolvedValue({ error: null });
-    const forecastStatusLt = jest.fn().mockReturnValue({ in: forecastStatusIn });
-    const forecastUpdate = jest.fn().mockReturnValue({ lt: forecastStatusLt });
+  it('delegates concurrent replay identity and persistence to one atomic database command', async () => {
+    const sourceAt = '2026-08-15T00:00:00.000Z';
+    const zones = Array.from({ length: 30 }, (_, index) => ({
+      zone_id: index + 1, demand_observed: 10, idle_supply: 8, enroute_supply: 0,
+      rain_mm_h: 0, rain_forecast_15: 0, rain_forecast_30: 0, peak_flag: 0, holiday_flag: 0,
+    }));
+    const rpc = jest.fn().mockResolvedValue({
+      data: [{ id: 9, captured_at: '2026-08-15T00:00:00.000Z', source_at: sourceAt, created: true }],
+      error: null,
+    });
     const db = {
-      client: {
-        from: jest.fn((table: string) => {
-          if (table === 'ai_zone_observations') return { ...existingObservation, insert: jest.fn().mockResolvedValue({ error: null }) };
-          if (table === 'supply_demand_snapshots') return { insert: snapshotInsert };
-          if (table === 'forecast_runs') return { update: forecastUpdate };
-          throw new Error(`unexpected table ${table}`);
-        }),
-      },
+      client: { rpc, from: jest.fn() },
       unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
     };
     const service = new AiService(db as never);
-    jest.spyOn(service as never, 'request').mockResolvedValue({
-      dataset: 'test', source_at: '2026-08-15T00:00:00.000Z', regime: 'normal',
-      zones: [{ zone_id: 1, demand_observed: 10, idle_supply: 8, enroute_supply: 0, rain_mm_h: 0, rain_forecast_15: 0, rain_forecast_30: 0, peak_flag: 0, holiday_flag: 0 }],
-    } as never);
-    await service.runReplay('2026-08-15T00:00:00.000Z');
+    jest.spyOn(service as never, 'request').mockResolvedValue({ dataset: 'test', source_at: sourceAt, regime: 'normal', zones } as never);
 
-    expect(forecastUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'SUPERSEDED' }));
-    expect(forecastStatusLt).toHaveBeenCalledWith('snapshot_id', 9);
-    expect(forecastStatusIn).toHaveBeenCalledWith('status', ['COMPLETED', 'FALLBACK']);
+    await expect(Promise.all([service.runReplay(sourceAt), service.runReplay(sourceAt)])).resolves.toEqual([
+      expect.objectContaining({ snapshot: expect.objectContaining({ id: 9, sourceAt }) }),
+      expect.objectContaining({ snapshot: expect.objectContaining({ id: 9, sourceAt }) }),
+    ]);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledWith('ingest_replay_snapshot', expect.objectContaining({
+      p_source_at: sourceAt,
+      p_scenario_code: 'NORMAL',
+      p_zones: zones,
+    }));
+    expect(db.client.from).not.toHaveBeenCalled();
   });
 
   it('persists trained forecasts and gives the proposal a non-zero offer batch', async () => {

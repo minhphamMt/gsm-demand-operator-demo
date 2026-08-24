@@ -53,17 +53,21 @@ class ReadQuery implements PromiseLike<{ data: Row[]; error: null }> {
 }
 
 describe('OperatorService snapshot selection', () => {
-  it('selects the latest ingested snapshot instead of an older row with a future captured_at', async () => {
+  it('selects the latest snapshot by replay source time instead of insertion id or captured-at wall clock', async () => {
     const snapshots = new ReadQuery([
       {
         id: 47,
         captured_at: '2026-09-25T00:00:00.000Z',
+        source_at: '2026-08-11T00:00:00.000Z',
+        effective_at: '2026-08-11T00:00:00.000Z',
         created_at: '2026-08-11T00:00:00.000Z',
         scenario_code: 'RAIN',
       },
       {
         id: 86,
         captured_at: '2026-08-12T05:00:00.000Z',
+        source_at: '2026-08-12T05:00:00.000Z',
+        effective_at: '2026-08-12T05:00:00.000Z',
         created_at: '2026-08-12T05:00:01.000Z',
         scenario_code: 'NORMAL',
       },
@@ -101,8 +105,9 @@ describe('OperatorService snapshot selection', () => {
       sourceAt: '2026-08-12T05:00:00.000Z',
       kpis: { fleetAvailable: 8, fulfillmentRate: 80, requests: 10, residualGap: 2 },
     });
-    expect(snapshots.orders.slice(0, 2)).toEqual([
-      { column: 'created_at', ascending: false },
+    expect(snapshots.orders.slice(0, 3)).toEqual([
+      { column: 'effective_at', ascending: false },
+      { column: 'captured_at', ascending: false },
       { column: 'id', ascending: false },
     ]);
   });
@@ -126,7 +131,10 @@ describe('OperatorService snapshot selection', () => {
       { forecast_run_id: 'run-15', forecast_runs: run('run-15', '2026-08-12T05:00:03.000Z'), horizon_min: 15, zone_id: 2, forecast_at: '2026-08-12T05:15:00.000Z', predicted_demand: 12, predicted_supply: 8 },
     ]);
     const db = {
-      client: { from: jest.fn((table: string) => ({ ai_zone_forecasts: forecasts, ai_zone_observations: observations, ai_zone_registry_api_v: zones, supply_demand_snapshots: snapshots })[table]) },
+      client: {
+        from: jest.fn((table: string) => ({ ai_zone_forecasts: forecasts, ai_zone_observations: observations, ai_zone_registry_api_v: zones, supply_demand_snapshots: snapshots })[table]),
+        rpc: jest.fn().mockResolvedValue({ data: null, error: null }),
+      },
       unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
     };
 
@@ -308,8 +316,8 @@ describe('OperatorService snapshot selection', () => {
 
   it('builds baselines from per-zone observations so surplus cannot cancel another zone gap', async () => {
     const snapshots = new ReadQuery([
-      { id: 2, captured_at: '2026-08-12T05:05:00.000Z', created_at: '2026-08-12T05:05:01.000Z' },
-      { id: 1, captured_at: '2026-08-12T05:00:00.000Z', created_at: '2026-08-12T05:00:01.000Z' },
+      { id: 2, captured_at: '2026-08-12T05:05:00.000Z', effective_at: '2026-08-12T05:05:00.000Z', created_at: '2026-08-12T05:05:01.000Z' },
+      { id: 1, captured_at: '2026-08-12T05:00:00.000Z', effective_at: '2026-08-12T05:00:00.000Z', created_at: '2026-08-12T05:00:01.000Z' },
     ]);
     const observations = new ReadQuery([
       { snapshot_id: 2, data_status: 'live', demand_observed: 10, idle_supply: 0 },

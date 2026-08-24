@@ -28,4 +28,16 @@ describe('operator database contracts', () => {
     expect(sql).toContain('jsonb_array_elements');
     expect(sql).not.toContain('$.moves[*] ? (coalesce(');
   });
+
+  it('makes replay ingestion atomic and orders snapshots by source/capture time', () => {
+    const sql = migration('20260824215000_replay_snapshot_identity.sql');
+
+    expect(sql).toContain('source_at timestamptz');
+    expect(sql).toContain('effective_at timestamptz');
+    expect(sql).toContain('supply_demand_snapshots_replay_source_at_unique');
+    expect(sql).toContain('create or replace function public.ingest_replay_snapshot');
+    expect(sql).toContain('on conflict do nothing');
+    expect(sql).toContain('previous_snapshots.effective_at < v_snapshot.effective_at');
+    expect(sql).toContain('create or replace function public.previous_snapshot_id');
+  });
 });

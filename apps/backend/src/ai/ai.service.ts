@@ -64,13 +64,23 @@ type DatasetSnapshot = {
 };
 
 const replaySourcePrefixes = ['AI_PARQUET_REPLAY:', 'AI_BRANCH_TEST_REPLAY:'] as const;
-export const replaySnapshotReuseMs = 5 * 60_000;
 
-export function isReplaySnapshotReusable(sourceUpdatedAt: unknown, now = Date.now()) {
-  if (!sourceUpdatedAt) return false;
-  const updatedAt = new Date(String(sourceUpdatedAt)).getTime();
-  const ageMs = now - updatedAt;
-  return Number.isFinite(updatedAt) && ageMs >= 0 && ageMs < replaySnapshotReuseMs;
+export function replaySourceAtIso(sourceAt: unknown) {
+  const parsed = new Date(String(sourceAt));
+  if (Number.isNaN(parsed.getTime()) || parsed.getUTCMinutes() % 5 || parsed.getUTCSeconds() || parsed.getUTCMilliseconds()) {
+    throw new UnprocessableEntityException({
+      code: 'AI_REPLAY_SOURCE_INVALID',
+      message: 'Replay source timestamp must align to a valid 5-minute bucket.',
+    });
+  }
+  return parsed.toISOString();
+}
+
+function capturedAtNow() {
+  const capturedAt = new Date();
+  capturedAt.setUTCSeconds(0, 0);
+  capturedAt.setUTCMinutes(capturedAt.getUTCMinutes() - (capturedAt.getUTCMinutes() % 5));
+  return capturedAt;
 }
 
 const requiredLiveFields = [
@@ -228,94 +238,46 @@ export class AiService {
 
   private async ingestNext(regime?: DatasetRegime) {
     const { data: latestReplay, error: replayError } = await this.db.client
-      .from('ai_zone_observations')
-      .select('source_name,snapshot_id')
-      .like('source_name', 'AI_PARQUET_REPLAY:%')
-      .order('snapshot_id', { ascending: false })
+      .from('supply_demand_snapshots')
+      .select('source_at')
+      .not('source_at', 'is', null)
+      .order('source_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (replayError) this.db.unwrap(null, replayError);
-    const afterSourceAt = latestReplay?.source_name
-      ? String(latestReplay.source_name).slice('AI_PARQUET_REPLAY:'.length)
-      : undefined;
+    const afterSourceAt = latestReplay?.source_at ? String(latestReplay.source_at) : undefined;
     const dataset = await this.request<DatasetSnapshot>('/api/v1/datasets/snapshots/next', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ after_source_at: afterSourceAt, regime }),
     });
-    if (dataset.zones.length !== 30 || new Set(dataset.zones.map((zone) => zone.zone_id)).size !== 30) {
-      throw new UnprocessableEntityException('Dataset snapshot must contain exactly 30 unique zones');
-    }
-    const capturedAt = new Date();
-    capturedAt.setUTCSeconds(0, 0);
-    capturedAt.setUTCMinutes(capturedAt.getUTCMinutes() - (capturedAt.getUTCMinutes() % 5));
-    const totalDemand = dataset.zones.reduce((sum, zone) => sum + zone.demand_observed, 0);
-    const totalSupply = dataset.zones.reduce((sum, zone) => sum + zone.idle_supply + zone.enroute_supply, 0);
-    const { data: snapshot, error: snapshotError } = await this.db.client.from('supply_demand_snapshots').insert({
-      captured_at: capturedAt.toISOString(),
-      data_source: 'AI_PARQUET_DATASET',
-      scenario_code: dataset.regime.toUpperCase(),
-      total_demand: totalDemand,
-      total_supply: totalSupply,
-    }).select('id,captured_at,data_source,scenario_code,total_demand,total_supply').single();
-    if (snapshotError) this.db.unwrap(null, snapshotError);
-    if (!snapshot) throw new UnprocessableEntityException('Dataset snapshot could not be persisted');
-    const sourceName = `AI_PARQUET_REPLAY:${dataset.source_at}`;
-    const { error: observationsError } = await this.db.client.from('ai_zone_observations').insert(
-      dataset.zones.map((zone) => ({
-        ...zone,
-        snapshot_id: snapshot.id,
-        data_status: 'live',
-        source_name: sourceName,
-        source_updated_at: capturedAt.toISOString(),
-      })),
-    );
-    if (observationsError) {
-      await this.db.client.from('supply_demand_snapshots').delete().eq('id', snapshot.id);
-      this.db.unwrap(null, observationsError);
-    }
-    await this.supersedePriorForecastRuns(Number(snapshot.id));
-    return { ...snapshot, dataset: dataset.dataset, sourceAt: dataset.source_at, regime: dataset.regime };
+    return this.ingestReplayDataset(dataset);
   }
 
   private async ingestExact(dataset: DatasetSnapshot) {
-    const sourceName = `AI_PARQUET_REPLAY:${dataset.source_at}`;
-    const { data: existingObservation, error: existingError } = await this.db.client
-      .from('ai_zone_observations').select('snapshot_id,source_updated_at').eq('source_name', sourceName)
-      .order('snapshot_id', { ascending: false }).limit(1).maybeSingle();
-    if (existingError) this.db.unwrap(null, existingError);
-    const existingIsFresh = isReplaySnapshotReusable(existingObservation?.source_updated_at);
-    if (existingObservation?.snapshot_id && existingIsFresh) {
-      const { data: existing, error } = await this.db.client.from('supply_demand_snapshots').select('*').eq('id', existingObservation.snapshot_id).single();
-      return this.db.unwrap(existing, error);
-    }
-    const totalDemand = dataset.zones.reduce((sum, zone) => sum + zone.demand_observed, 0);
-    const totalSupply = dataset.zones.reduce((sum, zone) => sum + zone.idle_supply + zone.enroute_supply, 0);
-    const capturedAt = new Date();
-    capturedAt.setUTCSeconds(0, 0);
-    capturedAt.setUTCMinutes(capturedAt.getUTCMinutes() - (capturedAt.getUTCMinutes() % 5));
-    const { data: snapshot, error: snapshotError } = await this.db.client.from('supply_demand_snapshots').insert({
-      captured_at: capturedAt.toISOString(), data_source: 'AI_PARQUET_DATASET', scenario_code: dataset.regime.toUpperCase(),
-      total_demand: totalDemand, total_supply: totalSupply,
-    }).select('*').single();
-    if (snapshotError) this.db.unwrap(null, snapshotError);
-    const { error: observationsError } = await this.db.client.from('ai_zone_observations').insert(dataset.zones.map((zone) => ({
-      ...zone, snapshot_id: snapshot.id, data_status: 'live', source_name: sourceName, source_updated_at: capturedAt.toISOString(),
-    })));
-    if (observationsError) {
-      await this.db.client.from('supply_demand_snapshots').delete().eq('id', snapshot.id);
-      this.db.unwrap(null, observationsError);
-    }
-    await this.supersedePriorForecastRuns(Number(snapshot.id));
-    return snapshot;
+    return this.ingestReplayDataset(dataset);
   }
 
-  private async supersedePriorForecastRuns(snapshotId: number) {
-    const { error } = await this.db.client.from('forecast_runs').update({
-      status: 'SUPERSEDED',
-      superseded_at: new Date().toISOString(),
-    }).lt('snapshot_id', snapshotId).in('status', ['COMPLETED', 'FALLBACK']);
+  private async ingestReplayDataset(dataset: DatasetSnapshot) {
+    if (dataset.zones.length !== 30 || new Set(dataset.zones.map((zone) => zone.zone_id)).size !== 30) {
+      throw new UnprocessableEntityException('Dataset snapshot must contain exactly 30 unique zones');
+    }
+    const sourceAt = replaySourceAtIso(dataset.source_at);
+    const capturedAt = capturedAtNow();
+    const totalDemand = dataset.zones.reduce((sum, zone) => sum + zone.demand_observed, 0);
+    const totalSupply = dataset.zones.reduce((sum, zone) => sum + zone.idle_supply + zone.enroute_supply, 0);
+    const { data, error } = await this.db.client.rpc('ingest_replay_snapshot', {
+      p_captured_at: capturedAt.toISOString(),
+      p_source_at: sourceAt,
+      p_scenario_code: dataset.regime.toUpperCase(),
+      p_total_demand: totalDemand,
+      p_total_supply: totalSupply,
+      p_zones: dataset.zones,
+    });
     if (error) this.db.unwrap(null, error);
+    const snapshot = Array.isArray(data) ? data[0] : data;
+    if (!snapshot) throw new UnprocessableEntityException('Dataset snapshot could not be persisted');
+    return { ...snapshot, dataset: dataset.dataset, sourceAt, regime: dataset.regime };
   }
 
   private validateLiveZones(rows: DbRow[]) {
