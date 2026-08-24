@@ -13,6 +13,7 @@ class ReadQuery implements PromiseLike<{ data: Row[]; error: null }> {
   lt() { return this; }
   eq() { return this; }
   neq() { return this; }
+  is() { return this; }
   gte() { return this; }
   lte() { return this; }
   order(column: string, options: { ascending: boolean } = { ascending: true }) {
@@ -185,13 +186,28 @@ describe('OperatorService snapshot selection', () => {
     };
     commandRead.eq.mockReturnValue(commandRead);
     commandRead.select.mockReturnValue(commandRead);
-    const snapshots = new ReadQuery([{ id: 5, created_at: '2026-08-12T05:10:00.000Z' }]);
+    let snapshotReads = 0;
     const db = {
       client: {
         from: jest.fn((table: string) => {
           if (table === 'proposals') return { select: jest.fn().mockReturnValue(proposalRead) };
           if (table === 'command_records') return commandRead;
-          if (table === 'supply_demand_snapshots') return snapshots;
+          if (table === 'supply_demand_snapshots') {
+            snapshotReads += 1;
+            return snapshotReads === 1
+              ? new ReadQuery([{
+                id: 4,
+                captured_at: '2026-08-12T05:00:00.000Z',
+                source_at: null,
+                data_source: 'LIVE',
+              }])
+              : new ReadQuery([{
+                id: 5,
+                captured_at: '2026-08-12T05:10:00.000Z',
+                source_at: null,
+                data_source: 'LIVE',
+              }]);
+          }
           throw new Error(`Unexpected table ${table}`);
         }),
       },
@@ -201,6 +217,91 @@ describe('OperatorService snapshot selection', () => {
     await expect(new OperatorService(db as never).reviewProposal('proposal-1', 'APPROVED', { expectedVersion: 1, note: 'approved' }, 'actor-1', 'request-1'))
       .rejects.toMatchObject({ response: expect.objectContaining({ code: 'STALE_PROPOSAL' }) });
     expect(db.client.from).not.toHaveBeenCalledWith('operational_audit_logs');
+  });
+
+  it('approves a fresh replay proposal by source bucket even when later replay buckets exist', async () => {
+    const proposalRead = new ReadQuery([{
+      id: 'proposal-replay',
+      input_snapshot_id: 328,
+      status: 'UNDER_REVIEW',
+      policy_status: 'PASSED',
+      window_end_at: '2099-01-01T00:00:00.000Z',
+      generator_type: 'AGENT',
+      simulation_details: {
+        metrics_before: { unmet_demand: 10 },
+        metrics_after_relocation: { unmet_demand: 8 },
+      },
+      source_plan: { moves: [{ drivers: 2 }] },
+    }]);
+    const commandRead = new ReadQuery([]);
+    const snapshots = new ReadQuery([{
+      id: 328,
+      captured_at: '2026-08-16T07:20:00.000Z',
+      source_at: '2026-09-25T01:35:00.000Z',
+      data_source: 'AI_PARQUET_DATASET',
+    }]);
+    const rpc = jest.fn().mockResolvedValue({ data: 'proposal-replay', error: null });
+    const db = {
+      client: {
+        from: jest.fn((table: string) => {
+          if (table === 'proposals') return proposalRead;
+          if (table === 'command_records') return commandRead;
+          if (table === 'supply_demand_snapshots') return snapshots;
+          throw new Error(`Unexpected table ${table}`);
+        }),
+        rpc,
+      },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    };
+    const service = new OperatorService(db as never);
+    jest.spyOn(service, 'getProposal').mockResolvedValue({ id: 'proposal-replay', status: 'Approved' } as never);
+
+    await expect(service.reviewProposal(
+      'proposal-replay',
+      'APPROVED',
+      { expectedVersion: 1, note: 'approved' },
+      'actor-1',
+      'request-1',
+    )).resolves.toMatchObject({ id: 'proposal-replay', status: 'Approved' });
+    expect(rpc).toHaveBeenCalledWith('review_proposal', expect.objectContaining({
+      p_proposal_id: 'proposal-replay',
+      p_decision: 'APPROVED',
+    }));
+    expect(db.client.from).toHaveBeenCalledWith('supply_demand_snapshots');
+  });
+
+  it('treats live snapshots captured in the same bucket as current despite different ids', async () => {
+    let snapshotReads = 0;
+    const db = {
+      client: {
+        from: jest.fn((table: string) => {
+          if (table !== 'supply_demand_snapshots') throw new Error(`Unexpected table ${table}`);
+          snapshotReads += 1;
+          return snapshotReads === 1
+            ? new ReadQuery([{
+              id: 4,
+              captured_at: '2026-08-12T05:00:00.000Z',
+              source_at: null,
+              data_source: 'LIVE',
+            }])
+            : new ReadQuery([{
+              id: 5,
+              captured_at: '2026-08-12T05:00:00.000Z',
+              source_at: null,
+              data_source: 'LIVE',
+            }]);
+        }),
+      },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    };
+    const service = new OperatorService(db as never) as unknown as {
+      assertProposalSnapshotCurrent: (proposal: { input_snapshot_id: number }, proposalId: string) => Promise<void>;
+    };
+
+    await expect(service.assertProposalSnapshotCurrent(
+      { input_snapshot_id: 4 },
+      'proposal-live',
+    )).resolves.toBeUndefined();
   });
 
   it('activates an approved proposal within its window after a newer snapshot is ingested', async () => {

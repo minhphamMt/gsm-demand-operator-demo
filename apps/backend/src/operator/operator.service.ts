@@ -546,16 +546,50 @@ export class OperatorService {
   private async assertProposalSnapshotCurrent(proposal: any, proposalId: string) {
     const inputSnapshotId = Number(proposal.input_snapshot_id);
     if (!Number.isInteger(inputSnapshotId)) return;
-    const { data: latestSnapshot, error } = await this.db.client
+
+    const { data: inputSnapshot, error: inputError } = await this.db.client
       .from('supply_demand_snapshots')
-      .select('id')
-      .order('effective_at', { ascending: false })
+      .select('id,captured_at,source_at,data_source')
+      .eq('id', inputSnapshotId)
+      .maybeSingle();
+    if (inputError) this.db.unwrap(null, inputError);
+    if (!inputSnapshot) {
+      throw new ConflictException({
+        code: 'STALE_PROPOSAL',
+        message: `Proposal ${proposalId} no longer has its input snapshot; run the model again before continuing.`,
+      });
+    }
+
+    // A replay source bucket is explicitly selected by the operator. Its
+    // source_at is the immutable identity, so a later bucket elsewhere in the
+    // frozen dataset must not invalidate a still-open proposal for this one.
+    if (inputSnapshot.data_source === 'AI_PARQUET_DATASET') {
+      const sourceAt = new Date(String(inputSnapshot.source_at));
+      if (inputSnapshot.source_at && !Number.isNaN(sourceAt.getTime())) return;
+      throw new ConflictException({
+        code: 'STALE_PROPOSAL',
+        message: `Proposal ${proposalId} has no valid replay source identity; run the model again before continuing.`,
+      });
+    }
+
+    // Non-replay snapshots follow ingestion time. Compare captured_at rather
+    // than the surrogate id so concurrent rows for one bucket are equivalent.
+    const { data: latestSnapshot, error: latestError } = await this.db.client
+      .from('supply_demand_snapshots')
+      .select('id,captured_at')
+      .is('source_at', null)
       .order('captured_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (error) this.db.unwrap(null, error);
-    if (!latestSnapshot || Number(latestSnapshot.id) === inputSnapshotId) return;
+    if (latestError) this.db.unwrap(null, latestError);
+    const inputCapturedAt = new Date(String(inputSnapshot.captured_at)).getTime();
+    const latestCapturedAt = new Date(String(latestSnapshot?.captured_at)).getTime();
+    if (!latestSnapshot || (
+      Number.isFinite(inputCapturedAt)
+      && Number.isFinite(latestCapturedAt)
+      && inputCapturedAt === latestCapturedAt
+    )) return;
     throw new ConflictException({
       code: 'STALE_PROPOSAL',
       message: `Proposal ${proposalId} uses an older snapshot; run the model again before continuing.`,
