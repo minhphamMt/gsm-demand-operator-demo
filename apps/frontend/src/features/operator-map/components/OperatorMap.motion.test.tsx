@@ -82,11 +82,14 @@ import { OperatorMap } from './OperatorMap'
 
 describe('OperatorMap relocation vehicle', () => {
   let animationFrames: FrameRequestCallback[]
+  let nowMs: number
 
   beforeEach(() => {
     mapboxMocks.setLngLat.mockClear()
     mapboxMocks.setRotation.mockClear()
     animationFrames = []
+    nowMs = Date.parse('2026-08-25T00:00:00.000Z')
+    vi.spyOn(Date, 'now').mockImplementation(() => nowMs)
     vi.stubGlobal('ResizeObserver', class {
       disconnect() { return undefined }
       observe() { return undefined }
@@ -100,12 +103,14 @@ describe('OperatorMap relocation vehicle', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
   it('renders the project car and advances it along each executing move', async () => {
     const zones = createZones().slice(0, 2).map((zone) => ({ ...zone, rainMmH: 0 }))
     const move = {
       id: 'move-1',
+      etaMinutes: 15,
       sourceZoneId: zones[0]!.id,
       targetZoneId: zones[1]!.id,
       quantity: 8,
@@ -114,6 +119,7 @@ describe('OperatorMap relocation vehicle', () => {
       forecastMinutes: 5,
       moves: [move],
       onZoneSelect: vi.fn(),
+      vehicleStartedAt: '2026-08-25T00:00:00.000Z',
       zones,
     }
     const view = render(<OperatorMap {...commonProps} flowState="executing" />)
@@ -125,9 +131,17 @@ describe('OperatorMap relocation vehicle', () => {
 
     act(() => animationFrames.splice(0).forEach((callback) => callback(1_000)))
     const startCoordinate = marker.dataset.coordinate
+    nowMs = Date.parse('2026-08-25T00:06:00.000Z')
     act(() => animationFrames.splice(0).forEach((callback) => callback(3_000)))
     expect(marker.dataset.coordinate).not.toBe(startCoordinate)
     expect(mapboxMocks.setRotation).toHaveBeenCalled()
+
+    nowMs = Date.parse('2026-08-25T00:12:00.000Z')
+    act(() => animationFrames.splice(0).forEach((callback) => callback(4_000)))
+    const destinationCoordinate = marker.dataset.coordinate
+    nowMs = Date.parse('2026-08-25T00:20:00.000Z')
+    act(() => animationFrames.splice(0).forEach((callback) => callback(5_000)))
+    expect(marker.dataset.coordinate).toBe(destinationCoordinate)
 
     view.rerender(<OperatorMap {...commonProps} flowState="completed" />)
     await waitFor(() => expect(screen.queryByRole('img', { name: '8 xe đang điều chuyển' })).not.toBeInTheDocument())

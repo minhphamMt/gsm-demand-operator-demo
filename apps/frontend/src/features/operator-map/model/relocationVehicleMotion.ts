@@ -5,13 +5,27 @@ export type RouteMotion = {
   coordinate: [longitude: number, latitude: number]
 }
 
+const arrivalLeadMinutes = 3
+const minimumRelocationDurationMs = 60_000
+
+/** Match the local telemetry simulator: a route may finish at ETA minus 3 minutes, never sooner. */
+export function relocationDurationMs(etaMinutes: number) {
+  return Math.max(minimumRelocationDurationMs, (Math.max(0, etaMinutes) - arrivalLeadMinutes) * 60_000)
+}
+
+export function relocationProgressAt(releasedAt: string, etaMinutes: number, now = Date.now()) {
+  const releasedAtMs = Date.parse(releasedAt)
+  if (!Number.isFinite(releasedAtMs)) return 0
+  return Math.min(1, Math.max(0, (now - releasedAtMs) / relocationDurationMs(etaMinutes)))
+}
+
 /** Returns the screen-independent position and heading for the relocation car. */
 export function routeMotionAt(coordinates: readonly RouteCoordinate[], progress: number): RouteMotion | null {
   if (coordinates.length === 0) return null
   if (coordinates.length === 1) return { bearing: 0, coordinate: [...coordinates[0]!] }
 
   const finiteProgress = Number.isFinite(progress) ? progress : 0
-  const normalizedProgress = ((finiteProgress % 1) + 1) % 1
+  const normalizedProgress = Math.min(1, Math.max(0, finiteProgress))
   const routeProgress = normalizedProgress * (coordinates.length - 1)
   const segmentIndex = Math.min(Math.floor(routeProgress), coordinates.length - 2)
   const segmentProgress = routeProgress - segmentIndex

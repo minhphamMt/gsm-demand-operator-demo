@@ -8,13 +8,12 @@ import type { Move, Zone } from '@/features/operator-data'
 import relocationCarImageUrl from '@/features/operations-v2/assets/operations-car-cartoon.png'
 import { buildFlowCollections, mapLegendFor, mapTheme, mapViewportForView, zoneDotRadius, zoneFillColor, zoneStrokeColor, zonesForMapView } from '@/features/operator-map/model/operatorMapGeometry'
 import type { FlowState } from '@/features/operator-map/model/operatorMapGeometry'
-import { routeMotionAt } from '@/features/operator-map/model/relocationVehicleMotion'
+import { relocationProgressAt, routeMotionAt } from '@/features/operator-map/model/relocationVehicleMotion'
 import { env } from '@/shared/config/env'
 
 // Keep the map aligned with the policy/regime threshold used by the AI service.
 const rainThreshold = 0.5
 const mapLoadTimeoutMs = 15_000
-const relocationLoopDurationMs = 8_000
 type MapStatus = 'idle' | 'ready' | 'error'
 export type MapFailureKind = 'network' | 'timeout' | 'token-style' | 'unknown'
 export type OperatorMapLayer = 'gap' | 'demand' | 'supply'
@@ -27,6 +26,7 @@ type OperatorMapProps = {
   onZoneSelect: (zoneId: string) => void
   selectedZoneId?: string | undefined
   timeLabel?: string | undefined
+  vehicleStartedAt?: string | undefined
   view?: OperatorMapView
   zones: readonly Zone[]
 }
@@ -46,7 +46,7 @@ function mapFailureCopy(kind: MapFailureKind) {
   return 'Không thể tải bản đồ. Hãy thử lại hoặc tiếp tục thao tác bằng danh sách zone.'
 }
 
-export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = 'gap', moves = [], onZoneSelect, selectedZoneId, timeLabel, view = 'city', zones }: OperatorMapProps) {
+export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = 'gap', moves = [], onZoneSelect, selectedZoneId, timeLabel, vehicleStartedAt, view = 'city', zones }: OperatorMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const rainMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
@@ -282,9 +282,14 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
     if (!map || mapStatus !== 'ready' || flowState !== 'executing') return undefined
 
     const routes = buildFlowCollections(zones, moves).routes.features
-    const animatedRoutes = routes.flatMap((route, routeIndex) => {
+    const movesById = new Map(moves.map((move) => [move.id, move]))
+    const fallbackStartedAt = new Date().toISOString()
+    const startedAt = vehicleStartedAt ?? fallbackStartedAt
+    const animatedRoutes = routes.flatMap((route) => {
       const coordinates = route.geometry.coordinates.map((coordinate) => [coordinate[0]!, coordinate[1]!] as const)
-      const initialMotion = routeMotionAt(coordinates, 0)
+      const move = movesById.get(String(route.properties.id))
+      const etaMinutes = move?.etaMinutes ?? 15
+      const initialMotion = routeMotionAt(coordinates, relocationProgressAt(startedAt, etaMinutes))
       if (!initialMotion) return []
 
       const quantity = Number(route.properties.quantity)
@@ -300,34 +305,32 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
         .setRotation(initialMotion.bearing)
         .addTo(map)
 
-      return [{ coordinates, marker, phase: routeIndex / Math.max(1, routes.length) }]
+      return [{ coordinates, etaMinutes, marker }]
     })
     if (animatedRoutes.length === 0) return undefined
 
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
     let animationFrame: number | undefined
-    let startedAt: number | undefined
-    const positionVehicles = (elapsedMs: number) => {
+    const positionVehicles = (now: number) => {
       for (const route of animatedRoutes) {
-        const progress = (elapsedMs / relocationLoopDurationMs + route.phase) % 1
+        const progress = relocationProgressAt(startedAt, route.etaMinutes, now)
         const motion = routeMotionAt(route.coordinates, progress)
         if (motion) route.marker.setLngLat(motion.coordinate).setRotation(motion.bearing)
       }
     }
-    const animate = (timestamp: number) => {
-      startedAt ??= timestamp
-      positionVehicles(timestamp - startedAt)
+    const animate = () => {
+      positionVehicles(Date.now())
       animationFrame = window.requestAnimationFrame(animate)
     }
 
-    if (reduceMotion) positionVehicles(relocationLoopDurationMs * 0.55)
+    if (reduceMotion) positionVehicles(Date.now())
     else animationFrame = window.requestAnimationFrame(animate)
 
     return () => {
       if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame)
       for (const route of animatedRoutes) route.marker.remove()
     }
-  }, [flowState, mapStatus, moves, zones])
+  }, [flowState, mapStatus, moves, vehicleStartedAt, zones])
 
   useEffect(() => {
     const map = mapRef.current

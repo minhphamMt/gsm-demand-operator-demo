@@ -596,6 +596,7 @@ export function OperatorConsoleDashboard() {
                   ? `Dự báo ${forecastTime}`
                   : `Ghi nhận ${replayTime}`
               }
+              vehicleStartedAt={dispatchStage === "executing" ? dispatch?.releasedAt : undefined}
               view={mapView}
               zones={zones}
             />

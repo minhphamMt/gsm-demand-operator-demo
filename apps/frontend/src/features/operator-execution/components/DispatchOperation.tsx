@@ -1,7 +1,8 @@
 import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, RotateCcw, Square } from 'lucide-react'
 import { Link } from 'react-router'
 
-import { dispatchMoveLabel, dispatchProgress, dispatchStatusPresentation, type DispatchBatch, type Proposal } from '@/features/operator-data'
+import { dispatchMoveLabel, dispatchProgress, dispatchStatusPresentation, type DispatchBatch, type DispatchMove, type Proposal } from '@/features/operator-data'
+import { simulatedDispatchDrivers } from '@/features/operator-execution/model/simulatedDispatchDrivers'
 import { Button } from '@/shared/components/ui/Button'
 import { routes } from '@/shared/config/routes'
 import { formatNumber, formatTime } from '@/shared/lib/format'
@@ -15,6 +16,8 @@ type DispatchOperationProps = {
   onStop: () => void
   plan: Proposal | undefined
 }
+
+const simulatedLifecycle: readonly DispatchMove['state'][] = ['PLANNED', 'SENT', 'ACKNOWLEDGED', 'EN_ROUTE', 'ARRIVED', 'AVAILABLE']
 
 export function DispatchOperation({ batch, isRefreshing, isRetrying, onRefresh, onRetry, onStop, plan }: DispatchOperationProps) {
   const status = dispatchStatusPresentation(batch)
@@ -37,10 +40,22 @@ export function DispatchOperation({ batch, isRefreshing, isRetrying, onRefresh, 
       {batch.moves.map((move) => {
         const source = plan?.moves.find((candidate) => candidate.id === move.sourceMoveKey)
         const isFailed = move.state === 'FAILED'
+        const mockDrivers = simulatedDispatchDrivers(batch.id, move)
+        const lifecycleIndex = simulatedLifecycle.indexOf(move.state)
         return <article className={`nf-operation-move is-${move.state.toLowerCase()}`} key={move.id}>
           <i>{move.state === 'AVAILABLE' ? <CheckCircle2 size={16} /> : isFailed ? <AlertTriangle size={16} /> : <Clock3 size={16} />}</i>
-          <div><strong>{source?.sourceZoneLabel ?? `Vùng ${move.sourceZoneId}`} → {source?.targetZoneLabel ?? `Vùng ${move.targetZoneId}`}</strong><span>{move.plannedUnits} xe · {move.distanceKm.toFixed(1)} km · ETA {formatNumber(move.etaMinutes)} phút</span></div>
+          <div><strong>{source?.sourceZoneLabel ?? `Vùng ${move.sourceZoneId}`} → {source?.targetZoneLabel ?? `Vùng ${move.targetZoneId}`}</strong><span>{move.plannedUnits} xe · {move.distanceKm.toFixed(1)} km · ETA {formatNumber(move.etaMinutes)} phút · mô phỏng tối thiểu {formatNumber(Math.max(1, move.etaMinutes - 3))} phút</span></div>
           <b>{dispatchMoveLabel(move.state)}</b>
+          {lifecycleIndex >= 0 && <div aria-label="Vòng đời trạng thái mô phỏng" className="nf-operation-stage-track">
+            {simulatedLifecycle.map((stage, index) => <span className={index < lifecycleIndex ? 'is-done' : index === lifecycleIndex ? 'is-current' : ''} key={stage}>{dispatchMoveLabel(stage)}</span>)}
+          </div>}
+          <div aria-label={`Tài xế mô phỏng của ${source?.sourceZoneLabel ?? move.sourceZoneId}`} className="nf-operation-driver-list">
+            <small>TÀI XẾ MÔ PHỎNG</small>
+            {mockDrivers.map((driver) => <span key={driver.id} title={`${driver.name} · ${driver.vehiclePlate} · pin ${driver.batteryPercent}% · ${driver.profile}`}>
+              <b>{driver.name}</b>
+              <em>{driver.vehiclePlate} · pin {driver.batteryPercent}% · {driver.profile}</em>
+            </span>)}
+          </div>
           {isFailed && <Button disabled={isRetrying} onClick={() => onRetry(batch.id, move.id)} variant="secondary"><RotateCcw size={14} />Thử lại</Button>}
         </article>
       })}
