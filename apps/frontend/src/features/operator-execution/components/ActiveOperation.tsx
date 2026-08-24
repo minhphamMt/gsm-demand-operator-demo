@@ -49,7 +49,7 @@ export function ActiveOperation() {
       </div>
       <div className="nf-operation-context-meta">
         <b>{execution.plan ? `v${execution.plan.version} · ${execution.plan.title}` : execution.planId.slice(0, 12)}</b>
-        <span><i />Tự động cập nhật 2 giây</span>
+        <span><i />Tự động cập nhật 15 giây khi đang vận hành</span>
       </div>
     </div>
     <div className="nf-operation-content">

@@ -16,7 +16,7 @@ export function PlanDetailPage() {
     description={isExecutionChild ? 'Đối chiếu trước khi tiếp tục điều phối.' : 'Đối chiếu tác động trước khi phê duyệt.'}
     eyebrow={isExecutionChild ? 'ĐANG VẬN HÀNH · PHƯƠNG ÁN' : 'NOVAFOUR · AI OPERATIONS'}
     icon={<ClipboardCheck size={20} />}
-    statusLabel={isExecutionChild ? 'NGỮ CẢNH ĐANG VẬN HÀNH' : 'TỰ ĐỘNG CẬP NHẬT 2 GIÂY'}
+    statusLabel={isExecutionChild ? 'NGỮ CẢNH ĐANG VẬN HÀNH · CẬP NHẬT 15 GIÂY' : 'DỮ LIỆU PHƯƠNG ÁN ĐÃ GHI NHẬN'}
     title={isExecutionChild ? 'Chi tiết phương án' : 'Phê duyệt phương án'}
   >
     <div className="nf-plan-review-shell">

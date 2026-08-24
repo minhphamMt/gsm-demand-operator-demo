@@ -11,7 +11,7 @@ export function ExecutionOffersPage() {
     description="Theo dõi phản hồi và ETA."
     eyebrow="VẬN HÀNH · OFFER"
     icon={<MessageSquareText size={20} />}
-    statusLabel="TỰ ĐỘNG CẬP NHẬT 2 GIÂY"
+    statusLabel="CẬP NHẬT 15 GIÂY KHI ĐANG VẬN HÀNH"
     title="Offer đang phát hành"
   >
     {campaignId ? <OfferTracking campaignId={campaignId} /> : <OfferTracking />}
