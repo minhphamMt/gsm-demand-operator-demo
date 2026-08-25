@@ -40,6 +40,17 @@ export function useOperatorActions() {
       queryClient.invalidateQueries({ queryKey: operatorQueryKeys.driverRoot }),
     ])
   }
+  const refreshStoppedExecutionFlow = async () => {
+    await Promise.all([
+      refreshPlans(),
+      queryClient.invalidateQueries({ queryKey: operatorQueryKeys.campaigns }),
+      queryClient.invalidateQueries({ queryKey: operatorQueryKeys.dispatch }),
+      queryClient.invalidateQueries({ queryKey: operatorQueryKeys.offerRoot }),
+      queryClient.invalidateQueries({ queryKey: operatorQueryKeys.audit }),
+      queryClient.invalidateQueries({ queryKey: operatorQueryKeys.driverRoot }),
+      queryClient.invalidateQueries({ queryKey: ['operator', 'snapshot'] }),
+    ])
+  }
   const refreshCampaignConflict = async (error: Error) => {
     if (error instanceof AppError && (error.status === 409 || error.status === 422)) await refreshCampaignFlow()
   }
@@ -113,7 +124,7 @@ export function useOperatorActions() {
       onError: refreshProposalAfterUncertainMutation,
       onSuccess: async (campaign) => { cacheCampaign(campaign); await refreshPlans(); await refreshCampaignFlow() },
     }),
-    cancelCampaign: useMutation({ mutationFn: operatorAdapter.cancelCampaign, onError: refreshCampaignConflict, onSuccess: async (campaign) => { cacheCampaign(campaign); await refreshCampaignFlow() } }),
+    cancelCampaign: useMutation({ mutationFn: operatorAdapter.cancelCampaign, onError: refreshCampaignConflict, onSuccess: async (campaign) => { cacheCampaign(campaign); await refreshStoppedExecutionFlow() } }),
     releaseDispatch: useMutation({
       mutationFn: operatorAdapter.releaseDispatch,
       onError: refreshProposalAfterUncertainMutation,
@@ -126,12 +137,7 @@ export function useOperatorActions() {
     }),
     cancelDispatch: useMutation({
       mutationFn: ({ batchId, reason }: { batchId: string; reason: string }) => operatorAdapter.cancelDispatch(batchId, reason),
-      onSuccess: async () => {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: operatorQueryKeys.dispatch }),
-          queryClient.invalidateQueries({ queryKey: operatorQueryKeys.audit }),
-        ])
-      },
+      onSuccess: refreshStoppedExecutionFlow,
     }),
     retryDispatch: useMutation({
       mutationFn: ({ batchId, moveId, reason }: { batchId: string; moveId: string; reason: string }) => operatorAdapter.retryDispatchMove(batchId, moveId, reason),

@@ -537,7 +537,27 @@ export function OperatorConsoleDashboard() {
   const stopPending = actions.cancelDispatch.isPending || actions.cancelCampaign.isPending;
   const stopActiveExecution = (reason: string) => {
     if (!stopTarget) return;
-    const onSuccess = () => setStopTarget(null);
+    const onSuccess = () => {
+      setStopTarget(null);
+      setDialog(null);
+      setDrawerOpen(false);
+      setPlanningSourceAt(undefined);
+      setReplaySnapshot(undefined);
+      setForecastRun(null);
+      setOptimizationStopReason(undefined);
+      setMapSource("observed");
+      setWorkflowStage("observe");
+      lastAutoReplayAtRef.current = undefined;
+
+      // A running operation pins its input snapshot. Once it is stopped, load
+      // the live replay bucket again so the map and planning workflow cannot
+      // keep showing the cancelled operation's stale input.
+      if (replayAnchorAt) {
+        changeReplaySource(replayAnchorAt, true);
+      } else {
+        void snapshot.refetch();
+      }
+    };
     if (stopTarget.kind === "dispatch") {
       const stopDispatch = () => actions.cancelDispatch.mutate({ batchId: stopTarget.id, reason }, { onSuccess });
       if (execution?.campaign) {
