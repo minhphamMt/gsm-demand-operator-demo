@@ -126,8 +126,9 @@ export class AiService {
 
   async forecast(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
     await assertNoActiveExecution(this.db);
-    const decision = await this.generate(horizonMinutes, snapshotId, false, true);
-    return { decision };
+    const refreshedSnapshot = await this.refreshReplaySnapshot(snapshotId);
+    const decision = await this.generate(horizonMinutes, Number(refreshedSnapshot.id), false, true);
+    return { snapshot: refreshedSnapshot, decision };
   }
 
   async generateForOperator(horizonMinutes: 5 | 10 | 15) {
@@ -269,6 +270,20 @@ export class AiService {
 
   private async ingestExact(dataset: DatasetSnapshot) {
     return this.ingestReplayDataset(dataset);
+  }
+
+  private async refreshReplaySnapshot(snapshotId: number) {
+    const { data: snapshot, error } = await this.db.client
+      .from('supply_demand_snapshots')
+      .select('id,source_at,data_source')
+      .eq('id', snapshotId)
+      .maybeSingle();
+    if (error) this.db.unwrap(null, error);
+    if (!snapshot || snapshot.data_source !== 'AI_PARQUET_DATASET' || !snapshot.source_at) {
+      return snapshot ?? { id: snapshotId };
+    }
+    const dataset = await this.replaySnapshotAt(String(snapshot.source_at));
+    return this.ingestExact(dataset);
   }
 
   private async ingestReplayDataset(dataset: DatasetSnapshot) {
