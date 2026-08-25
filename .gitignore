@@ -108,3 +108,8 @@ frontend/dist/
 .cursor/
 .gemini/
 .codex/
+
+# Local Operations V2 draft/preview artifacts (do not commit)
+CODEX_OPERATIONS_V2_UI_TASK*.md
+apps/frontend/operations-v2-preview.html
+apps/frontend/src/prototypes/operations-v2/preview-main.tsx
