@@ -12,7 +12,7 @@ export function LoginPage() {
   const auth = useAuth(); const location = useLocation()
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('')
   const [isSubmitting, setSubmitting] = useState(false); const [error, setError] = useState<string>()
-  if (auth.status === 'authenticated') return <Navigate replace to={auth.identity.role === 'OPERATOR' ? routes.operator.plans : routes.driver.root} />
+  if (auth.status === 'authenticated') return <Navigate replace to={auth.identity.role === 'OPERATOR' ? routes.operator.root : routes.driver.root} />
 
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setSubmitting(true); setError(undefined); try { await auth.signIn(email.trim(), password) } catch { setError('Email hoặc mật khẩu không đúng.') } finally { setSubmitting(false) } }
   const returnPath = typeof location.state === 'object' && location.state !== null && 'from' in location.state
