@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { requestJson } from '@/shared/api/client'
 import { httpOperatorAdapter } from './httpOperatorAdapter'
+import { mockOperatorAdapter } from './mockOperatorAdapter'
 
 vi.mock('@/shared/api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/shared/api/client')>()
@@ -57,5 +58,21 @@ describe('httpOperatorAdapter.optimizeAiDecision', () => {
       planningStatus: 'not_required',
       reasonCode: 'NO_SOLUTION',
     })
+  })
+})
+
+describe('httpOperatorAdapter.generateAiDecision', () => {
+  beforeEach(() => request.mockReset())
+
+  it('loads the refreshed snapshot returned by the forecast endpoint', async () => {
+    const snapshot = await mockOperatorAdapter.getSnapshot('baseline')
+    request
+      .mockResolvedValueOnce({ snapshot: { id: 912 } })
+      .mockResolvedValueOnce({ ...snapshot, replayStep: '912' })
+
+    await expect(httpOperatorAdapter.generateAiDecision(461, 15))
+      .resolves.toEqual(expect.objectContaining({ replayStep: '912' }))
+
+    expect(request).toHaveBeenNthCalledWith(2, '/operator/snapshots/912?scenario=baseline')
   })
 })

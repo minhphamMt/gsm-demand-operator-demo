@@ -63,8 +63,11 @@ async function getPlan(planId: string): Promise<Proposal | undefined> {
 export const httpOperatorAdapter: OperatorDataAdapter = {
   getCapabilities: async () => parseEntity(await requestJson('/operator/capabilities'), isOperatorCapabilities, 'capability'),
   generateAiDecision: async (snapshotId, horizonMinutes) => {
-    await requestJson('/operator/ai/forecast', { method: 'POST', body: body({ snapshotId, horizonMinutes }) })
-    return parseEntity(await requestJson(`/operator/snapshots/${snapshotId}?scenario=baseline`), isSnapshot, 'snapshot dự báo')
+    const result = await requestJson('/operator/ai/forecast', { method: 'POST', body: body({ snapshotId, horizonMinutes }) })
+    const refreshedSnapshotId = isRecord(result) && isRecord(result.snapshot) && typeof result.snapshot.id === 'number'
+      ? result.snapshot.id
+      : snapshotId
+    return parseEntity(await requestJson(`/operator/snapshots/${refreshedSnapshotId}?scenario=baseline`), isSnapshot, 'snapshot dự báo')
   },
   optimizeAiDecision: async (snapshotId, horizonMinutes) => {
     const result = await requestJson('/operator/ai/optimize', { method: 'POST', body: body({ snapshotId, horizonMinutes }) })

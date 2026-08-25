@@ -40,4 +40,13 @@ describe('operator database contracts', () => {
     expect(sql).toContain('previous_snapshots.effective_at < v_snapshot.effective_at');
     expect(sql).toContain('create or replace function public.previous_snapshot_id');
   });
+
+  it('refreshes changed replay content without duplicating the source bucket', () => {
+    const sql = migration('20260825112500_refresh_replay_snapshot_content.sql');
+
+    expect(sql).toContain('for update');
+    expect(sql).toContain('on conflict (snapshot_id, zone_id) do update');
+    expect(sql).toContain("status = 'SUPERSEDED'");
+    expect(sql).toContain('if not v_changed then');
+  });
 });

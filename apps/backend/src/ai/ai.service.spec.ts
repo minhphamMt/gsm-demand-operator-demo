@@ -36,6 +36,32 @@ describe('AiService persistence', () => {
     expect(generate).not.toHaveBeenCalled();
   });
 
+  it('refreshes a replay bucket from the current checksummed dataset before forecasting', async () => {
+    const snapshotQuery = {
+      eq: jest.fn(),
+      maybeSingle: jest.fn().mockResolvedValue({
+        data: { id: 17, source_at: '2026-09-25T04:10:00.000Z', data_source: 'AI_PARQUET_DATASET' },
+        error: null,
+      }),
+    };
+    snapshotQuery.eq.mockReturnValue(snapshotQuery);
+    const db = {
+      client: {
+        from: jest.fn().mockReturnValue({ select: jest.fn().mockReturnValue(snapshotQuery) }),
+      },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    };
+    const service = new AiService(db as never);
+    const dataset = { dataset: 'snapshot_test.parquet', source_at: '2026-09-25T04:10:00.000Z', regime: 'rain_peak', zones: [] };
+    jest.spyOn(service, 'replaySnapshotAt').mockResolvedValue(dataset as never);
+    jest.spyOn(service as never, 'ingestExact').mockResolvedValue({ id: 17, created: false } as never);
+
+    await expect((service as never as { refreshReplaySnapshot(id: number): Promise<unknown> }).refreshReplaySnapshot(17))
+      .resolves.toEqual({ id: 17, created: false });
+
+    expect(service.replaySnapshotAt).toHaveBeenCalledWith('2026-09-25T04:10:00.000Z');
+  });
+
   it('persists only the forecast when policy hotspots are absent', async () => {
     const snapshotQuery = {
       eq: jest.fn(), order: jest.fn(), limit: jest.fn(),
