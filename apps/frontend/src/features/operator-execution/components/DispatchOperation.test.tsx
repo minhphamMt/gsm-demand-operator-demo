@@ -47,6 +47,8 @@ describe('DispatchOperation simulation presentation', () => {
     expect(within(lifecycle).getByText('Đã gửi')).toHaveClass('is-done')
     expect(within(lifecycle).getByText('Sẵn sàng phục vụ')).not.toHaveClass('is-done')
     expect(screen.getByText('TÀI XẾ MÔ PHỎNG')).toBeInTheDocument()
+    expect(screen.getAllByText('Đã nhận chuyến')).toHaveLength(2)
+    expect(screen.queryByText(/pin \d+%/i)).not.toBeInTheDocument()
     expect(screen.getByText(/mô phỏng tối thiểu 12 phút/)).toBeInTheDocument()
   })
 })

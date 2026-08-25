@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router'
 
-import { LoginPage, RoleGate, RootRedirect, useAuth } from '@/features/auth'
+import { RoleGate, RootRedirect, useAuth } from '@/features/auth'
 import { OperatorNotifications } from '@/features/operator-notifications/components/OperatorNotifications'
 import { NotFoundPage } from '@/pages/not-found/NotFoundPage'
 import { RouteErrorPage } from '@/pages/not-found/RouteErrorPage'
@@ -17,6 +17,7 @@ const ExecutionPage = lazy(() => import('@/pages/operator/ExecutionPage').then((
 const ExecutionOffersPage = lazy(() => import('@/pages/operator/ExecutionOffersPage').then((module) => ({ default: module.ExecutionOffersPage })))
 const ReportsPage = lazy(() => import('@/pages/operator/ReportsPage').then((module) => ({ default: module.ReportsPage })))
 const HistoryPage = lazy(() => import('@/pages/operator/HistoryPage').then((module) => ({ default: module.HistoryPage })))
+const OperationsV2Page = lazy(() => import('@/features/operations-v2').then((module) => ({ default: module.OperationsV2Page })))
 const DriverPage = lazy(() => import('@/pages/driver/DriverPage').then((module) => ({ default: module.DriverPage })))
 const lazyPage = (Page: React.LazyExoticComponent<React.ComponentType>) => <Suspense fallback={<Skeleton className="h-80" />}><Page /></Suspense>
 
@@ -28,7 +29,8 @@ function AuthenticatedOperatorShell() {
 
 const router = createBrowserRouter([
   { path: routes.root, element: <RootRedirect />, errorElement: <RouteErrorPage /> },
-  { path: routes.login, element: <LoginPage />, errorElement: <RouteErrorPage /> },
+  { path: routes.login, element: <RootRedirect />, errorElement: <RouteErrorPage /> },
+  { path: routes.operationsV2, element: lazyPage(OperationsV2Page), errorElement: <RouteErrorPage /> },
   {
     path: routes.operator.root,
     element: <RoleGate role="OPERATOR"><AuthenticatedOperatorShell /></RoleGate>,
