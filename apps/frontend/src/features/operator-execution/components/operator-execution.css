@@ -517,28 +517,6 @@
   font-style: normal;
 }
 
-.nf-operation-driver-list > span > mark {
-  padding: 2px 4px;
-  border-radius: 4px;
-  background: var(--nf-ok-100);
-  color: var(--nf-ok-ink);
-  font-size: 7px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.nf-operation-driver-list > span > mark.is-pending,
-.nf-operation-driver-list > span > mark.is-en_route {
-  background: var(--nf-warn-100);
-  color: var(--nf-warn-ink);
-}
-
-.nf-operation-driver-list > span > mark.is-declined,
-.nf-operation-driver-list > span > mark.is-cancelled {
-  background: var(--color-accent-100);
-  color: var(--color-accent-700);
-}
-
 .nf-operation-reconcile {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -55,7 +55,6 @@ import { ForecastDrawer } from "./components/ForecastDrawer";
 import { ForecastRunStatus } from "./components/ForecastRunStatus";
 import { PlanDrawer } from "./components/PlanDrawer";
 import { StopOperationDialog } from "@/features/operator-execution/components/StopOperationDialog";
-import { simulatedDispatchDrivers, simulatedDriverMovementLabel, simulatedDriverStateLabels } from "@/features/operator-execution";
 import { useCurrentReplayAnchor } from "./hooks/useCurrentReplayAnchor";
 import { useServerClock } from "./hooks/useServerClock";
 import { SnapshotStaleAlert } from "@/features/operator-dashboard/components/SnapshotStaleAlert";
@@ -1027,32 +1026,17 @@ function ExecutionLogPanel({
           <h3>VÒNG ĐỜI LỆNH ĐIỀU CHUYỂN</h3>
           {dispatch.moves.map((move) => {
             const sourceMove = sourceMoveFor(move);
-            const sourceLabel = sourceMove?.sourceZoneLabel ?? `Vùng ${move.sourceZoneId}`;
-            const targetLabel = sourceMove?.targetZoneLabel ?? `Vùng ${move.targetZoneId}`;
-            const moveDrivers = simulatedDispatchDrivers(dispatch.id, move);
             const isComplete = move.state === "AVAILABLE";
             const isFailed = move.state === "FAILED";
             return (
               <article className="nf-execution-log-item" key={move.id}>
                 <i className={isComplete ? "is-complete" : isFailed ? "is-failed" : "is-active"}>{isComplete ? "✓" : isFailed ? "!" : "·"}</i>
                 <div>
-                  <b>{sourceLabel} → {targetLabel}</b>
+                  <b>{sourceMove?.sourceZoneLabel ?? `Vùng ${move.sourceZoneId}`} → {sourceMove?.targetZoneLabel ?? `Vùng ${move.targetZoneId}`}</b>
                   <small>{move.plannedUnits} xe · ETA {formatNumber(move.etaMinutes)} phút · {move.distanceKm.toFixed(1)} km</small>
                   {isFailed && <em>{move.failedUnits || move.plannedUnits} xe chưa thể thực hiện</em>}
                 </div>
                 <strong className={isComplete ? "is-complete" : isFailed ? "is-failed" : "is-active"}>{dispatchMoveLabel(move.state)}</strong>
-                <div aria-label={`Tài xế của tuyến ${sourceLabel} đến ${targetLabel}`} className="nf-execution-driver-details">
-                  {moveDrivers.map((driver) => (
-                    <div className={`is-${driver.state.toLowerCase()}`} key={driver.id}>
-                      <span>
-                        <b>{driver.name}</b>
-                        <small>{driver.vehiclePlate} · {driver.profile}</small>
-                      </span>
-                      <strong>{simulatedDriverStateLabels[driver.state]}</strong>
-                      <p>{simulatedDriverMovementLabel(driver, move, sourceLabel, targetLabel)}</p>
-                    </div>
-                  ))}
-                </div>
                 {isFailed && <button className="btn btn-secondary" onClick={() => onRetryMove(dispatch.id, move.id)} type="button">Thử lại</button>}
               </article>
             );

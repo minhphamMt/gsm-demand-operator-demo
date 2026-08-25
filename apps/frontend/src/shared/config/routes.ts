@@ -1,7 +1,6 @@
 export const routes = {
   root: '/',
   login: '/login',
-  operationsV2: '/operations-v2',
   operator: {
     root: '/operator',
     plans: '/operator/plans',

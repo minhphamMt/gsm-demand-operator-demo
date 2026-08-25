@@ -18,5 +18,8 @@ export function RoleGate({ children, role }: { children: ReactNode; role: AppRol
 }
 
 export function RootRedirect() {
-  return <Navigate replace to={routes.operationsV2} />
+  const auth = useAuth()
+  if (auth.status === 'loading') return <div className="mx-auto max-w-2xl p-6"><Skeleton className="h-80" /></div>
+  if (auth.status === 'anonymous') return <Navigate replace to={routes.login} />
+  return <Navigate replace to={auth.identity.role === 'OPERATOR' ? routes.operator.plans : routes.driver.root} />
 }
