@@ -101,4 +101,27 @@ describe('operator mutation conflicts', () => {
 
     expect(startCampaign).toHaveBeenCalledWith('PLN-042', 'human')
   })
+
+  it('refreshes snapshot and the complete execution flow after stopping a dispatch', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    const cancelDispatch = vi.spyOn(mockOperatorAdapter, 'cancelDispatch').mockResolvedValue({ id: 'dispatch-1' } as never)
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(() => useOperatorActions(), { wrapper })
+
+    await act(async () => {
+      await result.current.cancelDispatch.mutateAsync({ batchId: 'dispatch-1', reason: 'Dừng để kiểm tra' })
+    })
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['operator', 'plans'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['operator', 'campaigns'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['operator', 'dispatch'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['operator', 'offers'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['operator', 'audit'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['driver'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['operator', 'snapshot'] })
+    cancelDispatch.mockRestore()
+  })
 })
