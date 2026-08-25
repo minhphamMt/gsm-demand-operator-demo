@@ -2,12 +2,15 @@
   "schema_version": 1,
   "dataset": "snapshot_test.parquet",
   "source_kind": "hybrid_synthetic",
-  "generator": "generate_snapshots.py --split test",
+  "generator": "generate_snapshots.py --split test + deterministic full-timeline operations calibration v2",
+  "calibration_version": "operations_replay_v2",
+  "calibration_scope": "all 2016 five-minute steps across 7 days",
   "field_provenance": {
     "rain_mm_h": "NASA POWER 2025 with deterministic spatial factors",
-    "demand_observed": "population density plus urban activity tier, synthetic generator seed 2026",
-    "idle_supply": "population-weighted supply with citywide relocation reserve, synthetic generator seed 2026",
-    "rain_forecast_15_30": "deterministic nowcast noise, seed 13"
+    "demand_observed": "population density plus urban activity tier, temporally smoothed with deterministic moving commute, lunch, evening and night activity clusters, seed 2026",
+    "idle_supply": "population-weighted supply with temporally persistent localized reserve response, seed 2026",
+    "rain_forecast_15_30": "deterministic nowcast noise, seed 13",
+    "price_index": "recalculated from calibrated demand and idle supply using config/policy.yaml"
   },
   "seed": 2026,
   "seed_nowcast": 13,
@@ -16,5 +19,5 @@
   "steps": 2016,
   "ts_start": "2026-09-25T00:00:00+07:00",
   "ts_end": "2026-10-01T23:55:00+07:00",
-  "sha256": "91e1ef555fb96aaddaadc158b180eb65f629a04ba6a81c287be107985f0ad4f2"
+  "sha256": "6229fa2a6be7f194d84a8e49a5b2621001b3148c9f66548475de93daccbb028d"
 }
