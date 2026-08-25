@@ -55,6 +55,8 @@ apps/ai/data/baseline/*
 !apps/ai/data/baseline/BASELINE_FREEZE.md
 !apps/frontend/src/features/driver-app/data
 !apps/frontend/src/features/driver-app/data/**
+!apps/frontend/src/features/operations-v2/data/
+!apps/frontend/src/features/operations-v2/data/**
 *.db
 *.sqlite3
 
