@@ -18,6 +18,7 @@ const ExecutionOffersPage = lazy(() => import('@/pages/operator/ExecutionOffersP
 const ReportsPage = lazy(() => import('@/pages/operator/ReportsPage').then((module) => ({ default: module.ReportsPage })))
 const HistoryPage = lazy(() => import('@/pages/operator/HistoryPage').then((module) => ({ default: module.HistoryPage })))
 const DriverPage = lazy(() => import('@/pages/driver/DriverPage').then((module) => ({ default: module.DriverPage })))
+const OperationsV2Page = lazy(() => import('@/prototypes/operations-v2').then((module) => ({ default: module.OperationsV2Page })))
 const lazyPage = (Page: React.LazyExoticComponent<React.ComponentType>) => <Suspense fallback={<Skeleton className="h-80" />}><Page /></Suspense>
 
 function AuthenticatedOperatorShell() {
@@ -50,6 +51,8 @@ const router = createBrowserRouter([
   // Keeping the shared RoleGate here would redirect anonymous drivers to the
   // operator-styled /login page and break visual parity with the driver branch.
   { path: routes.driver.root, element: lazyPage(DriverPage) },
+  { path: '/operations-v2', element: lazyPage(OperationsV2Page) },
+  { path: '/prototypes/operations-v2', element: lazyPage(OperationsV2Page) },
   { path: '*', element: <NotFoundPage /> },
 ])
 
