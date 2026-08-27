@@ -5,6 +5,7 @@ import { isPlanInputFresh } from '@/features/operator-data/model/proposalRules'
 import { createSeededOperatorState } from '@/features/operator-data/model/seedOperatorState'
 import { eligibleDriversFor, refreshStaleProposalQueue, withLiveEligibility } from '@/features/operator-data/model/proposalWorkflowState'
 import { createZones } from '@/features/operator-data/model/zoneGeometry'
+import type { PipelineRunRecord } from '@/features/operator-pipeline/model/pipelineRun'
 import type { AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DispatchBatch, DriverView, Offer, OperationsReport, OperationsReportFilters, OperatorDataAdapter, PersistentNotification, Proposal, ScenarioComparison, Snapshot } from '@/features/operator-data/model/types'
 
 const baseZones = createZones()
@@ -311,4 +312,72 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     notifications = notifications.map((notification) => updatedById.get(notification.id) ?? notification)
     return clone(updated)
   }),
+  startPipelineRun: (horizonMinutes) => requestLocal(() => {
+    const runId = `RUN-${Date.now()}`
+    mockPipelineRuns.set(runId, buildMockPipelineRun(runId, horizonMinutes))
+    return { runId, status: 'RUNNING' }
+  }),
+  getPipelineRun: (runId) => requestLocal(() => {
+    const record = mockPipelineRuns.get(runId)
+    if (!record) throw new Error('Không tìm thấy run pipeline.')
+    return clone(record)
+  }),
+  // Bản mock chạy không gateway: đúng trạng thái mặc định của dự án — định tuyến LLM tắt,
+  // đồ thị đi đường cố định (CLAUDE.md §10.1).
+  getLlmHealth: () => requestLocal(() => ({
+    isRoutingEnabled: false,
+    isApiKeyConfigured: false,
+    baseUrl: 'https://openrouter.ai/api/v1',
+    analysis: { ok: false, model: 'google/gemini-3.7-flash', error: 'LLM_API_KEY chưa được đặt' },
+    explanation: { ok: false, model: 'anthropic/claude-haiku-4.5', error: 'LLM_API_KEY chưa được đặt' },
+  })),
+}
+
+const mockPipelineRuns = new Map<string, PipelineRunRecord>()
+
+function buildMockPipelineRun(runId: string, horizonMinutes: number): PipelineRunRecord {
+  return {
+    run_id: runId,
+    status: 'DONE',
+    routing_mode: 'deterministic',
+    policy_version: 'policy-v1',
+    model_version: 'mock-forecast-v1',
+    agents: {
+      situation_assessment: {
+        status: 'DONE',
+        message: '',
+        capabilities: {
+          forecast: { status: 'DONE', message: '' },
+          traffic: { status: 'DONE', message: 'Rain Impact: +15% Travel Time' },
+          supply: { status: 'WARNING', message: 'Còn 2 zone chưa đủ nguồn.' },
+        },
+      },
+      dispatch: { status: 'DONE', message: '', capabilities: {} },
+      optimization: { status: 'DONE', message: '', capabilities: {} },
+      explanation: { status: 'DONE', message: '', capabilities: {} },
+    },
+    tool_calls: [
+      { agent: 'situation_assessment', tool: 'run_forecast', ok: true, detail: '' },
+      { agent: 'situation_assessment', tool: 'get_supply_state', ok: true, detail: '' },
+      { agent: 'dispatch', tool: 'compute_relocation', ok: true, detail: '' },
+      { agent: 'explanation', tool: 'render_explanation', ok: true, detail: '' },
+    ],
+    plan_set: {
+      plans: [
+        { plan_id: 'PLAN_A', strategy: 'MIN_COST', move_count: 6, total_units: 42, total_cost: 180_000, total_eta_step_units: 18, residual_zone_count: 2 },
+        { plan_id: 'PLAN_B', strategy: 'BALANCED', move_count: 6, total_units: 42, total_cost: 180_000, total_eta_step_units: 18, residual_zone_count: 2 },
+        { plan_id: 'PLAN_C', strategy: 'MIN_ETA', move_count: 6, total_units: 42, total_cost: 180_000, total_eta_step_units: 18, residual_zone_count: 2 },
+      ],
+      converged: true,
+      distinct_plan_count: 1,
+    },
+    recommended_plan_id: 'PLAN_B',
+    quality_ok: true,
+    quality_reason: '',
+    explanation: { text: `Điều 42 xe qua 6 chặng, chi phí 180.000 VNĐ, xử lý 5 hotspot chính sách. Còn 2 zone chưa phủ hết thiếu hụt.`, layer: 'template' },
+    warnings: [
+      { code: 'PLAN_STRATEGIES_CONVERGED', severity: 'info', message: 'Ba chiến lược cho ra cùng một phương án.' },
+    ],
+    decision: { planning_status: 'optimizer_evaluated', horizon_min: horizonMinutes },
+  }
 }

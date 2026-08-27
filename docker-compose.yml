@@ -5,6 +5,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - "127.0.0.1:8000:8000"
+    # Khoá LLM đi qua env_file, không qua image: `.dockerignore` cố ý loại `.env` khỏi build
+    # context để không nướng bí mật vào layer. `required: false` để máy chưa có file vẫn
+    # `docker compose up` được — thiếu file thì service chạy đường deterministic mặc định.
+    env_file:
+      - path: ./apps/ai/.env
+        required: false
     environment:
       APP_ENV: production
       MODEL_VERSION: lgbm_quantile_v1

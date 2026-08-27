@@ -36,3 +36,35 @@ class ConfigError(NovaFourError):
     """
 
     error_code = "CONFIG_ERROR"
+
+
+class ReplaySourceNotFoundError(NovaFourError):
+    """Mốc replay được yêu cầu không có trong bộ dữ liệu đã checksum."""
+
+    error_code = "REPLAY_SOURCE_NOT_FOUND"
+
+
+class ReplayProvenanceMismatchError(NovaFourError):
+    """Zone gửi lên không khớp bucket nguồn đã checksum.
+
+    Chặn cứng thay vì cảnh báo: trộn nguồn quan sát với nguồn replay tạo ra một kết quả
+    mang nhãn "đã kiểm chứng" nhưng không tái lập được từ bộ dữ liệu đã khóa.
+    """
+
+    error_code = "REPLAY_PROVENANCE_MISMATCH"
+
+
+class ReplayModelUnavailableError(NovaFourError):
+    """Replay đã chọn tường minh nhưng bundle model không dùng được.
+
+    Fail-closed, không hạ xuống baseline: baseline chạy dưới nhãn provenance của replay
+    sẽ khiến lỗi model trông như một dự báo hợp lệ.
+    """
+
+    error_code = "REPLAY_MODEL_UNAVAILABLE"
+
+
+class DatasetUnavailableError(NovaFourError):
+    """Bộ dữ liệu replay thiếu file, sai manifest hoặc không đọc được."""
+
+    error_code = "DATASET_UNAVAILABLE"

@@ -1,8 +1,16 @@
-"""Model 3 — Relocation Optimizer: greedy theo severity (SPEC §5.4, task T3).
+"""Model 3 — Relocation Optimizer: MILP vận tải hai pha, ưu tiên theo severity (SPEC §5.4, T3).
 
-Min-cost flow và OR-Tools đã bị cắt khỏi MVP (§7.1 #1) — greedy là phương án chốt, không phải
-giải pháp tạm. Vì thế mọi quyết định "chọn ai điều cho ai" ở đây phải đọc được bằng mắt: thứ tự
-hotspot, thứ tự ứng viên nguồn và điều kiện dừng đều là hàm thuần của input.
+Tên file là dấu vết lịch sử. Bản đầu duyệt từng hotspot theo severity giảm dần rồi cấp nguồn
+gần nhất còn rảnh; cách đó có một lỗi thật — một hotspot xếp trước tiêu mất zone nguồn vốn là
+lựa chọn khả thi DUY NHẤT của hotspot xếp sau, để phí sức chứa an toàn. Bản hiện tại dựng cả
+đồ thị nguồn–đích rồi giải một lần bằng `scipy.optimize.milp` (xem `_optimal_allocations`).
+
+OR-Tools vẫn bị cấm (§7.1 #1); `scipy` đã nằm trong bộ dependency được duyệt nên không phát
+sinh gói mới. Thứ tự ưu tiên theo severity không mất đi: nó thành hệ số áp đảo trong hàm mục
+tiêu pha 2, xem `TARGET_RANK_SCALE`.
+
+Mọi quyết định "chọn ai điều cho ai" vẫn phải tái lập được: cùng input cho cùng plan, và
+`zone_id` là khoá phá hoà cuối cùng để hai nghiệm cùng điểm không đổi chỗ giữa hai lần chạy.
 
 Ba điểm dễ hiểu sai:
 
@@ -22,6 +30,7 @@ import math
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, milp
@@ -58,6 +67,56 @@ NEAR_MIN_SUPPLY_MARGIN = 1
 # "Ưu tiên eta ≤ 3 step" (§5.4): xe đến sau 15 phút thì đợt cao điểm đã qua, nên ứng viên xa
 # hơn ngưỡng này chỉ được dùng khi không còn ai gần hơn.
 PREFERRED_ETA_STEPS = 3
+
+PlanStrategy = Literal["MIN_COST", "BALANCED", "MIN_ETA"]
+
+
+@dataclass(frozen=True)
+class StrategyWeights:
+    """Trọng số của hàm mục tiêu pha 2. Chỉ đổi cách CHỌN trong số các phương án phủ tối đa.
+
+    Pha 1 (tối đa số xe được phủ) dùng chung cho cả ba strategy — đó là điều kiện để ba plan
+    so sánh được với nhau: cùng số xe tới nơi, chỉ khác tuyến. Cho phép mỗi strategy phủ một
+    lượng khác nhau sẽ biến "so ba phương án" thành so ba bài toán khác nhau.
+
+    Bốn trọng số phải giữ tổng tối đa **dưới** `TARGET_RANK_SCALE`: thứ tự severity là luật
+    chính sách (§5.4), không phải thứ để strategy đánh đổi.
+    """
+
+    eta_over_threshold: int
+    eta_step: int
+    distance_centi_km: int
+    unit_cost: int
+
+
+# Hệ số của thứ hạng severity. Lớn hơn hẳn mọi tổ hợp trọng số bên dưới nên hotspot nặng
+# luôn được phục vụ trước, bất kể strategy nào đang chạy.
+TARGET_RANK_SCALE = 10_000_000
+
+STRATEGY_WEIGHTS: dict[PlanStrategy, StrategyWeights] = {
+    # BALANCED giữ NGUYÊN VĂN bộ số đã chạy từ trước. Đây là điều kiện để baseline đã khóa,
+    # INV-1/2/3 và mọi số KPI đã công bố không phải tính lại (§5.14.3).
+    "BALANCED": StrategyWeights(
+        eta_over_threshold=1_000_000,
+        eta_step=100_000,
+        distance_centi_km=100,
+        unit_cost=1,
+    ),
+    # Ưu tiên chi phí: hạ mạnh trọng số ETA, nâng khoảng cách và tiền.
+    "MIN_COST": StrategyWeights(
+        eta_over_threshold=100_000,
+        eta_step=10_000,
+        distance_centi_km=500,
+        unit_cost=10,
+    ),
+    # Ưu tiên xe tới sớm: ETA áp đảo khoảng cách và tiền.
+    "MIN_ETA": StrategyWeights(
+        eta_over_threshold=2_000_000,
+        eta_step=200_000,
+        distance_centi_km=10,
+        unit_cost=0,
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -102,6 +161,7 @@ def solve(
     policy: Policy,
     zone_coords: Mapping[int, ZoneCoord],
     protected_source_zone_ids: Collection[int] | None = None,
+    strategy: PlanStrategy = "BALANCED",
 ) -> SolveResult:
     """Một step Model 3: `HotspotOutput` §4.3 → danh sách move + `residual_gap` §4.4.
 
@@ -131,6 +191,7 @@ def solve(
         rain_mm_h=rain_mm_h,
         limits=limits,
         zone_coords=zone_coords,
+        weights=STRATEGY_WEIGHTS[strategy],
     )
     total_cost = 0
     total_deadhead_km = 0.0
@@ -315,12 +376,16 @@ def _optimal_allocations(
     rain_mm_h: Mapping[int, float],
     limits: OptimizerLimits,
     zone_coords: Mapping[int, ZoneCoord],
+    weights: StrategyWeights,
 ) -> tuple[tuple[Hotspot, _Candidate, int], ...]:
     """Maximise covered vehicles, then minimise priority/ETA/distance cost.
 
     The previous target-by-target greedy could consume a source that was the only
     feasible source for another target. This integer transport model evaluates the
     complete source-target graph at once, so safe capacity is not stranded by order.
+
+    `weights` chỉ tác động lên pha 2. Pha 1 — số xe được phủ — không nhận trọng số nào, nên
+    ba strategy luôn phủ đúng cùng một lượng xe.
     """
     edges: list[tuple[Hotspot, _Candidate, int]] = []
     target_rank = {target.zone_id: rank for rank, target in enumerate(targets)}
@@ -377,11 +442,13 @@ def _optimal_allocations(
 
     exact_coverage = LinearConstraint(np.ones((1, variable_count)), [float(covered_units)], [float(covered_units)])
     operational_cost = np.array([
-        target_rank[target.zone_id] * 10_000_000
-        + (candidate.eta_steps > PREFERRED_ETA_STEPS) * 1_000_000
-        + candidate.eta_steps * 100_000
-        + round(candidate.distance_km * 100) * 100
-        + candidate.unit_cost
+        target_rank[target.zone_id] * TARGET_RANK_SCALE
+        + (candidate.eta_steps > PREFERRED_ETA_STEPS) * weights.eta_over_threshold
+        + candidate.eta_steps * weights.eta_step
+        + round(candidate.distance_km * 100) * weights.distance_centi_km
+        + candidate.unit_cost * weights.unit_cost
+        # `zone_id` là khoá phá hoà cuối cùng, luôn hệ số 1 và không thuộc strategy: thiếu nó
+        # thì hai nghiệm cùng điểm có thể đổi chỗ giữa hai lần chạy (§3 #4).
         + candidate.zone_id
         for target, candidate, _ in edges
     ], dtype=float)

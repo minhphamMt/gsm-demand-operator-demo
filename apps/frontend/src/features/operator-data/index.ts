@@ -1,4 +1,4 @@
-export { auditPageQuery, auditQuery, baselinesQuery, campaignsQuery, capabilitiesQuery, dispatchQuery, driversQuery, driverViewQuery, notificationsQuery, offersQuery, operationsReportQuery, planQuery, plansQuery, replaySnapshotQuery, replayWindowQuery, snapshotQuery } from '@/features/operator-data/api/operatorQueries'
+export { auditPageQuery, auditQuery, baselinesQuery, campaignsQuery, capabilitiesQuery, dispatchQuery, driversQuery, driverViewQuery, llmHealthQuery, notificationsQuery, offersQuery, operationsReportQuery, planQuery, plansQuery, replaySnapshotQuery, replayWindowQuery, snapshotQuery } from '@/features/operator-data/api/operatorQueries'
 export { getSnapshotFreshness } from '@/features/operator-data/model/snapshotFreshness'
 export { getProposalCreationLabel, getProposalGeneratorLabel } from '@/features/operator-data/model/proposalPresentation'
 export { useDriverActions, useOperatorActions } from '@/features/operator-data/api/operatorMutations'

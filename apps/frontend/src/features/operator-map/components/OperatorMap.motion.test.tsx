@@ -146,4 +146,23 @@ describe('OperatorMap relocation vehicle', () => {
     view.rerender(<OperatorMap {...commonProps} flowState="completed" />)
     await waitFor(() => expect(screen.queryByRole('img', { name: '8 xe đang điều chuyển' })).not.toBeInTheDocument())
   })
+
+  // Hồi quy: nguồn `operator-move-flows` mang cả cung điều chuyển lẫn hình mũi tên. Không lọc
+  // theo `kind` thì mỗi chặng sinh hai xe — một chiếc bám vào ba điểm của mũi tên.
+  it('runs exactly one vehicle per move even though the flow source also carries arrowheads', async () => {
+    const zones = createZones().slice(0, 2).map((zone) => ({ ...zone, rainMmH: 0 }))
+    const move = {
+      id: 'move-1',
+      etaMinutes: 15,
+      sourceZoneId: zones[0]!.id,
+      targetZoneId: zones[1]!.id,
+      quantity: 8,
+    } as Move
+
+    render(<OperatorMap flowState="executing" forecastMinutes={5} moves={[move]} onZoneSelect={vi.fn()} vehicleStartedAt="2026-08-25T00:00:00.000Z" zones={zones} />)
+
+    const markers = await screen.findAllByRole('img', { name: '8 xe đang điều chuyển' })
+    expect(markers).toHaveLength(1)
+    expect(markers[0]).toHaveAttribute('data-move-id', 'move-1')
+  })
 })

@@ -154,6 +154,63 @@ export class AiService {
     });
   }
 
+  /**
+   * Preflight cấu hình gateway LLM. Proxy mỏng: không đánh giá lại, không cache.
+   * Endpoint phía AI không bao giờ trả khóa API, nên response an toàn để đẩy thẳng ra UI.
+   */
+  async llmHealth() {
+    return this.request('/api/v1/llm/health', { method: 'GET' });
+  }
+
+  async startRun(horizonMinutes: 5 | 10 | 15, snapshotId?: number) {
+    await assertNoActiveExecution(this.db);
+    const inputPayload = await this.buildInferencePayload(horizonMinutes, snapshotId);
+    const started = await this.request<{ run_id: string; status: string }>('/api/v1/runs', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(inputPayload),
+    });
+    return { runId: started.run_id, status: started.status };
+  }
+
+  async getRun(runId: string) {
+    return this.request<Record<string, unknown>>(`/api/v1/runs/${encodeURIComponent(runId)}`, { method: 'GET' });
+  }
+
+  // Cùng hình dạng payload mà `generate()` gửi tới `/api/v1/decisions` — đồ thị đa-agent
+  // và đường suy luận trực tiếp phải nhận đúng một input để INV-1 (khớp baseline) còn ý nghĩa.
+  // Tách riêng khỏi `generate()` để không đụng vào thân hàm đó: nó vừa được sửa các lỗi
+  // atomic-ingest/active-execution/replay-window thật, không đáng để refactor chung dịp này.
+  private async buildInferencePayload(horizonMinutes: 5 | 10 | 15, snapshotId?: number) {
+    let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');
+    snapshotQuery = snapshotId
+      ? snapshotQuery.eq('id', snapshotId)
+      : snapshotQuery.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1);
+    const { data: snapshot, error: snapshotError } = await snapshotQuery.maybeSingle();
+    if (snapshotError) this.db.unwrap(null, snapshotError);
+    if (!snapshot) throw new UnprocessableEntityException('No live snapshot is available for AI inference');
+
+    const { data: observations, error: observationsError } = await this.db.client
+      .from('ai_zone_observations')
+      .select('*')
+      .eq('snapshot_id', snapshot.id)
+      .order('zone_id');
+    const rows = this.db.unwrap(observations, observationsError);
+    const zones = this.validateLiveZones(rows);
+    const replaySourceAt = this.replaySourceAt(rows);
+    const capturedAt = new Date(String(snapshot.captured_at));
+    if (capturedAt.getUTCMinutes() % 5 || capturedAt.getUTCSeconds() || capturedAt.getUTCMilliseconds()) {
+      throw new UnprocessableEntityException({ code: 'AI_SNAPSHOT_OFF_GRID', message: 'Snapshot timestamp must align to a 5-minute bucket.' });
+    }
+
+    return {
+      snapshot_id: snapshot.id,
+      t: capturedAt.toISOString(),
+      horizon_min: horizonMinutes,
+      data_source: `supabase:ai_zone_observations:${snapshot.id}`,
+      replay_source_at: replaySourceAt,
+      zones,
+    };
+  }
+
   async generate(horizonMinutes: 5 | 10 | 15, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
     const inferenceStartedAt = Date.now();
     let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');

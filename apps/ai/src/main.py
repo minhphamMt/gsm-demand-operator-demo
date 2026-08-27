@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from src.api.routes_inference import router as inference_router
 from src.api.routes_inference import trained_model_readiness
+from src.api.routes_orchestration import router as orchestration_router
 from src.common.errors import ConfigError
 from src.common.policy import REQUIRED_RULE_KEYS, get_policy
 from src.config import Settings, get_settings
@@ -92,6 +93,7 @@ app = FastAPI(
 )
 
 app.include_router(inference_router)
+app.include_router(orchestration_router)
 
 # Không cấu hình CORS: frontend build tĩnh được chính app này phục vụ, cùng origin
 # (quyết định A-01, docs/design/ARCHITECTURE.md §9). Dev server Vite dùng proxy thay vì CORS.

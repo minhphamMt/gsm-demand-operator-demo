@@ -3,7 +3,6 @@
 # Windows là cp1252 và sẽ vỡ ở ký tự tiếng Việt nếu thiếu khai báo.
 # GSM-14 NovaFour — bộ dependency đã duyệt (CLAUDE.md §6).
 # Thêm gói mới phải hỏi trước. Danh sách gói bị cấm: CLAUDE.md §6 #3–#4.
-# (Không nhắc tên gói bị cấm ở đây — test tĩnh của T0.5 grep chính chuỗi đó.)
 
 # ---- Web ----
 fastapi>=0.115.0
@@ -21,9 +20,20 @@ lightgbm>=4.5.0
 scikit-learn>=1.5.0
 scipy>=1.14.0
 
+# ---- Điều phối multi-agent ----
+# LangGraph được duyệt lại ngày 2026-08-23: quyết định PM 2026-08-04 cấm gói này đã bị
+# đảo ngược để dựng tầng phân tích multi-agent (xem CLAUDE.md §6 #3). Chỉ dùng cho
+# orchestration trong src/orchestration/ — Khối C và hai cổng phê duyệt vẫn là code thuần.
+# Chặn trên ở major 2: đồ thị và checkpointer là API có breaking change giữa các major.
+langgraph>=1.2,<2
+
+# Agent gọi LLM qua gateway OpenAI-compatible bằng httpx ngay dưới đây. Cố ý KHÔNG thêm SDK
+# của nhà cung cấp nào: đổi model hoặc đổi nhà cung cấp phải là đổi biến môi trường, không
+# phải đổi gói. httpx vì thế là dependency runtime, không còn chỉ dùng cho test.
+httpx>=0.28.0
+
 # ---- Dev ----
 ruff>=0.8.0
 mypy>=1.13.0
 pytest>=8.0.0
 pytest-asyncio>=0.24.0
-httpx>=0.28.0

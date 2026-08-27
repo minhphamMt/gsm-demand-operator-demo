@@ -1,4 +1,7 @@
+import { assertNoActiveExecution } from '../operator/active-execution.guard';
 import { AiService, proposalOperationalWindow, replaySourceAtIso } from './ai.service';
+
+jest.mock('../operator/active-execution.guard', () => ({ assertNoActiveExecution: jest.fn() }));
 
 function eligibleDriverQuery(count: number) {
   const chain = {
@@ -453,5 +456,65 @@ describe('AiService persistence', () => {
     expect(runUpdate).toHaveBeenCalledWith(expect.objectContaining({
       status: 'FALLBACK', model_version: 'baseline-v1', forecast_mode: 'baseline_fallback',
     }));
+  });
+
+  it('proxies LLM gateway health without adding its own logic', async () => {
+    const service = new AiService({} as never);
+    const request = jest.spyOn(service as never, 'request').mockResolvedValue({ llm_routing_enabled: false } as never);
+
+    await expect(service.llmHealth()).resolves.toEqual({ llm_routing_enabled: false });
+
+    expect(request).toHaveBeenCalledWith('/api/v1/llm/health', { method: 'GET' });
+  });
+
+  it('polls a pipeline run by id', async () => {
+    const service = new AiService({} as never);
+    const request = jest.spyOn(service as never, 'request').mockResolvedValue({ run_id: 'r-1', status: 'RUNNING' } as never);
+
+    await expect(service.getRun('r-1')).resolves.toEqual({ run_id: 'r-1', status: 'RUNNING' });
+
+    expect(request).toHaveBeenCalledWith('/api/v1/runs/r-1', { method: 'GET' });
+  });
+
+  it('starts a pipeline run with the same input shape generate() sends to /api/v1/decisions', async () => {
+    (assertNoActiveExecution as jest.Mock).mockResolvedValue(undefined);
+    const snapshotQuery = {
+      eq: jest.fn(), order: jest.fn(), limit: jest.fn(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: { id: 7, captured_at: '2026-08-15T00:00:00.000Z' }, error: null }),
+    };
+    snapshotQuery.eq.mockReturnValue(snapshotQuery);
+    snapshotQuery.order.mockReturnValue(snapshotQuery);
+    snapshotQuery.limit.mockReturnValue(snapshotQuery);
+    const observationQuery = { eq: jest.fn(), order: jest.fn().mockResolvedValue({ data: [], error: null }) };
+    observationQuery.eq.mockReturnValue(observationQuery);
+    const db = {
+      client: {
+        from: jest.fn((table: string) => {
+          if (table === 'supply_demand_snapshots') return { select: jest.fn().mockReturnValue(snapshotQuery) };
+          if (table === 'ai_zone_observations') return { select: jest.fn().mockReturnValue(observationQuery) };
+          throw new Error(`unexpected table ${table}`);
+        }),
+      },
+      unwrap: jest.fn((data: unknown, error: unknown) => { if (error) throw error; return data; }),
+    };
+    const service = new AiService(db as never);
+    jest.spyOn(service as never, 'validateLiveZones').mockReturnValue([] as never);
+    const request = jest.spyOn(service as never, 'request').mockResolvedValue({ run_id: 'r-2', status: 'RUNNING' } as never);
+
+    await expect(service.startRun(10, 7)).resolves.toEqual({ runId: 'r-2', status: 'RUNNING' });
+
+    expect(assertNoActiveExecution).toHaveBeenCalledWith(db);
+    expect(request).toHaveBeenCalledWith('/api/v1/runs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        snapshot_id: 7,
+        t: '2026-08-15T00:00:00.000Z',
+        horizon_min: 10,
+        data_source: 'supabase:ai_zone_observations:7',
+        replay_source_at: undefined,
+        zones: [],
+      }),
+    });
   });
 });

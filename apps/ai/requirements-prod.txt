@@ -11,3 +11,8 @@ pyarrow>=18.0.0
 pyyaml>=6.0.0
 lightgbm>=4.5.0
 scipy>=1.14.0
+
+# Điều phối multi-agent — LangGraph được duyệt lại 2026-08-23 (CLAUDE.md §6 #3).
+# httpx là dependency runtime cho LLM gateway (không dùng SDK nhà cung cấp).
+langgraph>=1.2,<2
+httpx>=0.28.0

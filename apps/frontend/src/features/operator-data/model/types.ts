@@ -1,3 +1,6 @@
+import type { LlmHealth } from '@/features/operator-pipeline/model/llmHealth'
+import type { PipelineRunRecord } from '@/features/operator-pipeline/model/pipelineRun'
+
 export type Severity = 'Low' | 'Medium' | 'High' | 'Critical'
 export type ProposalStatus = 'Generated' | 'UnderReview' | 'Revised' | 'Approved' | 'Rejected' | 'Stale' | 'FailedGeneration'
 export type PlanMode = 'RELOCATION' | 'ACTIVATION_ONLY' | 'HYBRID'
@@ -213,4 +216,7 @@ export type OperatorDataAdapter = {
   listNotifications: () => Promise<readonly PersistentNotification[]>
   acknowledgeNotification: (notificationId: string) => Promise<PersistentNotification>
   acknowledgeAllNotifications: () => Promise<readonly PersistentNotification[]>
+  startPipelineRun: (horizonMinutes: ForecastHorizon, snapshotId?: number) => Promise<{ runId: string; status: string }>
+  getPipelineRun: (runId: string) => Promise<PipelineRunRecord>
+  getLlmHealth: () => Promise<LlmHealth>
 }

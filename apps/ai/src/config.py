@@ -51,6 +51,29 @@ class Settings(BaseSettings):
     # khi Model 1 được huấn luyện; "unset" là tín hiệu chưa có model, không phải mặc định hợp lệ.
     model_version: str = "unset"
 
+    # ---- Điều phối multi-agent ----
+    # Mặc định TẮT là điều kiện để KPI tái lập: khi tắt, mỗi agent chạy đúng chuỗi tool cố
+    # định nên cùng snapshot luôn cho cùng kết quả — baseline đã khóa, INV-1/2/3 và eval vẫn
+    # so được. Bật lên là chấp nhận đường đi do LLM chọn, chỉ dùng cho demo (CLAUDE.md §3 #4).
+    llm_routing_enabled: bool = False
+
+    # Gateway OpenAI-compatible. Đổi nhà cung cấp = đổi base_url + slug, không sửa code.
+    llm_base_url: str = "https://openrouter.ai/api/v1"
+    llm_api_key: str | None = None
+
+    # Model tách theo vai trò: hai agent phân tích chỉ chọn tool và đọc số nên dùng model rẻ;
+    # riêng Explanation viết tiếng Việt cho điều phối viên đọc nên đáng dùng model khá hơn.
+    # Slug đã đối chiếu với danh sách model của OpenRouter (2026-08-23) và cả hai đều khai
+    # báo hỗ trợ tool calling. Không dùng biến thể `:batch` — batch chạy bất đồng bộ, không
+    # hợp với vòng lặp tool-use đồng bộ ở đây.
+    llm_model_analysis: str = "google/gemini-3.7-flash"
+    llm_model_explanation: str = "anthropic/claude-haiku-4.5"
+
+    # Trần thời gian một lượt gọi LLM. Vượt là rơi về fallback template, không treo pipeline.
+    llm_timeout_seconds: float = Field(default=30.0, gt=0)
+    # Số vòng tool-use tối đa cho một agent — chặn vòng lặp LLM gọi tool không dừng.
+    llm_max_tool_rounds: int = Field(default=6, ge=1, le=20)
+
 
 @lru_cache
 def get_settings() -> Settings:

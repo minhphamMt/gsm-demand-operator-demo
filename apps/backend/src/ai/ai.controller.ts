@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Roles } from '../auth/auth.decorators';
 import { SensitiveMutation } from '../common/security/sensitive-mutation.decorator';
 import { AiService } from './ai.service';
-import { GenerateAiDecisionDto, OptimizeAiDecisionDto, RunNextAiDecisionDto, RunReplayAiDecisionDto } from './dto/generate-ai-decision.dto';
+import { GenerateAiDecisionDto, OptimizeAiDecisionDto, RunNextAiDecisionDto, RunPipelineDto, RunReplayAiDecisionDto } from './dto/generate-ai-decision.dto';
 
 @ApiTags('operator-ai')
 @Controller('operator/ai')
@@ -61,5 +61,27 @@ export class AiController {
   @ApiOperation({ summary: 'Read actual rain metrics around a replay bucket' })
   replayWindow(@Body() body: RunReplayAiDecisionDto) {
     return this.service.replayWindow(body.sourceAt);
+  }
+
+  @Post('runs')
+  @SensitiveMutation()
+  @ApiOperation({ summary: 'Start a multi-agent pipeline run and return its polling id' })
+  @ApiOkResponse({ description: 'Accepted run with its id for polling.' })
+  startRun(@Body() body: RunPipelineDto) {
+    return this.service.startRun(body.horizonMinutes, body.snapshotId);
+  }
+
+  @Get('runs/:runId')
+  @ApiOperation({ summary: 'Poll the state of a multi-agent pipeline run' })
+  @ApiOkResponse({ description: 'Run state: agents, plan set, explanation, decision.' })
+  getRun(@Param('runId') runId: string) {
+    return this.service.getRun(runId);
+  }
+
+  @Get('llm/health')
+  @ApiOperation({ summary: 'Preflight the LLM gateway configuration used by the agent layer' })
+  @ApiOkResponse({ description: 'Routing flag, key presence, and per-model reachability. Never the key itself.' })
+  llmHealth() {
+    return this.service.llmHealth();
   }
 }

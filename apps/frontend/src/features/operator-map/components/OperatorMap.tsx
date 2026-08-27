@@ -181,6 +181,11 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
           'text-field': ['get', 'label'],
           'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
           'text-size': 10,
+          'text-line-height': 1.25,
+          // Mapbox chia dòng theo tổng bề rộng cả nhãn; để mức mặc định là nó cắt ngang "Hoàn Kiếm → Cầu Giấy".
+          // Nới rộng để chỉ còn đúng hai dòng do ký tự xuống dòng trong nhãn quyết định.
+          'text-max-width': 40,
+          'text-padding': 3,
         },
         paint: {
           'text-color': '#ffffff',
@@ -281,7 +286,9 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
     const map = mapRef.current
     if (!map || mapStatus !== 'ready' || flowState !== 'executing') return undefined
 
-    const routes = buildFlowCollections(zones, moves).routes.features
+    // Nguồn `operator-move-flows` chứa cả cung điều chuyển lẫn hình mũi tên. Xe chỉ chạy trên cung:
+    // nếu không lọc, mỗi chặng sẽ sinh thêm một xe thứ hai bám vào ba điểm của mũi tên.
+    const routes = buildFlowCollections(zones, moves).routes.features.filter((feature) => feature.properties.kind === 'route')
     const movesById = new Map(moves.map((move) => [move.id, move]))
     const fallbackStartedAt = new Date().toISOString()
     const startedAt = vehicleStartedAt ?? fallbackStartedAt

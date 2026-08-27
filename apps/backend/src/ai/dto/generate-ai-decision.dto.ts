@@ -28,3 +28,15 @@ export class RunReplayAiDecisionDto {
   @IsDateString()
   sourceAt!: string;
 }
+
+export class RunPipelineDto {
+  @Transform(({ value }) => Number(value))
+  @IsIn([5, 10, 15])
+  horizonMinutes: 5 | 10 | 15 = 10;
+
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  @Min(1)
+  snapshotId?: number;
+}

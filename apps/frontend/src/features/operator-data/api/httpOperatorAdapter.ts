@@ -21,6 +21,7 @@ import {
   latestAgentProposalForSnapshot,
   latestAgentProposalRecordForSnapshot,
 } from '@/features/operator-data/model/proposalSelection'
+import { isPipelineRunRecord, readLlmHealth } from '@/features/operator-pipeline/model/pipelineRunGuard'
 import { AppError, requestJson } from '@/shared/api/client'
 
 const body = (value: unknown) => JSON.stringify(value)
@@ -215,4 +216,20 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
   acknowledgeNotification: async (notificationId) => parseEntity(await requestJson(`/operator/notifications/${notificationId}/acknowledge`, {
     method: 'POST', body: body({}),
   }), isPersistentNotification, 'thÃ´ng bÃ¡o'),
+  startPipelineRun: async (horizonMinutes, snapshotId) => {
+    const result = await requestJson('/operator/ai/runs', { method: 'POST', body: body({ horizonMinutes, snapshotId }) })
+    const runId = isRecord(result) ? (typeof result.runId === 'string' ? result.runId : typeof result.run_id === 'string' ? result.run_id : undefined) : undefined
+    if (!runId) throw new AppError('Kết quả khởi động pipeline không hợp lệ.', { code: 'INVALID_RESPONSE' })
+    return { runId, status: isRecord(result) && typeof result.status === 'string' ? result.status : 'RUNNING' }
+  },
+  getPipelineRun: async (runId) => {
+    const result = await requestJson(`/operator/ai/runs/${encodeURIComponent(runId)}`)
+    if (!isPipelineRunRecord(result)) throw new AppError('Trạng thái pipeline trả về không hợp lệ.', { code: 'INVALID_RESPONSE' })
+    return result
+  },
+  getLlmHealth: async () => {
+    const health = readLlmHealth(await requestJson('/operator/ai/llm/health'))
+    if (!health) throw new AppError('Không đọc được cấu hình gateway LLM.', { code: 'INVALID_RESPONSE' })
+    return health
+  },
 }

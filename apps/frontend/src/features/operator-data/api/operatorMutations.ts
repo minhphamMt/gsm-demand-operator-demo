@@ -184,6 +184,8 @@ export function useOperatorActions() {
       onSettled: async () => queryClient.invalidateQueries({ queryKey: operatorQueryKeys.notifications }),
     }),
     expireOffer: useMutation({ mutationFn: operatorAdapter.expireOffer, onError: refreshCampaignConflict, onSuccess: refreshCampaignFlow }),
+    startPipelineRun: useMutation({ mutationFn: ({ horizonMinutes, snapshotId }: { horizonMinutes: ForecastHorizon; snapshotId?: number }) => operatorAdapter.startPipelineRun(horizonMinutes, snapshotId) }),
+    getPipelineRun: useMutation({ mutationFn: ({ runId }: { runId: string }) => operatorAdapter.getPipelineRun(runId) }),
   }
 }
 

@@ -74,24 +74,47 @@ export function zoneDotRadius(layer: 'gap' | 'demand' | 'supply'): ExpressionSpe
   return ['case', ['==', ['get', 'dataStatus'], 'missing'], 9, ['interpolate', ['linear'], ['get', property], 0, 8, 5, 12.5, 15, 16, 30, 19, 60, 24, 100, 28.5]]
 }
 
+export type FlowFeatureProperties = {
+  id: string
+  kind: 'route' | 'arrowhead'
+  quantity: number
+  sourceLabel: string
+  targetLabel: string
+  width: number
+}
+
 export function buildFlowCollections(zones: readonly Zone[], moves: readonly Move[]) {
   const zonesById = new Map(zones.map((zone) => [zone.id, zone]))
-  const routes = moves.filter((move) => move.quantity > 0).flatMap((move) => {
+  const arcs = moves.filter((move) => move.quantity > 0).flatMap((move) => {
     const source = zonesById.get(move.sourceZoneId)
     const target = zonesById.get(move.targetZoneId)
     if (!source || !target) return []
     const coordinates = flowCurve(source.center, target.center)
-    return [lineString(coordinates, {
+    const properties: FlowFeatureProperties = {
       id: move.id,
+      kind: 'route',
       quantity: move.quantity,
+      sourceLabel: source.label || move.sourceZoneLabel || move.sourceZoneId,
+      targetLabel: target.label || move.targetZoneLabel || move.targetZoneId,
       width: 1.5 + Math.min(4, move.quantity * 0.4),
-    })]
+    }
+    return [lineString(coordinates, properties)]
   })
-  const labels = routes.map((route) => {
-    const coordinate = route.geometry.coordinates[Math.floor(route.geometry.coordinates.length * 0.55)]!
-    return point(coordinate, { id: route.properties.id, label: `${route.properties.quantity} xe` })
+  const labels = arcs.map((arc) => {
+    const coordinate = coordinateAt(arc.geometry.coordinates, Math.round((arc.geometry.coordinates.length - 1) * labelProgress))
+    // Nhãn phải nói rõ chiều điều phối, không chỉ số xe: điều phối viên đọc "đi từ đâu về đâu" trước khi duyệt.
+    return point(coordinate, {
+      id: arc.properties.id,
+      label: `${arc.properties.sourceLabel} → ${arc.properties.targetLabel}\n${arc.properties.quantity} xe`,
+    })
   })
-  return { labels: featureCollection(labels), routes: featureCollection(routes) }
+  // Mũi tên là hình học chứ không phải ký tự font: Mapbox không bao giờ ẩn nó vì va chạm nhãn.
+  const arrowheads = arcs.map((arc) => lineString(arrowheadCoordinates(arc.geometry.coordinates), {
+    ...arc.properties,
+    id: `${arc.properties.id}-arrowhead`,
+    kind: 'arrowhead' as const,
+  }))
+  return { labels: featureCollection(labels), routes: featureCollection([...arcs, ...arrowheads]) }
 }
 
 const coreMapZoneIdMax = 7
@@ -125,6 +148,39 @@ export function mapViewportForView(view: 'city' | 'core'): OperatorMapViewport {
   return view === 'core'
     ? { center: [105.834, 21.03], zoom: 12.25 }
     : { center: [105.68, 20.98], zoom: 9.35 }
+}
+
+// Nhiều cung thường chụm về cùng một zone đích, nên nhãn nằm gần đầu nguồn (nơi các cung còn tách nhau)
+// và mũi tên nằm giữa cung. Hướng mũi tên do góc xoay quyết định, không cần dán sát đích.
+const labelProgress = 0.32
+const arrowheadProgress = 0.62
+const arrowheadSpreadRad = (30 * Math.PI) / 180
+const arrowheadLengthRatio = 0.12
+const arrowheadMinDeg = 0.0028
+const arrowheadMaxDeg = 0.0065
+
+function coordinateAt(curve: readonly number[][], index: number): [number, number] {
+  const position = curve[index] ?? []
+  return [position[0] ?? 0, position[1] ?? 0]
+}
+
+function arrowheadCoordinates(curve: readonly number[][]): [number, number][] {
+  const lastIndex = curve.length - 1
+  const tipIndex = Math.max(1, Math.round(lastIndex * arrowheadProgress))
+  const [tipLng, tipLat] = coordinateAt(curve, tipIndex)
+  const [backLng, backLat] = coordinateAt(curve, tipIndex - 1)
+  const [startLng, startLat] = coordinateAt(curve, 0)
+  const [endLng, endLat] = coordinateAt(curve, lastIndex)
+  // Quy kinh độ về mặt phẳng cục bộ trước khi xoay, nếu không góc mũi tên bị méo theo vĩ độ.
+  const scale = Math.cos((tipLat * Math.PI) / 180) || 1
+  const heading = Math.atan2(tipLat - backLat, (tipLng - backLng) * scale)
+  const chord = Math.hypot((endLng - startLng) * scale, endLat - startLat)
+  const size = Math.min(arrowheadMaxDeg, Math.max(arrowheadMinDeg, chord * arrowheadLengthRatio))
+  const barb = (offset: number): [number, number] => {
+    const angle = heading + Math.PI + offset
+    return [tipLng + (Math.cos(angle) * size) / scale, tipLat + Math.sin(angle) * size]
+  }
+  return [barb(arrowheadSpreadRad), [tipLng, tipLat], barb(-arrowheadSpreadRad)]
 }
 
 function flowCurve(source: Zone['center'], target: Zone['center']): [number, number][] {

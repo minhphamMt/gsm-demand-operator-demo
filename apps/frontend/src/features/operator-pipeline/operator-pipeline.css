@@ -1,0 +1,83 @@
+/* Token của panel Autonomous Resolution Pipeline, scoped bằng [data-surface="pipeline"].
+   Giá trị lấy thẳng từ bộ token sáng của operator console (operator-console.css) để panel
+   nằm cùng một hệ màu với phần còn lại của màn hình vận hành.
+
+   Giữ nguyên tên biến `--nfp-*` thay vì đổi sang `--color-*`: panel có vài vai trò màu mà
+   console không có (ink / soft của cùng một trạng thái), và lớp tên riêng cho phép đổi cả
+   bảng màu ở đúng một chỗ — đây cũng là nơi /wallboard sẽ ghi đè nếu cần bản tối. */
+
+[data-surface="pipeline"] {
+  --nfp-bg: #f7f8f6;
+  --nfp-raise: #ffffff;
+  --nfp-raise-2: #f5f8f7;
+  --nfp-line: #dde5e3;
+  --nfp-ink: #14302e;
+  --nfp-muted: #6f7f7c;
+
+  /* accent = chữ/viền (đủ tương phản trên nền sáng); accent-fill = nền có chữ trắng. */
+  --nfp-accent: #0c6e69;
+  --nfp-accent-fill: #0c6e69;
+  --nfp-accent-soft: #e4f6f4;
+
+  --nfp-ok: #0c6e69;
+  --nfp-warn: #8a5a05;
+  --nfp-warn-soft: #fdf1dc;
+  --nfp-crit: #a83426;
+  --nfp-crit-soft: #fdeeeb;
+  --nfp-idle: #94a2a0;
+
+  /* Màu dùng trong SVG/biểu đồ, không diễn đạt được bằng class Tailwind. */
+  --nfp-grid: #e9efed;
+  --nfp-series: #0c6e69;
+
+  background: var(--nfp-bg);
+  color: var(--nfp-ink);
+}
+
+.nfp-card { border: 1px solid var(--nfp-line); border-radius: 10px; background: var(--nfp-raise) }
+.nfp-card.is-active { border-color: var(--nfp-accent); box-shadow: 0 0 0 3px var(--nfp-accent-soft) }
+
+/* Vòng sáng của huy hiệu AI: nhịp thở cho biết hệ thống đang giám sát, không phải trang tĩnh. */
+.nfp-pulse::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 999px;
+  border: 1px solid var(--nfp-accent); opacity: .5; animation: nfp-breathe 2.4s ease-out infinite;
+}
+@keyframes nfp-breathe { 0% { transform: scale(.92); opacity: .55 } 100% { transform: scale(1.22); opacity: 0 } }
+
+/* Chấm dữ liệu chạy dọc cạnh nối ở tab Sơ đồ — chuyển động do <animateMotion> của SVG lo. */
+.nfp-flow-dot { fill: var(--nfp-accent) }
+
+.nfp-scan { position: relative; overflow: hidden }
+.nfp-scan::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--nfp-accent), transparent);
+  animation: nfp-scan 1.4s ease-in-out infinite;
+}
+@keyframes nfp-scan { 0% { transform: translateX(-100%) } 100% { transform: translateX(100%) } }
+
+@media (prefers-reduced-motion: reduce) {
+  .nfp-pulse::after, .nfp-scan::after { animation: none }
+  .nfp-pulse::after { opacity: .35 }
+  /* Không tắt được <animateMotion> bằng CSS, nên ẩn hẳn chấm chạy. */
+  .nfp-flow-dot { display: none }
+}
+
+/* Sân sơ đồ ba cột (agent/07-Design §5): thẻ agent → node Optimization → panel chi tiết.
+   Cạnh nối là một lớp SVG phủ lên toàn sân, toạ độ do JS đo từ vị trí thật của từng thẻ. */
+.nfp-flow {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
+  gap: 0 44px;
+  align-items: start;
+}
+.nfp-flow-edges { position: absolute; inset: 0; pointer-events: none; z-index: 0 }
+.nfp-flow-column, .nfp-flow-center, .nfp-flow-detail { position: relative; z-index: 1; min-width: 0 }
+.nfp-flow-center { align-self: center }
+
+/* Dưới 1280px không đủ chỗ cho ba cột: xếp dọc, cạnh nối tự ẩn vì SVG không còn khoảng hở. */
+@media (max-width: 1280px) {
+  .nfp-flow { grid-template-columns: minmax(0, 1fr); gap: 14px }
+  .nfp-flow-edges { display: none }
+  .nfp-flow-center { align-self: stretch; max-width: 260px }
+}

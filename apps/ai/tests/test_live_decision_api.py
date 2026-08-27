@@ -277,7 +277,9 @@ def test_replay_model_failure_never_substitutes_live_baseline() -> None:
         payload = _request()
         payload["zones"] = zones
         payload["replay_source_at"] = source_at
-        with patch("src.api.routes_inference.forecast_at", side_effect=RuntimeError("broken artifact")):
+        # `forecast_at` được gọi từ src/orchestration/steps.py — patch phải trỏ vào nơi hàm
+        # thực sự được tra cứu, không phải module đã import lại nó.
+        with patch("src.orchestration.steps.forecast_at", side_effect=RuntimeError("broken artifact")):
             response = client.post("/api/v1/decisions", json=payload)
 
     assert response.status_code == 503
