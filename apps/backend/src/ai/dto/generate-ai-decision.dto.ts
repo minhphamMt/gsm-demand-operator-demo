@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsDateString, IsIn, IsInt, IsOptional, Min } from 'class-validator';
+import { IsDateString, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class GenerateAiDecisionDto {
   @Transform(({ value }) => Number(value))
@@ -27,6 +27,14 @@ export class RunNextAiDecisionDto extends GenerateAiDecisionDto {
 export class RunReplayAiDecisionDto {
   @IsDateString()
   sourceAt!: string;
+
+  // Cửa sổ nhìn lại cho biểu đồ xu hướng. Bỏ trống = giữ mặc định 60 phút của AI service.
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  @Min(5)
+  @Max(1440)
+  lookbackMinutes?: number;
 }
 
 export class RunPipelineDto {

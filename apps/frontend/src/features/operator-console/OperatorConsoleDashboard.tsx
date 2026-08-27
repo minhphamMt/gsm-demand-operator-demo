@@ -46,6 +46,8 @@ import { operatorQueryKeys } from "@/features/operator-data/api/operatorQueries"
 import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, Proposal, Snapshot, Zone } from "@/features/operator-data";
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
 import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline";
+import { AiImpactChart } from "./components/AiImpactChart";
+import { DemandTrendChart } from "./components/DemandTrendChart";
 import { NetworkHealthPanel } from "./components/NetworkHealthPanel";
 import { OpsHeader } from "./components/OpsHeader";
 import { ZoneBalanceChart } from "./components/ZoneBalanceChart";
@@ -125,6 +127,8 @@ export function OperatorConsoleDashboard() {
   );
   const serverNow = useServerClock(capabilities.data?.serverTime, capabilities.isError);
   const replayWindow = useQuery(replayWindowQuery(replayAnchorAt ?? ""));
+  // Cửa sổ 24 giờ cho biểu đồ xu hướng — tách khỏi cửa sổ 60 phút của thanh thời gian.
+  const dayWindow = useQuery(replayWindowQuery(replayAnchorAt ?? "", 1440));
   const plans = useQuery(plansQuery());
   const campaigns = useQuery(campaignsQuery());
   const dispatches = useQuery(dispatchQuery());
@@ -614,16 +618,9 @@ export function OperatorConsoleDashboard() {
         zoneCount={zones.length}
       />
       <div className="nf-ops-workspace">
-        <aside aria-label="Chỉ số vận hành" className="nf-insight-column">
-          <NetworkHealthPanel snapshot={activeSnapshot} />
-          <KpiPanel
-            balance={balance}
-            campaign={campaign}
-            hotspots={hotspots}
-            plan={planReady ? plan : undefined}
-            requests={activeSnapshot.kpis.requests}
-            stage={activeStage}
-          />
+        <aside aria-label="Biểu đồ vận hành" className="nf-insight-column">
+          <DemandTrendChart steps={dayWindow.data ?? []} />
+          <AiImpactChart plan={planReady ? plan : undefined} />
           <section className="nf-insight-chart">
             <div className="nf-rail-title">
               <span>CÂN BẰNG THEO ZONE</span>
@@ -750,6 +747,9 @@ export function OperatorConsoleDashboard() {
           aria-label="Bảng chỉ huy vận hành"
           className={`nf-command-rail ${railOpen ? "is-open" : ""}`}
         >
+          {/* Sức khỏe mạng lưới nằm ngoài nhánh điều hành: đang chạy phương án là lúc cần
+              theo dõi mạng lưới nhất, không phải lúc để nó biến mất khỏi màn hình. */}
+          <NetworkHealthPanel snapshot={activeSnapshot} />
           {execution ? (
             <ActiveExecutionRail
               audit={audit.data}
@@ -762,6 +762,14 @@ export function OperatorConsoleDashboard() {
             />
           ) : (
             <>
+              <KpiPanel
+                balance={balance}
+                campaign={campaign}
+                hotspots={hotspots}
+                plan={planReady ? plan : undefined}
+                requests={activeSnapshot.kpis.requests}
+                stage={activeStage}
+              />
               <Pipeline
                 campaign={campaign}
                 dispatch={dispatch}

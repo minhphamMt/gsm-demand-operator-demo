@@ -52,6 +52,16 @@ class ExactDatasetSnapshotRequest(ContractModel):
     source_at: StepAlignedDatetime
 
 
+class DatasetWindowRequest(ExactDatasetSnapshotRequest):
+    """Cửa sổ quan sát nhìn lại. Mặc định giữ 60 phút để caller cũ không đổi hành vi.
+
+    Trần 1440 phút (24 giờ) là để một request không kéo về cả tuần dữ liệu — bảng vận hành
+    chỉ vẽ xu hướng trong ngày.
+    """
+
+    lookback_minutes: int = Field(default=60, ge=5, le=1440)
+
+
 @router.get("/datasets/snapshots/status")
 def get_dataset_status() -> dict[str, object]:
     try:
@@ -82,9 +92,9 @@ def get_dataset_snapshot_at(request: ExactDatasetSnapshotRequest) -> dict[str, o
 
 
 @router.post("/datasets/snapshots/window")
-def get_dataset_snapshot_window(request: ExactDatasetSnapshotRequest) -> dict[str, object]:
+def get_dataset_snapshot_window(request: DatasetWindowRequest) -> dict[str, object]:
     try:
-        return {"steps": snapshot_window(pd.Timestamp(request.source_at))}
+        return {"steps": snapshot_window(pd.Timestamp(request.source_at), request.lookback_minutes)}
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except (FileNotFoundError, ValueError) as error:

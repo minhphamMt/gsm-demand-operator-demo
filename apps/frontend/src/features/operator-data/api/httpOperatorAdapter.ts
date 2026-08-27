@@ -99,12 +99,18 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
       'snapshot replay',
     )
   },
-  getReplayWindow: async (sourceAt) => {
-    const response = await requestJson('/operator/ai/replay-window', { method: 'POST', body: body({ sourceAt }) })
+  getReplayWindow: async (sourceAt, lookbackMinutes) => {
+    const response = await requestJson('/operator/ai/replay-window', { method: 'POST', body: body(lookbackMinutes ? { sourceAt, lookbackMinutes } : { sourceAt }) })
     if (!response || typeof response !== 'object' || !('steps' in response) || !Array.isArray(response.steps)) throw new AppError('Dữ liệu timeline replay từ máy chủ không hợp lệ.', { code: 'INVALID_RESPONSE' })
     return response.steps.map((step) => {
       if (!step || typeof step !== 'object' || !('source_at' in step) || !('mean_rain_mm_h' in step) || typeof step.source_at !== 'string' || typeof step.mean_rain_mm_h !== 'number') throw new AppError('Mốc replay từ máy chủ không hợp lệ.', { code: 'INVALID_RESPONSE' })
-      return { sourceAt: step.source_at, meanRainMmH: step.mean_rain_mm_h }
+      // Hai tổng là field optional: mốc cũ không có thì bỏ qua, không dựng số 0 giả.
+      return {
+        sourceAt: step.source_at,
+        meanRainMmH: step.mean_rain_mm_h,
+        ...('total_demand' in step && typeof step.total_demand === 'number' ? { totalDemand: step.total_demand } : {}),
+        ...('total_supply' in step && typeof step.total_supply === 'number' ? { totalSupply: step.total_supply } : {}),
+      }
     })
   },
   getSnapshot: async (scenario) => parseEntity(

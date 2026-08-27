@@ -60,7 +60,7 @@ export class AiController {
   @SensitiveMutation()
   @ApiOperation({ summary: 'Read actual rain metrics around a replay bucket' })
   replayWindow(@Body() body: RunReplayAiDecisionDto) {
-    return this.service.replayWindow(body.sourceAt);
+    return this.service.replayWindow(body.sourceAt, body.lookbackMinutes);
   }
 
   @Post('runs')

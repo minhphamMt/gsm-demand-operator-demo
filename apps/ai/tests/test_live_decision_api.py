@@ -256,6 +256,48 @@ def test_replay_window_never_reads_future_steps_at_dataset_boundary() -> None:
     assert all("mean_rain_mm_h" in step for step in steps)
 
 
+def test_replay_window_carries_observed_totals_for_the_operations_trend() -> None:
+    """Bảng vận hành vẽ xu hướng trong ngày từ đúng cửa sổ này.
+
+    Nếu thiếu tổng cầu/cung, UI buộc phải gọi lại từng snapshot một — 288 vòng cho 24 giờ.
+    """
+    with TestClient(app) as client:
+        status = client.get("/api/v1/datasets/snapshots/status").json()
+        source_at = status["last_inference_source_at"]
+        response = client.post(
+            "/api/v1/datasets/snapshots/window",
+            json={"source_at": source_at, "lookback_minutes": 1440},
+        )
+
+    assert response.status_code == 200
+    steps = response.json()["steps"]
+    assert len(steps) > 12, "cửa sổ 24 giờ phải dài hơn cửa sổ mặc định 60 phút"
+    assert [step["source_at"] for step in steps] == sorted(step["source_at"] for step in steps)
+    assert all(step["total_demand"] >= 0 and step["total_supply"] >= 0 for step in steps)
+    # Chuỗi phải có biến thiên thật; một đường phẳng nghĩa là đang đọc nhầm một mốc lặp lại.
+    assert len({step["total_demand"] for step in steps}) > 1
+
+
+def test_replay_window_keeps_its_sixty_minute_default_for_existing_callers() -> None:
+    with TestClient(app) as client:
+        status = client.get("/api/v1/datasets/snapshots/status").json()
+        source_at = status["last_inference_source_at"]
+        default_steps = client.post("/api/v1/datasets/snapshots/window", json={"source_at": source_at}).json()["steps"]
+
+    assert len(default_steps) == 13
+
+
+def test_replay_window_refuses_a_lookback_beyond_one_day() -> None:
+    with TestClient(app) as client:
+        status = client.get("/api/v1/datasets/snapshots/status").json()
+        response = client.post(
+            "/api/v1/datasets/snapshots/window",
+            json={"source_at": status["last_inference_source_at"], "lookback_minutes": 4320},
+        )
+
+    assert response.status_code == 422
+
+
 def test_replay_rejects_zone_payload_from_a_different_source() -> None:
     payload = _request()
     payload["replay_source_at"] = "2026-09-25T07:00:00+07:00"

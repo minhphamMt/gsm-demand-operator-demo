@@ -17,7 +17,9 @@ export type Hotspot = { zoneId: string; rank: number; reason: string; etaMinutes
 export type ForecastRunStatus = 'COMPLETED' | 'FALLBACK' | 'FAILED' | 'RUNNING' | 'SUPERSEDED'
 export type ForecastRun = { id: string; horizonMinutes: ForecastHorizon; status: ForecastRunStatus | null; modelVersion: string | null; featureVersion: string | null; policyVersion: string | null; inputHash: string | null; forecastMode: string | null; dataSource: string | null; forecastAt: string | null; completedAt: string | null; zoneCount: number }
 export type AiSnapshotStatus = { zoneContract: 'AI_ZONE_1_30'; registeredZones: number; liveZones: number; forecastedZones: number; horizons: readonly number[]; forecastRuns?: readonly ForecastRun[]; modelVersion: string | null; forecastMode: string | null; dataSource: string | null; forecastAt: string | null; forecastRunId?: string | null; forecastStatus?: ForecastRunStatus | null }
-export type ReplayTimelineStep = { sourceAt: string; meanRainMmH: number }
+// `totalDemand`/`totalSupply` là **field optional thêm sau W2** (CLAUDE.md §3 #1): mốc replay cũ
+// chỉ mang lượng mưa, và thanh thời gian vẫn chạy đúng khi hai field này vắng mặt.
+export type ReplayTimelineStep = { sourceAt: string; meanRainMmH: number; totalDemand?: number; totalSupply?: number }
 export type Snapshot = { generatedAt: string; sourceAt?: string; replayStep: string; scenario: Scenario; demoScenarioId: DemoScenarioId; regime: 'normal' | 'peak' | 'rain' | 'rain_peak'; ai?: AiSnapshotStatus; zones: readonly Zone[]; hotspots: readonly Hotspot[]; kpis: { fleetAvailable: number; requests: number; fulfillmentRate: number; residualGap: number; avgWaitProxy: number } }
 export type DemoScenario = { id: DemoScenarioId; label: string; description: string; regime: Snapshot['regime']; startTime: string; replaySteps: number; responseMode: ResponseMode }
 export type Baseline = { id: 'no-action' | 'historical-average'; label: string; fulfillmentRate: number; residualGap: number; avgWaitProxy: number; frozenAt: string; source: string }
@@ -184,7 +186,7 @@ export type OperatorDataAdapter = {
   generateAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon) => Promise<Snapshot>
   optimizeAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon) => Promise<OptimizationResult>
   runReplayStep: (sourceAt: string) => Promise<Snapshot>
-  getReplayWindow: (sourceAt: string) => Promise<readonly ReplayTimelineStep[]>
+  getReplayWindow: (sourceAt: string, lookbackMinutes?: number) => Promise<readonly ReplayTimelineStep[]>
   getSnapshot: (scenario: Scenario, demoScenarioId?: DemoScenarioId, replayIndex?: number) => Promise<Snapshot>
   listScenarios: () => Promise<readonly DemoScenario[]>
   getBaselines: () => Promise<readonly Baseline[]>

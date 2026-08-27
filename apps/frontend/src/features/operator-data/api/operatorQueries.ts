@@ -28,7 +28,9 @@ export const capabilitiesQuery = () => queryOptions({ queryKey: operatorQueryKey
 export const dispatchQuery = () => queryOptions({ queryKey: operatorQueryKeys.dispatch, queryFn: operatorAdapter.listDispatch, refetchInterval: (query) => dispatchPollInterval(query.state.data), refetchIntervalInBackground: false })
 export const notificationsQuery = () => queryOptions({ queryKey: operatorQueryKeys.notifications, queryFn: operatorAdapter.listNotifications, refetchInterval: () => visiblePollInterval(), refetchIntervalInBackground: false })
 export const snapshotQuery = (comparison: Scenario, scenario: DemoScenarioId = 'rain-peak', replay = 0, autoRefresh = true) => queryOptions({ queryKey: operatorQueryKeys.snapshot(comparison, scenario, replay), queryFn: () => operatorAdapter.getSnapshot(comparison, scenario, replay), refetchInterval: () => autoRefresh ? snapshotPollInterval() : false, refetchIntervalInBackground: false, staleTime: 0 })
-export const replayWindowQuery = (sourceAt: string) => queryOptions({ enabled: Boolean(sourceAt), queryKey: ['operator', 'replay-window', sourceAt] as const, queryFn: () => operatorAdapter.getReplayWindow(sourceAt), staleTime: Infinity })
+// `lookbackMinutes` nằm trong queryKey: thanh thời gian (60 phút) và biểu đồ xu hướng (24 giờ)
+// đọc cùng endpoint nhưng khác độ dài cửa sổ, gộp chung cache sẽ cho bên này dữ liệu của bên kia.
+export const replayWindowQuery = (sourceAt: string, lookbackMinutes?: number) => queryOptions({ enabled: Boolean(sourceAt), queryKey: ['operator', 'replay-window', sourceAt, lookbackMinutes ?? 'default'] as const, queryFn: () => operatorAdapter.getReplayWindow(sourceAt, lookbackMinutes), staleTime: Infinity })
 export const replaySnapshotQuery = (sourceAt: string) => queryOptions({ enabled: Boolean(sourceAt), queryKey: operatorQueryKeys.replaySnapshot(sourceAt), queryFn: async () => {
   const snapshot = await operatorAdapter.runReplayStep(sourceAt)
   return snapshot.sourceAt === sourceAt ? snapshot : { ...snapshot, sourceAt }

@@ -148,9 +148,11 @@ export class AiService {
     });
   }
 
-  async replayWindow(sourceAt: string) {
-    return this.request<{ steps: Array<{ source_at: string; mean_rain_mm_h: number }> }>('/api/v1/datasets/snapshots/window', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source_at: sourceAt }),
+  async replayWindow(sourceAt: string, lookbackMinutes?: number) {
+    return this.request<{ steps: Array<{ source_at: string; mean_rain_mm_h: number; total_demand?: number; total_supply?: number }> }>('/api/v1/datasets/snapshots/window', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(lookbackMinutes ? { source_at: sourceAt, lookback_minutes: lookbackMinutes } : { source_at: sourceAt }),
     });
   }
 

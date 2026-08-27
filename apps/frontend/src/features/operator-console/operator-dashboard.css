@@ -339,3 +339,32 @@
 .nf-risk-legend span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nf-risk-legend b{color:var(--nf-ops-ink);font-size:10px;font-variant-numeric:tabular-nums}
 @media(prefers-reduced-motion:reduce){.nf-gauge__value,.nf-risk-bar>span{transition:none}}
+
+/* Cột trái: biểu đồ xu hướng + tác động AI. */
+.nf-trend-block,.nf-impact-block{flex:none;border-bottom:1px solid var(--nf-ops-line)}
+.nf-trend-current{display:flex;align-items:baseline;gap:6px;margin:0;padding:0 14px 4px;color:var(--nf-ops-muted);font-size:10px}
+.nf-trend-current b{color:var(--nf-ops-ink);font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
+.nf-trend-current em{color:var(--nf-ops-line);font-style:normal}
+.nf-trend-canvas{height:118px;padding:0 6px}
+.nf-trend-legend{display:flex;gap:12px;margin:0;padding:4px 14px 12px;color:var(--nf-ops-muted);font-size:9px}
+.nf-trend-legend span{display:flex;align-items:center;gap:5px}
+.nf-trend-legend i{width:12px;height:2px;border-radius:2px}
+.nf-trend-legend i.is-demand{background:var(--nf-ops-teal)}
+.nf-trend-legend i.is-supply{background:var(--nf-ops-blue,#7fa9f5)}
+
+.nf-impact-headline{display:flex;align-items:center;gap:6px;margin:0;padding:0 14px 8px;color:var(--nf-ops-muted);font-size:10px}
+.nf-impact-headline>svg{color:var(--nf-ops-teal-bright);flex:none}
+.nf-impact-headline b{color:var(--nf-ops-teal-bright);font-size:16px;font-weight:800}
+.nf-impact-bars{display:flex;flex-direction:column;gap:7px;margin:0;padding:0 14px 13px;list-style:none}
+.nf-impact-bars li{display:grid;grid-template-columns:82px minmax(0,1fr) 28px;align-items:center;gap:8px}
+.nf-impact-bars__label{display:flex;align-items:center;gap:4px;min-width:0;color:var(--nf-ops-muted);font-size:9px}
+.nf-impact-bars__label em{padding:1px 4px;border-radius:3px;background:rgba(238,177,81,.16);color:var(--nf-ops-amber);font-size:7px;font-style:normal;font-weight:800}
+.nf-impact-bars__track{height:10px;overflow:hidden;border-radius:99px;background:var(--nf-ops-surface-3)}
+.nf-impact-bars__track>i{display:block;height:100%;border-radius:99px;transition:width .35s ease}
+.nf-impact-bars__track>i.is-no_action{background:var(--nf-ops-red)}
+.nf-impact-bars__track>i.is-plan_only{background:var(--nf-ops-amber)}
+.nf-impact-bars__track>i.is-plan_activation{background:var(--nf-ops-teal)}
+.nf-impact-bars b{color:var(--nf-ops-ink);font-size:11px;font-variant-numeric:tabular-nums;text-align:right}
+@media(prefers-reduced-motion:reduce){.nf-impact-bars__track>i{transition:none}}
+/* Sức khỏe mạng lưới đứng đầu rail phải, không co lại khi danh sách bên dưới dài. */
+.nf-ops .nf-command-rail>.nf-network-health{flex:none}

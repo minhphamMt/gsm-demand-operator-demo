@@ -96,7 +96,21 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     return { planningStatus: 'proposal_created', proposal: clone(proposal) }
   },
   runReplayStep: async (sourceAt) => ({ ...await mockOperatorAdapter.getSnapshot('baseline'), sourceAt }),
-  getReplayWindow: async (sourceAt) => [{ sourceAt, meanRainMmH: baseZones.reduce((sum, zone) => sum + zone.rainMmH, 0) / baseZones.length }],
+  // Mock dựng lại đúng hình dạng của cửa sổ replay thật: các mốc 5 phút lùi dần từ `sourceAt`,
+  // mỗi mốc kèm tổng cầu/cung. Nhịp ngày dùng hàm sin theo giờ để có hai đỉnh sáng/chiều như
+  // dataset thật — số mô phỏng, nhưng hình dạng để kiểm thử UI thì đúng.
+  getReplayWindow: async (sourceAt, lookbackMinutes = 60) => {
+    const stepCount = Math.max(1, Math.floor(lookbackMinutes / 5));
+    const meanRain = baseZones.reduce((sum, zone) => sum + zone.rainMmH, 0) / baseZones.length
+    const endsAt = Date.parse(sourceAt)
+    return Array.from({ length: stepCount + 1 }, (_, index) => {
+      const at = new Date(endsAt - (stepCount - index) * 5 * 60_000)
+      const hour = at.getHours() + at.getMinutes() / 60
+      const rhythm = 0.55 + 0.45 * Math.sin(((hour - 9) / 24) * 2 * Math.PI) + 0.35 * Math.sin(((hour - 6) / 12) * 2 * Math.PI)
+      const demand = Math.max(40, Math.round(300 * rhythm))
+      return { sourceAt: at.toISOString(), meanRainMmH: meanRain, totalDemand: demand, totalSupply: Math.round(demand * 1.12) }
+    })
+  },
   getSnapshot: (comparison, demoScenarioId = state.scenarioId, replayIndex = 0) => requestLocal(() => {
     const scenario = scenarios.find((item) => item.id === demoScenarioId) ?? scenarios[0]!
     const gain = state.campaigns.reduce((sum, campaign) => sum + campaign.unitsGained, 0)

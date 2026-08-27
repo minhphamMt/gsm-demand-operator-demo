@@ -159,10 +159,11 @@ Backend đã sẵn sàng. `GET /api/v1/runs/{id}` trả:
 
 | MA-4.27 | Cột trái thành bảng giám sát toàn mạng lưới | ✅ | MA-4.26 | Ba đồng hồ (`networkGauges`) + thanh phân bố rủi ro theo `severity` + biểu đồ cân bằng zone. **Không** sao chép bộ ba đồng hồ của bản mock: hệ thống không đo "độ ổn định", còn "độ tin cậy AI" đang bị chặn bởi **MA-Q3** (chưa chốt công thức) — gán số cho hai ô đó là bịa chỉ số. Thay bằng ba đại lượng có thật: tỷ lệ đáp ứng (`kpis.fulfillmentRate`), tỷ lệ zone trong tầm (`severity` Low+Medium), độ phủ dữ liệu (đo trên hợp đồng 30 zone, không trên số zone nhận được) |
 
-**Vì sao không có đường xu hướng 24 giờ (MA-4.27).** Dataset **có** đủ dữ liệu (2016 mốc 5 phút,
-7 ngày) và `snapshot_replay.snapshot_window()` đã đọc cả frame nhưng chỉ trả `mean_rain_mm_h`.
-Phơi thêm cầu/cung là việc nhỏ (~1 giờ) nhưng chạm endpoint AI + thêm field vào contract, nên để
-lại thành quyết định riêng. Đường cong theo **chân trời** (+5/+10/+15/+30) đã bị loại sau khi đo
+| MA-4.28 | Đảo cột: trái là biểu đồ, phải là sức khỏe mạng lưới | ✅ | MA-4.27 | Trái: `DemandTrendChart` (cầu–cung trong ngày) + `AiImpactChart` (ba kịch bản FR-13) + cân bằng zone. Phải: `NetworkHealthPanel` đặt **ngoài** nhánh điều hành — đang chạy phương án là lúc cần theo dõi mạng lưới nhất |
+| MA-4.29 | Phơi chuỗi cầu–cung 24 giờ ra cửa sổ replay | ✅ | MA-4.28 | `snapshot_window()` đã đọc cả frame nhưng chỉ trả lượng mưa. Thêm `total_demand`/`total_supply` + tham số `lookback_minutes` (5–1440, mặc định giữ 60 nên caller cũ không đổi). Đổi sang `groupby` một lần: cách cũ quét lại toàn frame cho **từng** mốc, 288 lần cho cửa sổ 24 giờ. `ReplayTimelineStep` chỉ **thêm field optional**, đúng §3 #1 |
+
+**Đường xu hướng 24 giờ — đã làm ở MA-4.29.** Dataset có 2016 mốc 5 phút trải 7 ngày; cầu toàn
+mạng dao động 53–514 với hai đỉnh sáng/chiều rõ rệt. Đường cong theo **chân trời** (+5/+10/+15/+30) đã bị loại sau khi đo
 dữ liệu thật: chỉ +15/+30 có số, +5/+10 rỗng, dải p10–p90 cũng rỗng — vẽ ra sẽ là biểu đồ thủng.
 
 **Kiểm tra bằng chạy thật (MA-4.26, MA-4.27).** Bốn lỗi chỉ lộ khi mở app, test không bắt được — cột trái

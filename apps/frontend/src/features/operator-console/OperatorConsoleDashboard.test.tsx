@@ -474,7 +474,7 @@ describe('operator console dashboard layout', () => {
 
   it('opens the agent flow panel from the header chip', async () => {
     renderDashboard()
-    await screen.findByRole('complementary', { name: 'Chỉ số vận hành' })
+    await screen.findByRole('complementary', { name: 'Biểu đồ vận hành' })
 
     expect(screen.queryByRole('region', { name: 'Autonomous Resolution Pipeline' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Luồng agent/ }))
@@ -495,7 +495,19 @@ describe('operator console dashboard layout', () => {
   it('charts the live per-zone imbalance beside the map', async () => {
     renderDashboard()
 
-    const insights = await screen.findByRole('complementary', { name: 'Chỉ số vận hành' })
+    const insights = await screen.findByRole('complementary', { name: 'Biểu đồ vận hành' })
     expect(within(insights).getByRole('img', { name: 'Biểu đồ thiếu và dư xe theo zone' })).toBeInTheDocument()
+  })
+
+  // Cột trái là biểu đồ, cột phải là sức khỏe mạng lưới — mỗi khối đúng một chỗ.
+  it('keeps the trend charts on the left and network health on the right', async () => {
+    renderDashboard()
+
+    const charts = await screen.findByRole('complementary', { name: 'Biểu đồ vận hành' })
+    expect(within(charts).getByRole('region', { name: 'Xu hướng cầu và cung trong ngày' })).toBeInTheDocument()
+    expect(within(charts).getByRole('region', { name: 'Tác động của AI' })).toBeInTheDocument()
+    expect(within(charts).queryByRole('region', { name: 'Sức khỏe mạng lưới' })).not.toBeInTheDocument()
+
+    expect(await screen.findByRole('region', { name: 'Sức khỏe mạng lưới' })).toBeInTheDocument()
   })
 })

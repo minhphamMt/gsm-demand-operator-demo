@@ -209,6 +209,10 @@ def snapshot_window(center_at: pd.Timestamp, lookback_minutes: int = 60) -> list
     Replay is an observation reader, not an inference loop.  Keeping future
     buckets out of this response prevents the UI from presenting ground truth
     that would not yet be available at the live edge.
+
+    Mỗi mốc trả kèm tổng cầu và tổng cung **đã quan sát** của toàn mạng lưới, để bảng vận
+    hành vẽ được xu hướng trong ngày mà không phải gọi lại từng snapshot một. Đây vẫn là số
+    đọc từ dataset, không phải dự báo — cùng nguồn với `snapshot_at()`.
     """
     timestamps = sorted(_inference_timestamps())
     if center_at not in timestamps:
@@ -217,11 +221,23 @@ def snapshot_window(center_at: pd.Timestamp, lookback_minutes: int = 60) -> list
     lookback_steps = max(0, lookback_minutes // STEP_MINUTES)
     start = max(0, center_index - lookback_steps)
     selected = timestamps[start:center_index + 1]
+
+    # Gom một lần bằng groupby thay vì lọc lại cả frame cho từng mốc: cửa sổ 24 giờ là 288 mốc,
+    # cách cũ quét toàn bộ 288 lần và trở thành điểm nghẽn ngay khi nới lookback.
     frame = _dataset()
+    window = frame[frame["ts_bucket"].isin(selected)]
+    grouped = window.groupby("ts_bucket").agg(
+        mean_rain_mm_h=("rain_mm_h", "mean"),
+        total_demand=("demand_observed", "sum"),
+        total_idle_supply=("idle_supply", "sum"),
+        total_enroute_supply=("enroute_supply", "sum"),
+    )
     return [
         {
             "source_at": timestamp.isoformat(),
-            "mean_rain_mm_h": float(frame.loc[frame["ts_bucket"] == timestamp, "rain_mm_h"].mean()),
+            "mean_rain_mm_h": float(row.mean_rain_mm_h),
+            "total_demand": float(row.total_demand),
+            "total_supply": float(row.total_idle_supply + row.total_enroute_supply),
         }
-        for timestamp in selected
+        for timestamp, row in zip(grouped.index, grouped.itertuples(index=False), strict=True)
     ]
