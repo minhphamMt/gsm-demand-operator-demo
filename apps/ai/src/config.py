@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # khi Model 1 được huấn luyện; "unset" là tín hiệu chưa có model, không phải mặc định hợp lệ.
     model_version: str = "unset"
 
+    # ---- Bảo mật service-to-service (issue #12) ----
+    # Khóa dùng chung giữa apps/backend và apps/ai, kiểm ở src/api/auth.py. Rỗng nghĩa
+    # là chưa cấu hình — chỉ được phép ở development/test, xem require_service_api_key.
+    ai_service_api_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
