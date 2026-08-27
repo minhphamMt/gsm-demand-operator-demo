@@ -130,3 +130,188 @@
 .nf-zone-forecast{display:flex;flex-direction:column;gap:3px;margin-top:9px;padding:8px;border:1px solid var(--color-divider);border-radius:6px;background:var(--color-neutral-100)}
 .nf-zone-forecast small{color:var(--color-neutral-600);font-size:8px;font-weight:800;letter-spacing:.08em}.nf-zone-forecast span{font-size:10px}.nf-zone-forecast b{margin:0;font-size:10px}.nf-zone-forecast b.is-risk{color:var(--color-accent-700)}.nf-zone-forecast em{color:var(--color-neutral-600);font-size:9px;font-style:normal;line-height:1.35}
 .nf-execution-log-panel{left:auto;right:14px}
+
+/* ============================================================================
+   Bảng điều hành v2 — bố cục 3 cột + bảng màu tối.
+   Bảng màu khai báo **cục bộ trên .nf-ops**, không đụng @theme toàn cục ở
+   styles/index.css: mọi trang khác (driver app, báo cáo, lịch sử) vẫn nền sáng.
+   ========================================================================= */
+.nf-ops{
+  --nf-ops-bg:#0c1216;
+  --nf-ops-surface:#121a20;
+  --nf-ops-surface-2:#172128;
+  --nf-ops-surface-3:#1d2930;
+  --nf-ops-line:#2a3941;
+  --nf-ops-ink:#f0f5f2;
+  --nf-ops-muted:#90a09e;
+  --nf-ops-teal:#35b7a5;
+  --nf-ops-teal-bright:#54d4c1;
+  --nf-ops-amber:#eeb151;
+  --nf-ops-red:#d45252;
+  background:radial-gradient(circle at 78% -12%,rgba(53,183,165,.08),transparent 31%),var(--nf-ops-bg);
+  color:var(--nf-ops-ink);
+}
+
+/* Đầu trang: nhận diện · thanh chặng · lối vào luồng agent. */
+.nf-ops-header{height:56px;flex:none;display:flex;align-items:center;gap:20px;padding:0 18px;border-bottom:1px solid var(--nf-ops-line);background:#10181d}
+.nf-ops-brand{display:flex;align-items:center;gap:9px}
+.nf-ops-brand__mark{width:28px;height:28px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(135deg,var(--nf-ops-teal),#1c7f74);color:#04140f}
+.nf-ops-brand strong{display:block;font:800 13px/1 var(--font-display);letter-spacing:.02em}
+.nf-ops-brand strong em{font-style:normal;color:var(--nf-ops-teal-bright)}
+.nf-ops-brand small{display:block;margin-top:3px;color:var(--nf-ops-muted);font-size:8px;font-weight:700;letter-spacing:.09em}
+
+.nf-stage-ribbon{display:flex;align-items:center;gap:5px;margin:0;padding:0;list-style:none}
+.nf-stage-step{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--nf-ops-line);border-radius:99px;background:var(--nf-ops-surface);color:var(--nf-ops-muted)}
+.nf-stage-step>span{width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:50%;background:var(--nf-ops-surface-3);font-size:9px;font-weight:800}
+.nf-stage-step>small{font-size:10px;font-weight:700;white-space:nowrap}
+.nf-stage-step.is-done{border-color:rgba(53,183,165,.4);color:var(--nf-ops-teal-bright)}
+.nf-stage-step.is-done>span{background:var(--nf-ops-teal);color:#04140f}
+.nf-stage-step.is-current{border-color:var(--nf-ops-teal);background:rgba(53,183,165,.13);color:var(--nf-ops-ink)}
+.nf-stage-step.is-current>span{background:var(--nf-ops-teal);color:#04140f}
+
+.nf-ops-header__tools{display:flex;align-items:center;gap:10px;margin-left:auto}
+.nf-human-loop{display:flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid rgba(53,183,165,.3);border-radius:6px;background:rgba(53,183,165,.09);color:var(--nf-ops-teal-bright);font-size:9px;font-weight:800;letter-spacing:.05em;white-space:nowrap}
+.nf-agent-summary{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--nf-ops-line);border-radius:8px;background:var(--nf-ops-surface-2);color:var(--nf-ops-ink);cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.nf-agent-summary:hover{border-color:var(--nf-ops-teal);background:var(--nf-ops-surface-3)}
+.nf-agent-summary__icon{width:22px;height:22px;display:grid;place-items:center;flex:none;border-radius:6px;background:rgba(53,183,165,.15);color:var(--nf-ops-teal-bright)}
+.nf-agent-summary__copy{text-align:left}
+.nf-agent-summary__copy strong{display:block;font-size:10px;font-weight:800}
+.nf-agent-summary__copy small{display:block;margin-top:2px;color:var(--nf-ops-muted);font-size:9px;white-space:nowrap}
+.nf-ops-clock{color:var(--nf-ops-muted);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.nf-ops-refresh{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--nf-ops-line);border-radius:7px;background:var(--nf-ops-surface-2);color:var(--nf-ops-muted);cursor:pointer}
+.nf-ops-refresh:hover:not(:disabled){border-color:var(--nf-ops-teal);color:var(--nf-ops-teal-bright)}
+.nf-ops-refresh:disabled{cursor:not-allowed;opacity:.5}
+.nf-ops-refresh .is-spinning{animation:nf-spin 1s linear infinite}
+
+/* Cột trái: chỉ số + biểu đồ cân bằng zone. */
+.nf-insight-column{width:296px;min-height:0;flex:none;display:flex;flex-direction:column;overflow:auto;border-right:1px solid var(--nf-ops-line);background:var(--nf-ops-surface)}
+.nf-insight-chart{min-height:0;flex:1;display:flex;flex-direction:column;padding-bottom:12px}
+.nf-zone-balance-chart{min-height:190px;flex:1;padding:0 6px}
+.nf-panel-empty{margin:0;padding:18px 16px;color:var(--nf-ops-muted);font-size:11px}
+
+/* Nền tối cho các khối vốn viết cho nền sáng. Chỉ đổi màu, không đổi bố cục. */
+.nf-ops .nf-scenario-bar{border-bottom-color:var(--nf-ops-line);background:var(--nf-ops-surface-2);color:var(--nf-ops-ink)}
+.nf-ops .nf-scenario-bar>span,.nf-ops .nf-scenario-bar>small{color:var(--nf-ops-muted)}
+.nf-ops .nf-scenario-bar>i{background:var(--nf-ops-line)}
+.nf-ops .nf-scenario-bar .nf-model{border-color:var(--nf-ops-line);color:var(--nf-ops-teal-bright)}
+.nf-ops .nf-map-stage{border-right-color:var(--nf-ops-line)}
+.nf-ops .nf-command-rail{background:var(--nf-ops-surface)}
+.nf-ops .nf-kpi-panel{border-bottom-color:var(--nf-ops-line)}
+.nf-ops .nf-rail-title span{color:var(--nf-ops-ink)}
+.nf-ops .nf-rail-title small{color:var(--nf-ops-muted)}
+.nf-ops .nf-phases{border-block-color:var(--nf-ops-line);background:var(--nf-ops-surface-2)}
+.nf-ops .nf-phases b{border-right-color:var(--nf-ops-line);color:var(--nf-ops-muted)}
+.nf-ops .nf-phases b.is-active{background:rgba(53,183,165,.15);color:var(--nf-ops-teal-bright)}
+.nf-ops .nf-kpi-primary small{color:var(--nf-ops-muted)}
+.nf-ops .nf-kpi-primary strong{color:var(--nf-ops-amber)}
+.nf-ops .nf-kpi-primary span{color:var(--nf-ops-muted)}
+.nf-ops .nf-kpi-grid{border-top-color:var(--nf-ops-line)}
+.nf-ops .nf-kpi-grid>span{border-right-color:var(--nf-ops-line);border-bottom-color:var(--nf-ops-line)}
+.nf-ops .nf-kpi-grid small,.nf-ops .nf-kpi-grid b em{color:var(--nf-ops-muted)}
+.nf-ops .nf-kpi-grid b{color:var(--nf-ops-ink)}
+.nf-ops .nf-pipeline-heading span{color:var(--nf-ops-ink)}
+.nf-ops .nf-pipeline-step:before,.nf-ops .nf-pipeline-step{border-color:var(--nf-ops-line)}
+.nf-ops .nf-pipeline-step>i{border-color:var(--nf-ops-line);background:var(--nf-ops-surface-2);color:var(--nf-ops-muted)}
+.nf-ops .nf-pipeline-step b{color:var(--nf-ops-ink)}
+.nf-ops .nf-pipeline-step code,.nf-ops .nf-pipeline-step p{color:var(--nf-ops-muted)}
+.nf-ops .nf-pipeline-step.is-idle{background:var(--nf-ops-surface-2)}
+.nf-ops .nf-rail-actions{border-top-color:var(--nf-ops-line)}
+.nf-ops .nf-rail-actions>small{color:var(--nf-ops-muted)}
+.nf-ops .nf-rail-toggle{border-color:var(--nf-ops-line);background:var(--nf-ops-surface-2);color:var(--nf-ops-ink)}
+
+@media(max-width:1500px){.nf-insight-column{width:250px}}
+@media(max-width:1180px){.nf-insight-column{display:none}.nf-stage-ribbon{display:none}}
+.nf-ops-refreshing{color:var(--nf-ops-teal-bright);animation:nf-spin 1s linear infinite}
+@media(prefers-reduced-motion:reduce){.nf-ops-refreshing{animation:none}}
+
+/* Lớp phủ trên bản đồ: nền tối bán trong suốt để đọc được trên style dark-v11. */
+.nf-ops .nf-map-controls>div,.nf-ops .nf-map-controls>.seg{border-color:var(--nf-ops-line);background:rgba(23,33,40,.94);box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.nf-ops .nf-map-controls small,.nf-ops .nf-map-controls .seg-opt{color:var(--nf-ops-muted)}
+.nf-ops .nf-map-controls .seg-opt:has(input:checked){background:rgba(53,183,165,.18);color:var(--nf-ops-teal-bright)}
+.nf-ops .nf-map-controls strong{color:var(--nf-ops-teal-bright)}
+.nf-ops .nf-zone-finder,.nf-ops .nf-zone-card,.nf-ops .nf-execution-log-panel,.nf-ops .nf-live-map-heading,.nf-ops .nf-live-map-legend,.nf-ops .nf-timeline,.nf-ops .nf-forecast-run{border-color:var(--nf-ops-line);background:rgba(23,33,40,.96);color:var(--nf-ops-ink);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.nf-ops .nf-zone-finder>header,.nf-ops .nf-zone-finder>label{border-bottom-color:var(--nf-ops-line)}
+.nf-ops .nf-zone-finder>header strong,.nf-ops .nf-zone-finder button>small,.nf-ops .nf-zone-finder-basis{color:var(--nf-ops-muted)}
+.nf-ops .nf-zone-finder>header button,.nf-ops .nf-zone-finder>label input{border-color:var(--nf-ops-line);background:var(--nf-ops-surface-3);color:var(--nf-ops-ink)}
+.nf-ops .nf-zone-finder button{border-bottom-color:var(--nf-ops-line);color:var(--nf-ops-ink)}
+.nf-ops .nf-zone-finder button:hover,.nf-ops .nf-zone-finder button.is-active{background:var(--nf-ops-surface-3)}
+.nf-ops .nf-zone-finder .is-deficit{background:rgba(212,82,82,.18);color:#f4a3a3}
+.nf-ops .nf-zone-finder .is-surplus{background:rgba(53,183,165,.16);color:var(--nf-ops-teal-bright)}
+.nf-ops .nf-live-map-heading small,.nf-ops .nf-live-map-legend span,.nf-ops .nf-live-map-legend>p{color:var(--nf-ops-muted)}
+.nf-ops .nf-zone-card>small,.nf-ops .nf-zone-card p{color:var(--nf-ops-muted)}
+.nf-ops .nf-zone-card span,.nf-ops .nf-zone-forecast{border-color:var(--nf-ops-line);background:var(--nf-ops-surface-3)}
+.nf-ops .nf-timeline button{color:var(--nf-ops-ink)}
+.nf-ops .nf-timeline-buttons button{border-color:var(--nf-ops-line);background:var(--nf-ops-surface-3)}
+.nf-ops .nf-timeline-buttons button.is-active{background:var(--nf-ops-teal);color:#04140f}
+.nf-ops .nf-timeline-track button{background:var(--nf-ops-surface-3)}
+.nf-ops .nf-timeline-track button.is-past{background:#4a5b62}
+.nf-ops .nf-timeline-track p,.nf-ops .nf-timeline>em{color:var(--nf-ops-muted)}
+.nf-ops .nf-timeline>em{border-left-color:var(--nf-ops-line)}
+.nf-ops .nf-timeline>em b{color:var(--nf-ops-ink)}
+.nf-ops .nf-forecast-run{color:var(--nf-ops-muted)}
+.nf-ops .nf-forecast-run.is-ready{color:var(--nf-ops-teal-bright)}
+
+/* Bảng nhật ký thực thi phải nhường chỗ cho dòng trạng thái dự báo ở góc phải trên,
+   nếu không nó phủ kín dòng đó khi cột trái làm hẹp khung bản đồ. */
+.nf-ops .nf-execution-log-panel{top:58px;max-height:calc(100% - 156px)}
+.nf-ops .nf-execution-log-header{border-bottom-color:var(--nf-ops-line)}
+.nf-ops .nf-execution-log-header p,.nf-ops .nf-execution-log-header small{color:var(--nf-ops-muted)}
+.nf-ops .nf-execution-log-summary{border-bottom-color:var(--nf-ops-line);background:var(--nf-ops-surface-3)}
+.nf-ops .nf-execution-log-summary span{border-right-color:var(--nf-ops-line)}
+.nf-ops .nf-execution-log-summary small{color:var(--nf-ops-muted)}
+.nf-ops .nf-execution-log-summary b{color:var(--nf-ops-teal-bright)}
+.nf-ops .nf-execution-log-item,.nf-ops .nf-execution-log-event{border-top-color:var(--nf-ops-line)}
+.nf-ops .nf-execution-log-item small,.nf-ops .nf-execution-log-event small,.nf-ops .nf-execution-log-event time,.nf-ops .nf-execution-log-empty,.nf-ops .nf-execution-log-scroll h3{color:var(--nf-ops-muted)}
+.nf-ops .nf-execution-log-item>strong{background:var(--nf-ops-surface-3);color:var(--nf-ops-muted)}
+.nf-ops .nf-execution-driver-details>div{border-color:var(--nf-ops-line);background:var(--nf-ops-surface-3)}
+.nf-ops .nf-execution-driver-details p{color:var(--nf-ops-muted)}
+
+/* Rail "phương án đang chạy" — khối duy nhất còn nền trắng khi có điều hành thật. */
+.nf-ops .nf-active-rail{background:var(--nf-ops-surface)}
+.nf-ops .nf-active-rail-header,.nf-ops .nf-active-rail-offers,.nf-ops .nf-active-rail-events,.nf-ops .nf-active-rail-moves,.nf-ops .nf-active-rail-campaign,.nf-ops .nf-active-rail-summary,.nf-ops .nf-active-rail-actions{border-color:var(--nf-ops-line)}
+.nf-ops .nf-active-rail-header small,.nf-ops .nf-active-rail-moves>small,.nf-ops .nf-active-rail-campaign>small,.nf-ops .nf-active-rail-section-heading small,.nf-ops .nf-active-rail-summary small,.nf-ops .nf-active-rail-summary em,.nf-ops .nf-active-rail-campaign p,.nf-ops .nf-active-rail-actions p,.nf-ops .nf-active-rail-event small,.nf-ops .nf-active-rail-event time{color:var(--nf-ops-muted)}
+.nf-ops .nf-active-rail-status{border-bottom-color:var(--nf-ops-line);background:rgba(53,183,165,.12)}
+.nf-ops .nf-active-rail-status strong{color:var(--nf-ops-teal-bright)}
+.nf-ops .nf-active-rail-status small{color:var(--nf-ops-muted)}
+.nf-ops .nf-active-rail-summary>span,.nf-ops .nf-active-rail-offer,.nf-ops .nf-active-rail-event{border-color:var(--nf-ops-line)}
+.nf-ops .nf-active-rail-summary b,.nf-ops .nf-active-rail-moves b{color:var(--nf-ops-teal-bright)}
+.nf-ops .nf-active-rail-offer-grid span{border-color:var(--nf-ops-line);background:var(--nf-ops-surface-3)}
+.nf-ops .nf-active-rail-offer-grid b{color:var(--nf-ops-teal-bright)}
+.nf-ops .nf-active-rail-offer-grid small{color:var(--nf-ops-muted)}
+.nf-ops .nf-active-rail-offer b,.nf-ops .nf-active-rail-section-heading b{background:var(--nf-ops-surface-3);color:var(--nf-ops-muted)}
+
+/* Cột trái lấy bớt bề ngang khung bản đồ, nên dòng trạng thái dự báo (vốn neo phải-trên)
+   đè lên thanh điều khiển lớp bản đồ. Đưa xuống dải trống phía trên thanh thời gian. */
+.nf-ops .nf-forecast-run{top:auto;right:auto;left:12px;bottom:92px;max-width:330px}
+
+/* Nút và segmented control dùng chung được tô cho nền sáng; chỉnh lại trong phạm vi .nf-ops. */
+.nf-ops .btn-secondary{border-color:var(--nf-ops-line);background:var(--nf-ops-surface-3);color:var(--nf-ops-ink)}
+.nf-ops .btn-secondary:hover{background:#243139}
+.nf-ops .seg{border-color:var(--nf-ops-line)}
+.nf-ops .seg-opt{color:var(--nf-ops-muted)}
+.nf-ops .seg-opt+.seg-opt{border-left-color:var(--nf-ops-line)}
+.nf-ops .seg-opt:has(input:checked){background:var(--nf-ops-teal);color:#04140f}
+.nf-ops .nf-execution-lock{border-color:rgba(53,183,165,.3);background:rgba(53,183,165,.12);color:var(--nf-ops-teal-bright)}
+
+/* Panel luồng agent nằm trong bảng điều hành nền tối. Ghi đè đúng bộ token `--nfp-*` mà
+   operator-pipeline.css để dành cho việc này, thay vì sửa từng class của panel — panel giữ
+   nguyên bảng màu sáng ở mọi nơi khác dùng nó. */
+.nf-ops [data-surface="pipeline"]{
+  --nfp-bg:#121a20;
+  --nfp-raise:#172128;
+  --nfp-raise-2:#1d2930;
+  --nfp-line:#2a3941;
+  --nfp-ink:#f0f5f2;
+  --nfp-muted:#90a09e;
+  --nfp-accent:#54d4c1;
+  --nfp-accent-fill:#1c7f74;
+  --nfp-accent-soft:rgba(53,183,165,.18);
+  --nfp-ok:#35b7a5;
+  --nfp-warn:#eeb151;
+  --nfp-warn-soft:rgba(238,177,81,.16);
+  --nfp-crit:#e57b7b;
+  --nfp-crit-soft:rgba(212,82,82,.16);
+  --nfp-idle:#62726f;
+  --nfp-grid:#2a3941;
+  --nfp-series:#35b7a5;
+}

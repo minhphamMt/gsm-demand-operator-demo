@@ -23,6 +23,9 @@ type OperatorMapProps = {
   flowState?: FlowState
   layer?: OperatorMapLayer
   moves?: readonly Move[]
+  // Style Mapbox. Mặc định giữ nguyên bản sáng để mọi màn hình đang dùng component này
+  // không đổi hình; chỉ bảng điều hành nền tối truyền bản tối vào.
+  mapStyle?: string | undefined
   onZoneSelect: (zoneId: string) => void
   selectedZoneId?: string | undefined
   timeLabel?: string | undefined
@@ -46,7 +49,7 @@ function mapFailureCopy(kind: MapFailureKind) {
   return 'Không thể tải bản đồ. Hãy thử lại hoặc tiếp tục thao tác bằng danh sách zone.'
 }
 
-export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = 'gap', moves = [], onZoneSelect, selectedZoneId, timeLabel, vehicleStartedAt, view = 'city', zones }: OperatorMapProps) {
+export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = 'gap', mapStyle = 'mapbox://styles/mapbox/light-v11', moves = [], onZoneSelect, selectedZoneId, timeLabel, vehicleStartedAt, view = 'city', zones }: OperatorMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const rainMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
@@ -54,6 +57,9 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
   const layerRef = useRef(layer)
   const movesRef = useRef(moves)
   const viewRef = useRef(view)
+  // Style chỉ đọc lúc khởi tạo bản đồ. Giữ trong ref để việc đổi style không nằm trong
+  // dependency của effect — dựng lại map mỗi lần render là mất trạng thái camera của người dùng.
+  const mapStyleRef = useRef(mapStyle)
   const zonesRef = useRef(zones)
   const [mapStatus, setMapStatus] = useState<MapStatus>('idle')
   const [mapFailure, setMapFailure] = useState<MapFailureKind | null>(null)
@@ -62,6 +68,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
   layerRef.current = layer
   movesRef.current = moves
   viewRef.current = view
+  mapStyleRef.current = mapStyle
   flowStateRef.current = flowState
 
   useEffect(() => {
@@ -72,7 +79,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
     const map = new mapboxgl.Map({
       accessToken: env.mapboxAccessToken,
       container,
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: mapStyleRef.current,
       center: initialViewport.center,
       zoom: initialViewport.zoom,
       pitch: 0,

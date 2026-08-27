@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -466,5 +466,36 @@ describe('operator console safety states', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Phát hành offer activation' }))
     expect(activate).toHaveBeenCalledOnce()
+  })
+})
+
+describe('operator console dashboard layout', () => {
+  afterEach(() => { cleanup(); vi.restoreAllMocks() })
+
+  it('opens the agent flow panel from the header chip', async () => {
+    renderDashboard()
+    await screen.findByRole('complementary', { name: 'Chỉ số vận hành' })
+
+    expect(screen.queryByRole('region', { name: 'Autonomous Resolution Pipeline' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Luồng agent/ }))
+
+    expect(await screen.findByRole('region', { name: 'Autonomous Resolution Pipeline' })).toBeInTheDocument()
+  })
+
+  it('marks the workflow stage the console is actually in, not a separate counter', async () => {
+    renderDashboard()
+
+    const ribbon = await screen.findByRole('list', { name: 'Tiến trình vận hành' })
+    const current = within(ribbon).getAllByRole('listitem').filter((step) => step.getAttribute('aria-current') === 'step')
+    // Đúng một ô được đánh dấu: thanh chặng đọc `OperatorWorkflowStage`, không giữ trạng thái riêng.
+    expect(current).toHaveLength(1)
+    expect(current[0]).toHaveTextContent('Ghi nhận')
+  })
+
+  it('charts the live per-zone imbalance beside the map', async () => {
+    renderDashboard()
+
+    const insights = await screen.findByRole('complementary', { name: 'Chỉ số vận hành' })
+    expect(within(insights).getByRole('img', { name: 'Biểu đồ thiếu và dư xe theo zone' })).toBeInTheDocument()
   })
 })

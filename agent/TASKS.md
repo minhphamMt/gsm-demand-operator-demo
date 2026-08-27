@@ -154,6 +154,13 @@ Backend đã sẵn sàng. `GET /api/v1/runs/{id}` trả:
 | Tab `Executions` / `History` / `Chats` | Hai nút điều hướng sang trang có sẵn; **bỏ** `Chats` | Tránh hai nguồn sự thật cho cùng lịch sử; CLAUDE.md §2 ghi rõ đây không phải chat agent |
 
 | MA-4.24 | Nối preflight gateway LLM xuyên tầng | ✅ | MA-3.7 | `GET /api/v1/llm/health` đã có ở AI service nhưng chưa được NestJS proxy nên UI mù. Thêm `AiService.llmHealth()` + route `GET /operator/ai/llm/health`, guard `readLlmHealth()`, và băng **Chế độ agent** ở tab Agent: cho biết *lượt chạy tới* đi đường LLM hay đường cố định, kèm tình trạng từng model. Không bao giờ nhận/hiển thị khoá API |
+| MA-4.25 | Đưa tầng multi-agent lên `main` mà không lấy bản viết lại của console | ✅ | MA-4.24 | Merge thẳng `feat/multi-agent-orchestration` vỡ 8 file: `main` đã tự phát triển `OperatorConsoleDashboard.tsx` (phục hồi phương án lỗi thời, ingest replay atomic, driver states mô phỏng) sau khi hai nhánh tách. Nhánh `integrate/multi-agent-orchestration` lấy **file mới không xung đột** của tầng agent, giữ nguyên console của `main`, và ghép tay 4 chỗ cả hai bên cùng sửa. `ai.service.ts` giữ logic mới của `main`; hai endpoint pipeline dùng lại nó qua `buildInferencePayload()` để đồ thị và `/api/v1/decisions` nhận **cùng một payload** |
+| MA-4.26 | Dựng lại bảng điều hành theo bố cục v2 | ✅ | MA-4.25 | Lấy **thiết kế** của `prototypes/operations-v2` (đầu trang + thanh chặng + 3 cột + nền tối), **không** lấy code — prototype là mock tĩnh, không nối backend, thiếu cổng duyệt #2. Thêm `OpsHeader` (thanh chặng đọc `OperatorWorkflowStage` thật) và cột trái `ZoneBalanceChart`. **Cố ý bỏ** 3 biểu đồ xu hướng 24 giờ của bản mock: contract chỉ trả một snapshot, chuỗi thời gian sẽ phải bịa. Bảng màu tối khai báo cục bộ trên `.nf-ops`, không đụng `@theme` toàn cục |
+
+**Kiểm tra bằng chạy thật (MA-4.26).** Ba lỗi chỉ lộ khi mở app, test không bắt được — cột trái
+làm hẹp khung bản đồ nên dòng trạng thái dự báo bị thanh điều khiển đè; rail "phương án đang chạy"
+và panel agent còn nền trắng giữa nền tối. Đã sửa cả ba; panel agent dùng lại đúng chỗ ghi đè
+`--nfp-*` mà `operator-pipeline.css` để sẵn cho bản tối.
 
 ## Đối chiếu với `02-technical-spec.md` (24/08/2026)
 

@@ -45,6 +45,9 @@ import {
 import { operatorQueryKeys } from "@/features/operator-data/api/operatorQueries";
 import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, Proposal, Snapshot, Zone } from "@/features/operator-data";
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
+import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline";
+import { OpsHeader } from "./components/OpsHeader";
+import { ZoneBalanceChart } from "./components/ZoneBalanceChart";
 import { Skeleton } from "@/shared/components/ui/FeedbackStates";
 import { AppError } from "@/shared/api/client";
 import { routes } from "@/shared/config/routes";
@@ -111,6 +114,8 @@ export function OperatorConsoleDashboard() {
   const [cancelApprovedOpen, setCancelApprovedOpen] = useState(false);
   const [stopTarget, setStopTarget] = useState<ActiveStopTarget | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [pipelineOpen, setPipelineOpen] = useState(false);
+  const [pipelineTab, setPipelineTab] = useState<PipelineTabId>("agents");
   const snapshot = useQuery(snapshotQuery("baseline", "rain-peak", 0, planningSourceAt === undefined));
   const capabilities = useQuery(capabilitiesQuery());
   const replayAnchorAt = useCurrentReplayAnchor(
@@ -582,6 +587,14 @@ export function OperatorConsoleDashboard() {
           else setReplaySnapshot(undefined);
         }}
       />
+      <OpsHeader
+        isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
+        onOpenAgentFlow={() => { setPipelineTab("agents"); setPipelineOpen(true); }}
+        regimeLabel={scenarioPresentation(activeSnapshot.regime, displaySourceAt).weather}
+        serverTimeLabel={serverNow ? formatTimeLabel(serverNow) : undefined}
+        stage={activeStage}
+        zoneCount={zones.length}
+      />
       <ScenarioBar
         forecastMinutes={displayedHorizon}
         fleet={activeSnapshot.kpis.fleetAvailable}
@@ -600,6 +613,23 @@ export function OperatorConsoleDashboard() {
         zoneCount={zones.length}
       />
       <div className="nf-ops-workspace">
+        <aside aria-label="Chỉ số vận hành" className="nf-insight-column">
+          <KpiPanel
+            balance={balance}
+            campaign={campaign}
+            hotspots={hotspots}
+            plan={planReady ? plan : undefined}
+            requests={activeSnapshot.kpis.requests}
+            stage={activeStage}
+          />
+          <section className="nf-insight-chart">
+            <div className="nf-rail-title">
+              <span>CÂN BẰNG THEO ZONE</span>
+              <small>{displayedMapSource === "forecast" ? `DỰ BÁO ${forecastTime}` : `GHI NHẬN ${replayTime}`}</small>
+            </div>
+            <ZoneBalanceChart onSelect={setSelectedZoneId} zones={zones} />
+          </section>
+        </aside>
         <section className="nf-map-stage" aria-label="Bản đồ vận hành">
           {!hasExecution && forecastRun
             ? <ForecastRunStatus forecast={activeSnapshot.ai} horizon={forecastMinutes} isExact={forecastReady} />
@@ -609,6 +639,7 @@ export function OperatorConsoleDashboard() {
               forecastMinutes={displayedMapSource === "forecast" ? displayedHorizon : 0}
               flowState={operatorMapFlowState(dispatchStage, activeStage)}
               layer={layer}
+              mapStyle="mapbox://styles/mapbox/dark-v11"
               moves={planReady && plan ? plan.moves : []}
               onZoneSelect={setSelectedZoneId}
               selectedZoneId={selectedZoneId}
@@ -729,14 +760,6 @@ export function OperatorConsoleDashboard() {
             />
           ) : (
             <>
-              <KpiPanel
-                balance={balance}
-                campaign={campaign}
-                hotspots={hotspots}
-                plan={planReady ? plan : undefined}
-                requests={activeSnapshot.kpis.requests}
-                stage={activeStage}
-              />
               <Pipeline
                 campaign={campaign}
                 dispatch={dispatch}
@@ -786,6 +809,18 @@ export function OperatorConsoleDashboard() {
           )}
         </aside>
       </div>
+      {pipelineOpen && (
+        <PipelineModal
+          horizonMinutes={displayedHorizon}
+          isLive={isLiveEdge}
+          onClose={() => setPipelineOpen(false)}
+          onOpenPlan={() => { setPipelineOpen(false); setDrawerOpen(true); }}
+          onTabChange={setPipelineTab}
+          snapshot={activeSnapshot}
+          snapshotId={Number(activeSnapshot.replayStep)}
+          tab={pipelineTab}
+        />
+      )}
       {dialog && plan && (
         <ActionDialog
           dialog={dialog}
