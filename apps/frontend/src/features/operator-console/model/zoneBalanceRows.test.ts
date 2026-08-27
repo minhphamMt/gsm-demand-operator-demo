@@ -8,7 +8,7 @@ const zone = (id: string, fields: Partial<Zone>): Zone => ({
 } as Zone)
 
 describe('zoneBalanceRows', () => {
-  it('ranks the widest shortage first and keeps surplus zones at the far end', () => {
+  it('puts the widest shortage first and the largest surplus last', () => {
     const rows = zoneBalanceRows([
       zone('AI-Z01', { operationalGap: -6 }),
       zone('AI-Z02', { operationalGap: 12 }),
@@ -35,10 +35,27 @@ describe('zoneBalanceRows', () => {
     expect(rows.map((row) => row.id)).toEqual(['AI-Z02'])
   })
 
-  it('caps the row count so the chart stays readable on a narrow column', () => {
-    const many = Array.from({ length: 30 }, (_, index) => zone(`AI-Z${index + 1}`, { operationalGap: index + 1 }))
+  // Hồi quy: cắt top-N sau khi sắp xếp giảm dần sẽ xoá sạch nhóm zone dư khi số zone thiếu
+  // vượt hạn mức — điều chuyển khi đó không còn thấy chỗ nào để rút xe.
+  it('keeps surplus zones visible even when shortages outnumber the display budget', () => {
+    const many = [
+      ...Array.from({ length: 20 }, (_, index) => zone(`D${index}`, { operationalGap: index + 1 })),
+      zone('S1', { operationalGap: -9 }),
+      zone('S2', { operationalGap: -4 }),
+    ]
 
-    expect(zoneBalanceRows(many)).toHaveLength(12)
-    expect(zoneBalanceRows(many, 4)).toHaveLength(4)
+    const rows = zoneBalanceRows(many, { deficits: 6, surpluses: 3 })
+
+    expect(rows.filter((row) => row.gap > 0)).toHaveLength(6)
+    expect(rows.filter((row) => row.gap < 0).map((row) => row.id)).toEqual(['S2', 'S1'])
+  })
+
+  it('caps each side independently so the column stays readable', () => {
+    const many = [
+      ...Array.from({ length: 12 }, (_, index) => zone(`D${index}`, { operationalGap: index + 1 })),
+      ...Array.from({ length: 12 }, (_, index) => zone(`S${index}`, { operationalGap: -(index + 1) })),
+    ]
+
+    expect(zoneBalanceRows(many, { deficits: 4, surpluses: 2 })).toHaveLength(6)
   })
 })

@@ -46,6 +46,7 @@ import { operatorQueryKeys } from "@/features/operator-data/api/operatorQueries"
 import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, Proposal, Snapshot, Zone } from "@/features/operator-data";
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
 import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline";
+import { NetworkHealthPanel } from "./components/NetworkHealthPanel";
 import { OpsHeader } from "./components/OpsHeader";
 import { ZoneBalanceChart } from "./components/ZoneBalanceChart";
 import { Skeleton } from "@/shared/components/ui/FeedbackStates";
@@ -614,6 +615,7 @@ export function OperatorConsoleDashboard() {
       />
       <div className="nf-ops-workspace">
         <aside aria-label="Chỉ số vận hành" className="nf-insight-column">
+          <NetworkHealthPanel snapshot={activeSnapshot} />
           <KpiPanel
             balance={balance}
             campaign={campaign}

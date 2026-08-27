@@ -186,7 +186,7 @@
 /* Cột trái: chỉ số + biểu đồ cân bằng zone. */
 .nf-insight-column{width:296px;min-height:0;flex:none;display:flex;flex-direction:column;overflow:auto;border-right:1px solid var(--nf-ops-line);background:var(--nf-ops-surface)}
 .nf-insight-chart{min-height:0;flex:1;display:flex;flex-direction:column;padding-bottom:12px}
-.nf-zone-balance-chart{min-height:190px;flex:1;padding:0 6px}
+.nf-zone-balance-chart{min-height:210px;flex:1;padding:0 6px}
 .nf-panel-empty{margin:0;padding:18px 16px;color:var(--nf-ops-muted);font-size:11px}
 
 /* Nền tối cho các khối vốn viết cho nền sáng. Chỉ đổi màu, không đổi bố cục. */
@@ -315,3 +315,27 @@
   --nfp-grid:#2a3941;
   --nfp-series:#35b7a5;
 }
+
+/* Khối sức khỏe mạng lưới ở đầu cột trái. */
+.nf-network-health{flex:none;border-bottom:1px solid var(--nf-ops-line)}
+.nf-gauge-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:4px 12px 12px}
+.nf-gauge{min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center}
+.nf-gauge svg{width:52px;height:52px;transform:rotate(-90deg)}
+.nf-gauge__track{fill:none;stroke:var(--nf-ops-surface-3);stroke-width:5}
+.nf-gauge__value{fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dasharray .35s ease}
+.nf-gauge__text{fill:var(--nf-ops-ink);font-size:13px;font-weight:800;transform:rotate(90deg);transform-origin:24px 24px}
+.nf-gauge strong{margin-top:5px;font-size:9px;font-weight:700;color:var(--nf-ops-ink);letter-spacing:.02em}
+.nf-gauge small{margin-top:2px;overflow:hidden;color:var(--nf-ops-muted);font-size:8px;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+
+.nf-risk-distribution{padding:0 12px 12px}
+.nf-risk-distribution__title{margin:0 0 6px;color:var(--nf-ops-muted);font-size:9px;font-weight:700;letter-spacing:.06em}
+.nf-risk-bar{display:flex;height:9px;gap:2px;overflow:hidden;border-radius:99px}
+.nf-risk-bar>span{min-width:4px;border-radius:2px;transition:flex-grow .35s ease}
+.nf-risk-legend{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;margin:8px 0 0;padding:0;list-style:none}
+.nf-risk-legend button,.nf-risk-legend__static{width:100%;display:flex;align-items:center;gap:5px;padding:3px 2px;border:0;background:transparent;color:var(--nf-ops-muted);font-size:9px;text-align:left}
+.nf-risk-legend button{cursor:pointer;border-radius:4px}
+.nf-risk-legend button:hover{background:var(--nf-ops-surface-3);color:var(--nf-ops-ink)}
+.nf-risk-legend i{width:7px;height:7px;flex:none;border-radius:2px}
+.nf-risk-legend span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nf-risk-legend b{color:var(--nf-ops-ink);font-size:10px;font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){.nf-gauge__value,.nf-risk-bar>span{transition:none}}
