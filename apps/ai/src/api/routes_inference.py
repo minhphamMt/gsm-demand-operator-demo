@@ -7,10 +7,11 @@ from typing import Literal
 
 import lightgbm as lgb
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import Field, model_validator
 
 from src.activation.recommendation import recommend_activation
+from src.api.auth import require_service_api_key
 from src.common.haversine import get_zone_coords
 from src.common.policy import Policy, get_policy
 from src.config import get_settings
@@ -25,7 +26,9 @@ from src.hotspot.detector import gap_inputs, gap_of, meets_condition, severity_o
 from src.optimizer.greedy import SolveResult, solve
 from src.simulation.metrics import system_metrics
 
-router = APIRouter(prefix="/api/v1", tags=["inference"])
+# Áp cho toàn router — 5 route dưới đây đều tốn tài nguyên hoặc lộ dữ liệu vận hành,
+# khác với GET /health (src/main.py) vốn cố tình để công khai cho healthcheck (issue #12).
+router = APIRouter(prefix="/api/v1", tags=["inference"], dependencies=[Depends(require_service_api_key)])
 
 NO_POLICY_HOTSPOT = "NO_POLICY_HOTSPOT"
 RISK_ADVISORY_PROPOSAL = "RISK_ADVISORY_PROPOSAL"
