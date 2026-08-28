@@ -78,9 +78,7 @@ OUTPUT_COLUMNS: tuple[str, ...] = (*KEY_COLUMNS, *(c for c in FEATURE_COLUMNS if
 
 # --- A3: bảng label, join 1-1 với A2 theo (zone_id, ts_bucket) ---
 TARGET_COLUMNS: tuple[str, ...] = tuple(
-    f"target_{target}_{horizon}"
-    for target in ("demand", "supply")
-    for horizon in HORIZON_MINUTES
+    f"target_{target}_{horizon}" for target in ("demand", "supply") for horizon in HORIZON_MINUTES
 )
 LABEL_REGIME_COLUMNS: tuple[str, ...] = tuple(f"regime_{horizon}" for horizon in HORIZON_MINUTES)
 

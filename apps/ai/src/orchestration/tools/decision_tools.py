@@ -280,9 +280,7 @@ def build_registry(context: RunContext) -> ToolRegistry:
 
 # Allowlist của agent quan sát. Khai báo trên cùng để test tĩnh so được nó với allowlist của
 # Assessment mà không phải dựng registry.
-OBSERVER_TOOLS: frozenset[str] = frozenset(
-    {"run_forecast", "get_weather", "get_travel_conditions", "get_supply_state"}
-)
+OBSERVER_TOOLS: frozenset[str] = frozenset({"run_forecast", "get_weather", "get_travel_conditions", "get_supply_state"})
 
 # Chuỗi tool cố định của chế độ deterministic. Thứ tự này là ràng buộc dữ liệu thật, không
 # phải quy ước: `get_supply_state` cần forecast, `compute_relocation` cần tập đích.

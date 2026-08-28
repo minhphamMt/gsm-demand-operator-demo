@@ -441,17 +441,20 @@ def _optimal_allocations(
         return ()
 
     exact_coverage = LinearConstraint(np.ones((1, variable_count)), [float(covered_units)], [float(covered_units)])
-    operational_cost = np.array([
-        target_rank[target.zone_id] * TARGET_RANK_SCALE
-        + (candidate.eta_steps > PREFERRED_ETA_STEPS) * weights.eta_over_threshold
-        + candidate.eta_steps * weights.eta_step
-        + round(candidate.distance_km * 100) * weights.distance_centi_km
-        + candidate.unit_cost * weights.unit_cost
-        # `zone_id` là khoá phá hoà cuối cùng, luôn hệ số 1 và không thuộc strategy: thiếu nó
-        # thì hai nghiệm cùng điểm có thể đổi chỗ giữa hai lần chạy (§3 #4).
-        + candidate.zone_id
-        for target, candidate, _ in edges
-    ], dtype=float)
+    operational_cost = np.array(
+        [
+            target_rank[target.zone_id] * TARGET_RANK_SCALE
+            + (candidate.eta_steps > PREFERRED_ETA_STEPS) * weights.eta_over_threshold
+            + candidate.eta_steps * weights.eta_step
+            + round(candidate.distance_km * 100) * weights.distance_centi_km
+            + candidate.unit_cost * weights.unit_cost
+            # `zone_id` là khoá phá hoà cuối cùng, luôn hệ số 1 và không thuộc strategy: thiếu nó
+            # thì hai nghiệm cùng điểm có thể đổi chỗ giữa hai lần chạy (§3 #4).
+            + candidate.zone_id
+            for target, candidate, _ in edges
+        ],
+        dtype=float,
+    )
     quality_result = milp(
         c=operational_cost,
         integrality=integrality,
@@ -466,7 +469,12 @@ def _optimal_allocations(
         for (target, candidate, _), value in zip(edges, quality_result.x, strict=True)
         if value > FLOAT_TOLERANCE
     ]
-    return tuple(sorted(selected, key=lambda item: (target_rank[item[0].zone_id], item[1].eta_steps, item[1].distance_km, item[1].zone_id)))
+    return tuple(
+        sorted(
+            selected,
+            key=lambda item: (target_rank[item[0].zone_id], item[1].eta_steps, item[1].distance_km, item[1].zone_id),
+        )
+    )
 
 
 def _collect_warnings(

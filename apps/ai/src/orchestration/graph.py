@@ -71,6 +71,7 @@ def _recommend(variants: dict[PlanStrategy, SolveResult]) -> PlanStrategy:
     nào chúng thực sự tách ra, test parity sẽ đỏ — đó là tín hiệu cần thấy, không phải lỗi
     cần che.
     """
+
     def key(strategy: PlanStrategy) -> tuple[int, int, int, int]:
         result = variants[strategy]
         return (

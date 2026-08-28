@@ -52,13 +52,15 @@ def recommend_activation(
         if offers <= 0:
             continue
         expected_gain = min(item.gap_remaining, offers * assumed_accept_rate)
-        targets.append(ZoneActivationRecommendation(
-            zone_id=item.zone_id,
-            gap_remaining=item.gap_remaining,
-            requested_offers=offers,
-            expected_units_gained=expected_gain,
-            expected_gap_remaining=max(0.0, item.gap_remaining - expected_gain),
-        ))
+        targets.append(
+            ZoneActivationRecommendation(
+                zone_id=item.zone_id,
+                gap_remaining=item.gap_remaining,
+                requested_offers=offers,
+                expected_units_gained=expected_gain,
+                expected_gap_remaining=max(0.0, item.gap_remaining - expected_gain),
+            )
+        )
         remaining_capacity -= offers
 
     total_gap = sum(item.gap_remaining for item in ordered)

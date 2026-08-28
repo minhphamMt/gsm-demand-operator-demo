@@ -85,9 +85,7 @@ def _dataset() -> pd.DataFrame:
         raise FileNotFoundError(f"Frozen replay dataset is missing: {path}")
     actual_sha256 = _file_sha256(path)
     if actual_sha256 != str(manifest["sha256"]).lower():
-        raise ValueError(
-            f"Replay dataset checksum mismatch: expected {manifest['sha256']}, received {actual_sha256}"
-        )
+        raise ValueError(f"Replay dataset checksum mismatch: expected {manifest['sha256']}, received {actual_sha256}")
     frame = pd.read_parquet(path, columns=list(SNAPSHOT_COLUMNS))
     frame = frame.sort_values(["ts_bucket", "zone_id"]).reset_index(drop=True)
     _validate_dataset_frame(frame, manifest)
@@ -220,7 +218,7 @@ def snapshot_window(center_at: pd.Timestamp, lookback_minutes: int = 60) -> list
     center_index = timestamps.index(center_at)
     lookback_steps = max(0, lookback_minutes // STEP_MINUTES)
     start = max(0, center_index - lookback_steps)
-    selected = timestamps[start:center_index + 1]
+    selected = timestamps[start : center_index + 1]
 
     # Gom một lần bằng groupby thay vì lọc lại cả frame cho từng mốc: cửa sổ 24 giờ là 288 mốc,
     # cách cũ quét toàn bộ 288 lần và trở thành điểm nghẽn ngay khi nới lookback.

@@ -239,15 +239,17 @@ def test_cau_agent_tu_noi_khong_con_bi_vut_o_luot_co_tool_call(zones: list[dict[
     registry = build_registry(_fresh_context(zones))
     log = RunLog()
     registry.observe(log.append)
-    client = _FakeClient([
-        LLMResponse(
-            content="Kiểm tra mưa trước vì regime đang là rain_peak.",
-            tool_calls=(_tool_call("get_weather"),),
-            finish_reason="tool_calls",
-            model="fake",
-        ),
-        LLMResponse(content="23 zone đang mưa.", tool_calls=(), finish_reason="stop", model="fake"),
-    ])
+    client = _FakeClient(
+        [
+            LLMResponse(
+                content="Kiểm tra mưa trước vì regime đang là rain_peak.",
+                tool_calls=(_tool_call("get_weather"),),
+                finish_reason="tool_calls",
+                model="fake",
+            ),
+            LLMResponse(content="23 zone đang mưa.", tool_calls=(), finish_reason="stop", model="fake"),
+        ]
+    )
 
     run_with_llm(
         agent=AGENT_ASSESSMENT,
@@ -274,14 +276,28 @@ def test_cau_tuong_thuat_dung_truoc_dong_tool_no_dan_vao(zones: list[dict[str, o
     registry = build_registry(_fresh_context(zones))
     log = RunLog()
     registry.observe(log.append)
-    client = _FakeClient([
-        LLMResponse(content="Xem thời tiết đã.", tool_calls=(_tool_call("get_weather"),), finish_reason="tool_calls", model="f"),
-        LLMResponse(content="", tool_calls=(), finish_reason="stop", model="f"),
-    ])
+    client = _FakeClient(
+        [
+            LLMResponse(
+                content="Xem thời tiết đã.",
+                tool_calls=(_tool_call("get_weather"),),
+                finish_reason="tool_calls",
+                model="f",
+            ),
+            LLMResponse(content="", tool_calls=(), finish_reason="stop", model="f"),
+        ]
+    )
 
     run_with_llm(
-        agent=AGENT_ASSESSMENT, registry=registry, client=client, model="f",
-        system_prompt="t", user_prompt="u", fallback_sequence=(), max_rounds=3, emit=log.append,
+        agent=AGENT_ASSESSMENT,
+        registry=registry,
+        client=client,
+        model="f",
+        system_prompt="t",
+        user_prompt="u",
+        fallback_sequence=(),
+        max_rounds=3,
+        emit=log.append,
     )
 
     kinds = [event.kind for event in log.snapshot()]
@@ -294,14 +310,23 @@ def test_luot_khong_noi_gi_thi_khong_de_lai_dong_rong(zones: list[dict[str, obje
     registry = build_registry(_fresh_context(zones))
     log = RunLog()
     registry.observe(log.append)
-    client = _FakeClient([
-        LLMResponse(content="   ", tool_calls=(_tool_call("get_weather"),), finish_reason="tool_calls", model="f"),
-        LLMResponse(content="", tool_calls=(), finish_reason="stop", model="f"),
-    ])
+    client = _FakeClient(
+        [
+            LLMResponse(content="   ", tool_calls=(_tool_call("get_weather"),), finish_reason="tool_calls", model="f"),
+            LLMResponse(content="", tool_calls=(), finish_reason="stop", model="f"),
+        ]
+    )
 
     run_with_llm(
-        agent=AGENT_ASSESSMENT, registry=registry, client=client, model="f",
-        system_prompt="t", user_prompt="u", fallback_sequence=(), max_rounds=3, emit=log.append,
+        agent=AGENT_ASSESSMENT,
+        registry=registry,
+        client=client,
+        model="f",
+        system_prompt="t",
+        user_prompt="u",
+        fallback_sequence=(),
+        max_rounds=3,
+        emit=log.append,
     )
 
     assert not [event for event in log.snapshot() if event.kind == "narration"]

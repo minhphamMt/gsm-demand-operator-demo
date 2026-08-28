@@ -58,10 +58,7 @@ def test_decision_uses_live_snapshot_and_returns_auditable_mode() -> None:
     assert activation["accept_rate_source"] == "policy_assumption"
     assert len(body["forecast"]["zones"]) == 30
     assert body["plan"]["moves"]
-    assert any(
-        warning["code"] == "MODEL_HISTORY_INCOMPLETE"
-        for warning in body["plan"]["warnings"]
-    )
+    assert any(warning["code"] == "MODEL_HISTORY_INCOMPLETE" for warning in body["plan"]["warnings"])
 
 
 def test_decision_rejects_incomplete_zone_coverage() -> None:
@@ -93,10 +90,7 @@ def test_decision_uses_trained_model_for_frozen_replay_bucket() -> None:
     assert len(body["forecast"]["zones"]) == 30
     assert body["data_provenance"]["source_kind"] == "hybrid_synthetic"
     assert body["data_provenance"]["replay_snapshot_verified"] is True
-    assert not any(
-        warning["code"] == "FORECAST_FALLBACK_USED"
-        for warning in body["plan"]["warnings"]
-    )
+    assert not any(warning["code"] == "FORECAST_FALLBACK_USED" for warning in body["plan"]["warnings"])
 
 
 def test_frozen_dataset_exposes_complete_replay_steps() -> None:
@@ -383,9 +377,7 @@ def test_model_bundle_rejects_a_tampered_artifact(tmp_path) -> None:
     manifest = json.loads((model_directory / "model_manifest.json").read_text(encoding="utf-8"))
     for filename in manifest["artifacts"].values():
         shutil.copy2(model_directory / str(filename).split("/")[-1], tmp_path)
-    (tmp_path / "lgbm_demand_h5_p10.txt").write_bytes(
-        (tmp_path / "lgbm_demand_h5_p10.txt").read_bytes() + b"tampered"
-    )
+    (tmp_path / "lgbm_demand_h5_p10.txt").write_bytes((tmp_path / "lgbm_demand_h5_p10.txt").read_bytes() + b"tampered")
     (tmp_path / "model_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
     try:

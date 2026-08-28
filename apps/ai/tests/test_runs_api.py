@@ -186,7 +186,7 @@ def test_khong_hua_hen_mot_cong_se_khong_bao_gio_mo(ten: str, state: Any) -> Non
 
 
 def test_duong_failed_khong_bao_gio_co_dong_cho_duyet() -> None:
-    """"Đang chờ bạn" mà thật ra đã hỏng là nói dối đúng lúc cần sự thật nhất."""
+    """ "Đang chờ bạn" mà thật ra đã hỏng là nói dối đúng lúc cần sự thật nhất."""
     entry = module._open_entry("run-hong")
     loi = DatasetUnavailableError("thiếu parquet")
     entry.log.append("run_finished", "graph", f"dừng vì {loi.error_code}", source="system", ok=False)

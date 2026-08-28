@@ -56,21 +56,20 @@ def forecast_from_live_zones(
         supply = float(zone.idle_supply)
         demand_spread = math.sqrt(max(demand, 0.0))
         supply_spread = math.sqrt(max(supply, 0.0))
-        forecast_zones.append(ZoneForecast(
-            zone_id=zone.zone_id,
-            predicted_demand=demand,
-            predicted_supply=supply,
-            demand_p10=max(0.0, demand - demand_spread),
-            demand_p90=demand + demand_spread,
-            supply_p10=max(0.0, supply - supply_spread),
-            supply_p90=supply + supply_spread,
-            confidence=None,
-        ))
+        forecast_zones.append(
+            ZoneForecast(
+                zone_id=zone.zone_id,
+                predicted_demand=demand,
+                predicted_supply=supply,
+                demand_p10=max(0.0, demand - demand_spread),
+                demand_p90=demand + demand_spread,
+                supply_p10=max(0.0, supply - supply_spread),
+                supply_p90=supply + supply_spread,
+                confidence=None,
+            )
+        )
 
-    rain_values = [
-        zone.rain_forecast_15 if horizon_min <= 15 else zone.rain_forecast_30
-        for zone in zones
-    ]
+    rain_values = [zone.rain_forecast_15 if horizon_min <= 15 else zone.rain_forecast_30 for zone in zones]
     rain = sum(rain_values) / len(rain_values)
     peak = max(zone.peak_flag for zone in zones)
     return Forecast(
