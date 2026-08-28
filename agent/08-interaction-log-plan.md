@@ -324,6 +324,25 @@ việc** hay vì **lỗi** — client đoán sẽ đoán sai ở đường FAILE
 - Nhãn `[FORECAST_AGENT]` suy ra **ở client** từ `actor` + `tool`, dùng lại `attributedAgent` đã có
   trong `agentTasks.ts`. Trên dây vẫn là tên agent thật — không bịa tên agent không tồn tại.
 
+**Bốn chỗ lệch so với bản kế hoạch đầu, ghi lại vì mỗi chỗ đều có lý do riêng:**
+
+1. **Hai trạng thái, không phải ba.** Bỏ nút đóng, chỉ còn mở ↔ thu gọn (PM chốt 28/08). Đóng
+   hẳn thì phải có chỗ mở lại, mà chỗ đó nằm ngoài danh sách file của chặng này — thu gọn
+   thành thanh mỏng đã trả lại đủ chỗ cho bản đồ.
+2. **`usePipelineRun()` không nhận tham số**; horizon và snapshot đi vào ở `start()`. Không
+   phải lựa chọn thẩm mỹ: `OperatorConsoleDashboard` có **ba guard clause trả về sớm** (đang
+   tải plan, đang tải snapshot, lỗi snapshot) đứng *trước* chỗ hai giá trị đó được tính, nên
+   hook phải gọi được khi chúng chưa tồn tại. Lợi thêm: đọc ngay lúc bấm thì không có closure
+   cũ nào để lỡ chạy sai horizon.
+3. **`position: fixed`, `z-index: 40`** — không phải `absolute` neo vào `.nf-ops-workspace`.
+   `.nf-pipeline-stage` **không có khai báo CSS nào**, nên tab `connect` nằm trong luồng
+   thường và đẩy workspace lên; neo theo workspace đưa nhật ký ra ngoài vùng nhìn đúng lúc nó
+   cần được nhìn nhất (đã dựng lại được bằng Playwright: `y = -198`). `40` là cố ý nằm **dưới**
+   `z-50` của `Dialog`: hộp thoại phê duyệt phải phủ được nhật ký.
+4. **Mock adapter nhả dòng dần** (4 dòng mỗi lượt poll) thay vì trả cả mảng ngay. Bắt buộc,
+   không phải tiện tay: tiêu chí nghiệm thu §6 là *"dòng phải hiện dần"*, và bản mock là nơi
+   duy nhất kiểm được điều đó mà không cần dựng AI service.
+
 ### Chặng 3 — Người vận hành là người tham gia · BẮT BUỘC
 
 - `model/interactionLog.ts` (thuần, có test) + `state/InteractionLogContext.tsx` (`useReducer` +
@@ -473,6 +492,10 @@ vẫn để lại một bản demo tự đứng được — đó là tiêu chí
 
 > **Tiêu chí nghiệm thu của Chặng 1: dòng phải hiện dần, không hiện một lượt.**
 > Đây là thứ chỉ chạy thật mới thấy — test không bắt được.
+>
+> *Đã kiểm 28/08 bằng Playwright trên `VITE_DATA_SOURCE=mock`: số dòng qua bốn lát cắt là
+> **8 → 12 → 20 → 23**, không lỗi console. Cùng lượt chạy đó bắt được lỗi vị trí ở mục 3 phía
+> trên — 380 test frontend đều xanh trong khi popup nằm ngoài màn hình.*
 
 Hai tiêu chí nghiệm thu bổ sung, cũng chỉ chạy thật mới thấy:
 
