@@ -632,7 +632,9 @@ export function OperatorConsoleDashboard() {
   const startPipelineRun = () => pipeline.start(pipelineInput);
 
   return (
-    <div className="nf-ops">
+    // `data-stage` nói cho CSS biết panel `connect` đang mở. Dùng thuộc tính thay vì `:has()`
+    // để không phụ thuộc mức hỗ trợ selector của trình duyệt cho một thứ ảnh hưởng cả layout.
+    <div className="nf-ops" data-stage={pipelineOpen && pipelineTab === "connect" ? "on" : undefined}>
       <SnapshotStaleAlert
         autoRefresh
         generatedAt={displaySourceAt}
@@ -884,9 +886,11 @@ export function OperatorConsoleDashboard() {
             </>
           )}
         </aside>
-        {/* Ngoài nhánh `pipelineOpen`: nhật ký phải sống sót khi người vận hành đóng panel,
-            nếu không thì thu gọn panel là mất luôn lượt phân tích đang chạy (MA-Q8). */}
-        <AgentInteractionLog
+      </div>
+      {/* NGOÀI cả `nf-ops-workspace` lẫn nhánh `pipelineOpen`. Ngoài nhánh vì đóng panel
+          không được giết lượt chạy (MA-Q8); ngoài workspace vì panel `connect` ẩn workspace
+          đi, và `display:none` ở tổ tiên xoá luôn con dù con là `position: fixed`. */}
+      <AgentInteractionLog
           isBusy={observer.isBusy}
           isRunning={pipeline.run?.status === "RUNNING"}
           onAsk={(text) => observer.ask(text, { ...pipelineInput, onStartRun: startPipelineRun })}
@@ -896,8 +900,7 @@ export function OperatorConsoleDashboard() {
             // Bước sau duyệt và phản hồi tài xế, đọc từ audit đã bền hoá ở DB (MA-6.9).
             ...auditLogRows(audit.data ?? [], plan?.id),
           ])}
-        />
-      </div>
+      />
       {pipelineOpen && (
         <PipelineModal
           horizonMinutes={displayedHorizon}

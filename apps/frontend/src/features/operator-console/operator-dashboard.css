@@ -446,3 +446,19 @@
 @media(prefers-reduced-motion:reduce){.nf-agent-log__line.is-waiting{animation:none}}
 /* Bản ghi từ DB: xác nhận một việc đã biết, nên mờ hơn dòng tức thì. */
 .nf-agent-log__line.is-audit{color:var(--nf-ops-muted)}
+
+/* =========================================================================
+   Panel "Sơ đồ luồng" (`.nf-pipeline-stage`).
+
+   Class này **không có khai báo nào trong repo** cho tới đây, nên panel nằm
+   trong luồng thường và tranh chỗ với `.nf-ops-workspace` trong cùng cột
+   flex. Đo thật ở 1500×950: workspace bị ép còn 331px, panel lấy 461px, và
+   khi kết quả đổ về làm panel dài thêm thì footer — chỗ có nút "Chạy phân
+   tích" — trôi hẳn ra ngoài màn hình.
+
+   Nó tên là "stage" vì đúng là một mặt phẳng làm việc: mở ra thì nó chiếm
+   phần còn lại của cột, cuộn bên trong, và footer ở lại đáy. Bản đồ bên dưới
+   ẩn đi trong lúc đó — đó cũng là hình đã thấy trong ảnh chụp thiết kế.
+   ========================================================================= */
+.nf-pipeline-stage{min-height:0;flex:1}
+.nf-ops[data-stage="on"] .nf-ops-workspace{display:none}
