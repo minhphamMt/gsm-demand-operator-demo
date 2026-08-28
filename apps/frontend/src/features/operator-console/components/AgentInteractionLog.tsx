@@ -37,6 +37,8 @@ function toneOf(row: LogRow, liveAwaiting: number | null): string {
   // là "ai đã quyết định gì", không phải agent đã gọi tool nào.
   if (row.code === 'GATE_PLAN_APPROVED' || row.code === 'GATE_CAMPAIGN_CONFIRMED') return 'is-gate'
   if (row.origin === 'action') return row.ok === false ? 'is-bad' : 'is-action'
+  // Bản ghi đã bền hoá: mờ hơn dòng tức thì, vì nó là bản xác nhận chứ không phải tin mới.
+  if (row.origin === 'audit') return 'is-audit'
   if (row.kind === 'tool_denied' || row.code === 'GATE_IS_UI_ONLY') return 'is-denied'
   if (row.ok === false) return 'is-bad'
   if (row.kind === 'run_started' || row.kind === 'run_finished') return 'is-frame'
@@ -128,7 +130,7 @@ export function AgentInteractionLog({ rows, isRunning, isBusy, onAsk }: AgentInt
                 <span className="nf-agent-log__clock">[{eventClock(row.at)}]</span>
                 {' '}
                 <span className="nf-agent-log__actor">
-                  [{row.origin === 'action' ? 'NGƯỜI VẬN HÀNH' : eventActorLabel(row)}]
+                  [{eventActorLabel(row)}]
                 </span>
                 {' > '}
                 {row.text}

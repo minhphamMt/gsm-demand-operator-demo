@@ -104,6 +104,16 @@ def run_with_llm(
                 warnings=(),
             )
 
+        # Câu agent tự nói về việc nó sắp làm. Nó vẫn luôn được sinh ra và vẫn luôn đi vào
+        # `messages`, nhưng trước đây không ai đọc nó ra — `AgentRun.text` chỉ giữ `content` ở
+        # lượt KHÔNG có tool_calls, nên đúng phần thú vị nhất bị bỏ (kế hoạch §2.2).
+        #
+        # Phát dạng `narration` với `source="llm"`: nó **không** được `_numbers_are_grounded`
+        # đối chiếu — validator đó canh `explanation.text`, thứ có dict nguồn xác định. Ở đây
+        # không có dict nguồn nào để đối chiếu, nên thay vì diễn một phép kiểm không tồn tại,
+        # dòng được đánh dấu nguồn `llm` và UI tô khác kèm chú giải (kế hoạch §4 Chặng 5).
+        if reply.content and reply.content.strip():
+            emit("narration", agent, reply.content.strip(), source="llm")
         messages.append(
             {
                 "role": "assistant",

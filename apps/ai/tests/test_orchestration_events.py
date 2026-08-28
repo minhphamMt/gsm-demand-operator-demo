@@ -19,11 +19,13 @@ from fastapi.testclient import TestClient
 from src.common.policy import get_policy
 from src.config import get_settings
 from src.main import app
+from src.orchestration.agents.runner import run_with_llm
 from src.orchestration.graph import run_pipeline
 from src.orchestration.narration import narrate
 from src.orchestration.run_log import EventKind, EventSource, RunLog
 from src.orchestration.tools.decision_tools import RunContext, build_registry
-from src.orchestration.tools.registry import AGENT_EXPLANATION, ToolPermissionError
+from src.orchestration.tools.registry import AGENT_ASSESSMENT, AGENT_EXPLANATION, ToolPermissionError
+from tests.test_orchestration_guardrails import _FakeClient, _tool_call
 from tests.test_orchestration_parity import _Zone, _zones_at
 
 SOURCE_AT = "2026-09-25T08:30:00+07:00"
@@ -223,3 +225,83 @@ def test_narration_khong_nuot_loi_cua_tool() -> None:
     text = narrate("get_supply_state", {"status": "error", "message": "Chưa có dự báo; gọi run_forecast trước."})
     assert "get_supply_state" in text
     assert "run_forecast" in text
+
+
+# --- Lời tường thuật của LLM (MA-6.9) -----------------------------------------------------
+
+
+def test_cau_agent_tu_noi_khong_con_bi_vut_o_luot_co_tool_call(zones: list[dict[str, object]]) -> None:
+    """`AgentRun.text` chỉ giữ `content` ở lượt KHÔNG có tool_calls, nên đúng phần thú vị nhất
+    — câu agent nói *trước khi* gọi tool — bị bỏ. Nó vẫn luôn được sinh ra; chỉ là chưa ai đọc.
+    """
+    from src.orchestration.agents.client import LLMResponse
+
+    registry = build_registry(_fresh_context(zones))
+    log = RunLog()
+    registry.observe(log.append)
+    client = _FakeClient([
+        LLMResponse(
+            content="Kiểm tra mưa trước vì regime đang là rain_peak.",
+            tool_calls=(_tool_call("get_weather"),),
+            finish_reason="tool_calls",
+            model="fake",
+        ),
+        LLMResponse(content="23 zone đang mưa.", tool_calls=(), finish_reason="stop", model="fake"),
+    ])
+
+    run_with_llm(
+        agent=AGENT_ASSESSMENT,
+        registry=registry,
+        client=client,
+        model="fake",
+        system_prompt="test",
+        user_prompt="thời tiết thế nào",
+        fallback_sequence=(),
+        max_rounds=3,
+        emit=log.append,
+    )
+
+    narration = [event for event in log.snapshot() if event.kind == "narration"]
+    assert [event.text for event in narration] == ["Kiểm tra mưa trước vì regime đang là rain_peak."]
+    assert narration[0].source == "llm", "Phải đánh dấu nguồn: dòng này KHÔNG được đối chiếu số."
+    assert narration[0].actor == AGENT_ASSESSMENT
+
+
+def test_cau_tuong_thuat_dung_truoc_dong_tool_no_dan_vao(zones: list[dict[str, object]]) -> None:
+    """Nói "tôi sắp kiểm tra X" sau khi X đã chạy xong thì không còn là dẫn nhập nữa."""
+    from src.orchestration.agents.client import LLMResponse
+
+    registry = build_registry(_fresh_context(zones))
+    log = RunLog()
+    registry.observe(log.append)
+    client = _FakeClient([
+        LLMResponse(content="Xem thời tiết đã.", tool_calls=(_tool_call("get_weather"),), finish_reason="tool_calls", model="f"),
+        LLMResponse(content="", tool_calls=(), finish_reason="stop", model="f"),
+    ])
+
+    run_with_llm(
+        agent=AGENT_ASSESSMENT, registry=registry, client=client, model="f",
+        system_prompt="t", user_prompt="u", fallback_sequence=(), max_rounds=3, emit=log.append,
+    )
+
+    kinds = [event.kind for event in log.snapshot()]
+    assert kinds.index("narration") < kinds.index("tool_started")
+
+
+def test_luot_khong_noi_gi_thi_khong_de_lai_dong_rong(zones: list[dict[str, object]]) -> None:
+    from src.orchestration.agents.client import LLMResponse
+
+    registry = build_registry(_fresh_context(zones))
+    log = RunLog()
+    registry.observe(log.append)
+    client = _FakeClient([
+        LLMResponse(content="   ", tool_calls=(_tool_call("get_weather"),), finish_reason="tool_calls", model="f"),
+        LLMResponse(content="", tool_calls=(), finish_reason="stop", model="f"),
+    ])
+
+    run_with_llm(
+        agent=AGENT_ASSESSMENT, registry=registry, client=client, model="f",
+        system_prompt="t", user_prompt="u", fallback_sequence=(), max_rounds=3, emit=log.append,
+    )
+
+    assert not [event for event in log.snapshot() if event.kind == "narration"]

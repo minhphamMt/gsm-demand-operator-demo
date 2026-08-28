@@ -50,6 +50,7 @@ import { usePipelineRun } from "@/features/operator-pipeline/hooks/usePipelineRu
 import { useObserverSession } from "@/features/operator-pipeline/hooks/useObserverSession";
 import { AgentInteractionLog } from "@/features/operator-console/components/AgentInteractionLog";
 import { mergeLogRows } from "@/features/operator-console/model/logRows";
+import { auditLogRows } from "@/features/operator-console/model/auditLogRows";
 import { useOperatorActionLog } from "@/features/operator-console/hooks/useOperatorActionLog";
 import { AiImpactChart } from "./components/AiImpactChart";
 import { DemandTrendChart } from "./components/DemandTrendChart";
@@ -889,7 +890,12 @@ export function OperatorConsoleDashboard() {
           isBusy={observer.isBusy}
           isRunning={pipeline.run?.status === "RUNNING"}
           onAsk={(text) => observer.ask(text, { ...pipelineInput, onStartRun: startPipelineRun })}
-          rows={mergeLogRows(pipeline.events, [...observer.rows, ...operatorLog.rows])}
+          rows={mergeLogRows(pipeline.events, [
+            ...observer.rows,
+            ...operatorLog.rows,
+            // Bước sau duyệt và phản hồi tài xế, đọc từ audit đã bền hoá ở DB (MA-6.9).
+            ...auditLogRows(audit.data ?? [], plan?.id),
+          ])}
         />
       </div>
       {pipelineOpen && (

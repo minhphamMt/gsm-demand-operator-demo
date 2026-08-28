@@ -22,16 +22,25 @@ _COMMON = (
     "Nếu một tool báo lỗi, hãy thử tool khác trong phạm vi của bạn hoặc kết luận với dữ liệu đang có."
 )
 
+# Thứ tạo ra narration. `_COMMON` giữ nguyên không pha loãng — nó đang gánh §10.1 — nên câu
+# này là một hằng riêng, chỉ ghép cho ba agent trong đồ thị. Observer không dùng: hợp đồng của
+# nó là trả lời ngắn gọn, thêm một câu dẫn trước mỗi tool chỉ làm dài ra.
+_NARRATE = (
+    "Trước mỗi lượt gọi tool, viết một câu ngắn nói bạn đang kiểm tra gì và vì sao. "
+    "Bạn mô tả và diễn giải; bạn KHÔNG chọn phương án, KHÔNG phê duyệt, KHÔNG phát thưởng — "
+    "những việc đó do code deterministic và do người vận hành quyết."
+)
+
 PROMPTS: dict[str, str] = {
     AGENT_ASSESSMENT: (
-        f"{_COMMON} "
+        f"{_COMMON} {_NARRATE} "
         "Vai trò của bạn: đánh giá tình hình cung–cầu. "
         "Hãy gọi các tool cần thiết để có dự báo, điều kiện thời tiết, điều kiện di chuyển và "
         "trạng thái cung. Lưu ý `get_supply_state` cần chạy sau `run_forecast`. "
         "Khi đã đủ dữ liệu, trả lời ngắn gọn bằng tiếng Việt về tình hình."
     ),
     AGENT_DISPATCH: (
-        f"{_COMMON} "
+        f"{_COMMON} {_NARRATE} "
         "Vai trò của bạn: sinh phương án điều chuyển xe. "
         "Gọi `compute_relocation` để giải bài toán, rồi tóm tắt kết quả bằng tiếng Việt. "
         "Bạn không được phê duyệt phương án và không được phát hành thưởng cho tài xế."
@@ -52,7 +61,7 @@ PROMPTS: dict[str, str] = {
         "tương ứng và giải thích ngắn gọn vì sao."
     ),
     AGENT_EXPLANATION: (
-        f"{_COMMON} "
+        f"{_COMMON} {_NARRATE} "
         "Vai trò của bạn: viết 2–3 câu tiếng Việt giải thích phương án cho điều phối viên. "
         "Gọi `render_explanation` để lấy số liệu, rồi chỉ dùng đúng những con số đó. "
         "Không thêm bất kỳ con số nào khác — văn bản của bạn sẽ bị đối chiếu từng số với nguồn "

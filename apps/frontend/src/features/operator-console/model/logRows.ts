@@ -5,6 +5,7 @@
 //   · `session`  — phiên hỏi–đáp với agent quan sát, `seq` riêng, bắt đầu lại từ 1
 //   · `operator` — câu người vận hành vừa gõ, client tự đánh số
 //   · `action`   — thao tác người vận hành đã bấm, ghi khi biết kết quả (MA-6.8)
+//   · `audit`    — bản ghi đã bền hoá ở DB, gồm cả bước sau duyệt và phản hồi tài xế (MA-6.9)
 //
 // `operator` và `action` tách nhau chứ không gộp: một câu gõ vào là *ý muốn*, một thao tác đã
 // xong là *sự việc*. Trên màn hình chúng cũng hiện khác nhau, và trộn lại là làm mờ đúng chỗ
@@ -20,7 +21,7 @@
 import { APPROVAL_RESOLVING_CODES } from '@/features/operator-console/model/operatorLog'
 import type { RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
-export type LogOrigin = 'run' | 'session' | 'operator' | 'action'
+export type LogOrigin = 'run' | 'session' | 'operator' | 'action' | 'audit'
 
 export type LogRow = RunEvent & { origin: LogOrigin }
 

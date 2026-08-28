@@ -69,6 +69,11 @@ const actorDisplayName: Record<string, string> = {
   optimization: 'OPTIMIZATION_AGENT',
   explanation: 'EXPLANATION_AGENT',
   graph: 'GRAPH',
+  // Ba chủ thể KHÔNG phải agent trong đồ thị. Chúng có nhãn riêng vì dán tên một agent lên
+  // việc do backend hay tài xế làm là bịa ra một agent không tồn tại (MA-6.9).
+  execution: 'THỰC THI',
+  driver: 'TÀI XẾ',
+  operator: 'NGƯỜI VẬN HÀNH',
 }
 
 export function eventActorLabel(event: Pick<RunEvent, 'actor' | 'tool'>): string {
