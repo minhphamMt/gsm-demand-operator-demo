@@ -385,6 +385,15 @@ tiên là "ai đã quyết định gì", không phải agent đã gọi tool nà
   sự kiện; bản từ DB gắn tiền tố `[LƯU]`. Đọc ra thành "đã bấm" rồi "đã lưu" — chấp nhận được, và
   tiết kiệm một ngày công so với đối chiếu khóa.
 
+**Hai chỗ lệch khi cài:**
+
+1. **Ba chủ thể, không phải một.** Kế hoạch chỉ nói `[THỰC THI]`. Nhưng gộp phản hồi tài xế vào
+   đó là mô tả sai ai đang quyết định: nhận hay từ chối offer là **quyền của tài xế** (C-08),
+   không phải một bước thực thi của hệ thống. Tách thêm `[TÀI XẾ]`, và `[NGƯỜI VẬN HÀNH]` cho
+   duyệt/từ chối/chỉnh sửa. Cùng luật trung thực mà chính chặng này đặt ra.
+2. **`invalidateQueries(audit)` không phải thêm** — `releaseDispatch` đã có sẵn, `activate` đi
+   qua `refreshCampaignFlow()` cũng đã có. Kế hoạch viết trước khi ai kiểm.
+
 ### Chặng 5 — System prompt & narration LLM · CÓ LÀM
 
 - `prompts.py` cấu trúc lại kiểu agent production: vai trò → bối cảnh nghiệp vụ → hợp đồng tool →
