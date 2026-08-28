@@ -429,6 +429,27 @@ xác nhận. Một nút đi vòng qua chúng là cửa thứ hai vào §11.1 (xe
 đường FAILED · dòng treo bị thay chứ không bị nhân đôi khi `approval_resolved` tới · thẻ phương án
 gọi đúng handler cũ (assert trên `openDialog`, không assert trên network).
 
+**Ba chỗ đáng ghi lại từ lúc cài:**
+
+1. **Vòng chờ chỉ mở ở đường thành công, và không phải lượt chạy nào cũng có nó.** Ba trường hợp
+   *không* phát dòng chờ: `quality_ok` sai (quality gate đã chặn), `planning_status`
+   `not_required` (không có hotspot chính sách nên quy trình dừng ngay sau Dự báo — `OpsHeader`
+   và `canReviewPlan` đều đã chốt vậy), và `decision` rỗng. Gộp ba cái đó vào cùng một dòng
+   "chờ bạn duyệt" là để người vận hành ngồi đợi một cổng sẽ không bao giờ mở.
+2. **`revise` không đóng vòng chờ.** Lưu bản chỉnh sửa sinh ra v2, và v2 vẫn phải được duyệt.
+   Chỉ `approve` và `reject` đóng — nên `reject` cũng cần một mã riêng
+   (`GATE_PLAN_REJECTED`) dù nó không mở cổng nào.
+3. **MA-6.11 không cần code.** Thẻ "AI Dispatch Plans / QUICK APPROVE" trong ảnh mockup **chưa
+   từng được dựng**, nên không có cửa thứ hai nào để tháo. Nút phê duyệt của bảng chỉ huy vẫn
+   gọi `openDialog("approve")` như cũ, và bốn lớp canh ở `approve()` còn nguyên.
+
+   Nhưng kiểm lại thì thấy **`approve.mutate` có hai chỗ gọi**: bảng chỉ huy, và
+   `operator-plans/components/PlanDetail.tsx`. Cả hai đều truyền `expectedVersion`, nên cả hai
+   đều là cửa hợp lệ — không phải lỗ hổng. Hệ quả cần biết: **duyệt từ màn hình chi tiết phương
+   án không hiện trong nhật ký của bảng chỉ huy**. Đó là đúng thiết kế (§4 Chặng 3: không ghi
+   trong `operatorMutations.ts` vì file đó dùng chung), và cũng là lý do CLAUDE.md §9 #5 nói
+   **log ≠ History Store** — bản ghi đầy đủ nằm ở audit trail trong DB, không ở popup này.
+
 ### Chặng 7 — Ô nhập cho người vận hành ra lệnh · BẮT BUỘC
 
 > **Sửa 28/08 theo yêu cầu của PM.** Hai điểm đảo so với bản viết ở trên:
