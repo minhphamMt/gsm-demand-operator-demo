@@ -358,6 +358,21 @@ việc** hay vì **lỗi** — client đoán sẽ đoán sai ở đường FAILE
 - **Ghi trong handler, không ghi trong `operatorMutations.ts`** — file đó dùng chung với màn hình
   khác; nhét log vào là rò rỉ sang nơi không có log.
 
+**Một chỗ lệch so với kế hoạch, ghi lại vì nó là bớt việc chứ không phải bỏ sót:**
+
+Kế hoạch dự kiến `state/InteractionLogContext.tsx` với `useReducer` + `createContext`. Kiểm lại
+thì **cả mười handler đều nằm trong chính `OperatorConsoleDashboard`** — không có ranh giới
+component nào để vượt qua, nên Context ở đây là nghi thức chứ không phải cơ chế. Thay bằng
+`useOperatorActionLog` (một `useState` + hai callback) và một module thuần `operatorLog.ts`.
+Cùng kết quả, ít máy móc hơn. Luật "không ghi trong `operatorMutations.ts`" giữ nguyên: file đó
+dùng chung với màn hình khác.
+
+Thêm một quyết định nhỏ: `origin` tách **`operator`** (câu vừa gõ) khỏi **`action`** (thao tác đã
+bấm). Một câu gõ vào là *ý muốn*, một thao tác đã xong là *sự việc* — trộn lại là làm mờ đúng chỗ
+người đọc cần phân biệt. Hai cổng §11.1 còn mang mã riêng (`GATE_PLAN_APPROVED`,
+`GATE_CAMPAIGN_CONFIRMED`) và được tô khác, vì đọc lại nhật ký về sau thì thứ phải tìm thấy trước
+tiên là "ai đã quyết định gì", không phải agent đã gọi tool nào.
+
 ### Chặng 4 — Bước thực thi sau khi duyệt · NÊN CÓ
 
 - Ánh xạ `AuditEntry` → dòng log qua `auditLabels.ts` đã có.
