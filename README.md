@@ -104,6 +104,10 @@ trong `eval/`.
 - Node.js 22 và npm.
 - Supabase project.
 - Mapbox public token nếu muốn hiển thị nền bản đồ Mapbox.
+- **macOS**: `brew install libomp` trước khi `pip install -r apps/ai/requirements.txt`.
+  LightGBM cần OpenMP runtime; thiếu thư viện này thì `pytest` gãy ngay lúc
+  collect (import LightGBM lỗi trước khi chạy được test nào). Không cần bước
+  này trên Linux/Windows hoặc khi chạy qua Docker Compose.
 
 ## Khởi động nhanh bằng Docker Compose
 
@@ -547,6 +551,10 @@ local tương ứng.
 - Mọi mutation quan trọng phải đi qua backend, có request ID và audit.
 - Rate limit hiện dùng storage trong process; chỉ chạy một backend replica cho
   tới khi có shared throttler storage.
+- `apps/ai/config/driver_registry.json` chỉ chứa dữ liệu giả: `display_name`
+  dạng `"Tài xế {n}"`, `is_demo_account: true` trên 100% bản ghi, không có
+  trường chấm điểm/xếp hạng tài xế (C-08). `apps/ai/generate_drivers.py::validate_registry()`
+  hard-fail nếu vi phạm — **đừng gỡ hàm này** khi sửa script sinh dữ liệu.
 - Backup và verify dữ liệu quan trọng trước migration hoặc release rủi ro cao.
 - Rollback ứng dụng bằng image trước đó; sửa DB bằng migration forward mới.
 
