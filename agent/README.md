@@ -13,6 +13,8 @@ Dựng từ **11 video concept** (`1.mp4` … `11.mp4`), ngày 20/08/2026.
 | `04-agent-architecture.md` | Kiến trúc runtime nâng cấp: LangGraph, fan-out/join, HITL, automation grant, migration bằng adapter/feature flag | Khi thiết kế orchestration và triển khai agent |
 | `05-business-logic.md` | State machine, trigger, re-plan, scoring 3 plan, quyền tự động, audit và rollback | Khi chốt nghiệp vụ và viết acceptance test |
 | `06-delivery-pipeline.md` | Runtime deployment, adapter, môi trường, CI/CD, shadow/canary, promotion và rollback | Khi xây dựng và phát hành hệ thống |
+| `07-Design.md` | Đặc tả panel "Autonomous Resolution Pipeline": cấu trúc tab, thẻ agent, sơ đồ Connect | Khi dựng hoặc sửa panel luồng agent |
+| `08-interaction-log-plan.md` | **Không phải spec.** Kế hoạch triển khai nhật ký hội thoại agent trực tiếp (MA-6.x), kèm các đánh đổi đã cân nhắc | Khi làm Phase 6, hoặc khi cần biết vì sao không dùng `astream_events` |
 | `04-wireframe.html` | Prototype click được, mô phỏng S0–S6 | Mở bằng trình duyệt để cảm nhận luồng |
 | `frames/` | 43 keyframe trích từ video | Đối chiếu khi review spec |
 | `IMPLEMENTATION_STATUS.md` | **Không phải spec.** Trạng thái triển khai thực tế: phase nào xong, kiểm chứng bằng gì, lệch chỗ nào so với bộ tài liệu này | Khi muốn biết code đang ở đâu so với thiết kế |
