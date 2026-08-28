@@ -72,6 +72,37 @@ describe('AgentInteractionLog', () => {
     expect(log).not.toHaveTextContent('[OPERATOR]')
   })
 
+  it('thao tác đã bấm hiện dưới tên NGƯỜI VẬN HÀNH, không đội lốt agent nào', () => {
+    show([row(1, {
+      origin: 'action', actor: 'operator', kind: 'operator_action',
+      text: 'đã phê duyệt phương án PLAN_B (v1)', ok: true, code: 'GATE_PLAN_APPROVED',
+    })])
+
+    expect(screen.getByRole('log')).toHaveTextContent('[NGƯỜI VẬN HÀNH] > đã phê duyệt phương án PLAN_B (v1)')
+  })
+
+  it('tô riêng hai cổng người-duyệt để đọc lại là thấy ngay ai quyết định gì', () => {
+    const { container } = show([
+      row(1, { origin: 'action', kind: 'operator_action', text: 'đã chạy dự báo', ok: true }),
+      row(2, { origin: 'action', kind: 'operator_action', text: 'đã phê duyệt', ok: true, code: 'GATE_PLAN_APPROVED' }),
+      row(3, { origin: 'action', kind: 'operator_action', text: 'đã phát hành campaign', ok: true, code: 'GATE_CAMPAIGN_CONFIRMED' }),
+    ])
+
+    // Đúng hai dòng mang cổng được tô, dòng điều hướng thì không.
+    expect(container.querySelectorAll('.is-gate')).toHaveLength(2)
+  })
+
+  it('thao tác hỏng hiện như cảnh báo, không như một quyết định đã xảy ra', () => {
+    const { container } = show([row(1, {
+      origin: 'action', kind: 'warning', ok: false,
+      text: 'phê duyệt không thành — Phương án đã đổi phiên bản',
+    })])
+
+    expect(container.querySelectorAll('.is-gate')).toHaveLength(0)
+    expect(container.querySelectorAll('.is-bad')).toHaveLength(1)
+    expect(screen.getByRole('log')).toHaveTextContent('Phương án đã đổi phiên bản')
+  })
+
   it('báo dòng do LLM viết để không lẫn với dòng dựng từ template', () => {
     show([row(1, { source: 'llm', text: 'tôi đang kiểm tra thời tiết' })])
 

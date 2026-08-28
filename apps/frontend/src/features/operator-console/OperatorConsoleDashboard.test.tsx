@@ -80,6 +80,34 @@ describe('operator console safety states', () => {
     queryClient.clear()
   }, 20_000)
 
+  // MA-6.8: thao tác của người vận hành phải nằm cùng dòng chảy với việc agent làm. Trước
+  // đó nhật ký im bặt đúng lúc con người ra quyết định, và mạch ở §1 đọc không ra.
+  it('ghi thao tác của người vận hành vào nhật ký, tại lúc biết kết quả chứ không lúc bấm', async () => {
+    const queryClient = renderDashboard()
+
+    await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
+    const nhatKy = screen.getByRole('log')
+    expect(nhatKy).not.toHaveTextContent('NGƯỜI VẬN HÀNH')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Chạy dự báo cung–cầu' }))
+
+    await waitFor(() => expect(nhatKy).toHaveTextContent('[NGƯỜI VẬN HÀNH] > đã chạy dự báo horizon 15 phút'))
+    queryClient.clear()
+  }, 20_000)
+
+  it('nói rõ là hỏng khi thao tác thất bại, không ghi như đã xong', async () => {
+    vi.spyOn(mockOperatorAdapter, 'generateAiDecision').mockRejectedValue(new Error('Snapshot đã cũ'))
+    const queryClient = renderDashboard()
+
+    await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
+    await userEvent.click(screen.getByRole('button', { name: 'Chạy dự báo cung–cầu' }))
+
+    const nhatKy = screen.getByRole('log')
+    await waitFor(() => expect(nhatKy).toHaveTextContent('chạy dự báo không thành — Snapshot đã cũ'))
+    expect(nhatKy).not.toHaveTextContent('đã chạy dự báo horizon')
+    queryClient.clear()
+  }, 20_000)
+
   it('treats a replay bucket at the live edge as fresh even when it was stored earlier', async () => {
     const baseline = await mockOperatorAdapter.getSnapshot('baseline')
     const replaySourceAt = currentOperatorReplaySourceAt(new Date())

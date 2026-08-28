@@ -50,6 +50,7 @@ import { usePipelineRun } from "@/features/operator-pipeline/hooks/usePipelineRu
 import { useObserverSession } from "@/features/operator-pipeline/hooks/useObserverSession";
 import { AgentInteractionLog } from "@/features/operator-console/components/AgentInteractionLog";
 import { mergeLogRows } from "@/features/operator-console/model/logRows";
+import { useOperatorActionLog } from "@/features/operator-console/hooks/useOperatorActionLog";
 import { AiImpactChart } from "./components/AiImpactChart";
 import { DemandTrendChart } from "./components/DemandTrendChart";
 import { NetworkHealthPanel } from "./components/NetworkHealthPanel";
@@ -227,6 +228,9 @@ export function OperatorConsoleDashboard() {
   // Phiên hỏi–đáp cũng phải nằm trên ba guard clause vì nó là hook. Tham số của từng câu hỏi
   // đi vào ở `ask()`, nên hook không cần biết gì tại thời điểm này.
   const observer = useObserverSession();
+  // Thao tác đã bấm cũng vào cùng dòng chảy, nếu không thì log im bặt đúng lúc con người ra
+  // quyết định — mắt xích "người duyệt" của mạch ở §1.
+  const operatorLog = useOperatorActionLog();
 
   if (plans.isPending || campaigns.isPending || dispatches.isPending)
     return (
@@ -437,7 +441,9 @@ export function OperatorConsoleDashboard() {
     requestedForecastRef.current = horizon;
     setPlanningSourceAt(sourceAt);
     actions.generateAiDecision.mutate({ snapshotId: Number(activeSnapshot.replayStep), horizonMinutes: horizon }, {
+      onError: (cause) => operatorLog.noteFailed("forecast", cause),
       onSuccess: (forecastSnapshot) => {
+        operatorLog.noteDone("forecast", `horizon ${horizon} phút`);
         if (requestedForecastRef.current !== horizon) return;
         const forecastSourceAt = forecastSnapshot.sourceAt ?? forecastSnapshot.generatedAt;
         setReplaySnapshot(forecastSnapshot);
@@ -466,7 +472,10 @@ export function OperatorConsoleDashboard() {
     const snapshotId = Number.isInteger(parsedSnapshotId) ? parsedSnapshotId : 0;
     actions.optimizeAiDecision.mutate(
       { snapshotId, horizonMinutes: planningHorizonFor(displayedHorizon) },
-      { onSuccess: (result) => {
+      {
+        onError: (cause) => operatorLog.noteFailed("optimize", cause),
+        onSuccess: (result) => {
+        operatorLog.noteDone("optimize");
         if (result.planningStatus === "not_required") {
           setOptimizationStopReason(result.reasonCode);
           setWorkflowStage("not_required");
@@ -494,8 +503,12 @@ export function OperatorConsoleDashboard() {
     actions.approve.mutate(
       { planId: plan.id, expectedVersion: plan.version, note: "Phê duyệt từ bảng chỉ huy vận hành" },
       {
-        onError: recoverFromActionConflict,
-        onSuccess: () => { setDialog(null); setWorkflowStage("approved"); },
+        onError: (cause) => { operatorLog.noteFailed("approve", cause); recoverFromActionConflict(cause); },
+        onSuccess: () => {
+          operatorLog.noteDone("approve", `${plan.id} (v${plan.version})`);
+          setDialog(null);
+          setWorkflowStage("approved");
+        },
       },
     );
   };
@@ -510,8 +523,9 @@ export function OperatorConsoleDashboard() {
         request: { expectedVersion: plan.version, reasonCode: "other", note: rejectNote.trim() },
       },
       {
-        onError: recoverFromActionConflict,
+        onError: (cause) => { operatorLog.noteFailed("reject", cause); recoverFromActionConflict(cause); },
         onSuccess: () => {
+          operatorLog.noteDone("reject", plan.id);
           setDialog(null);
           setRejectNote("");
           setDrawerOpen(false);
@@ -529,8 +543,13 @@ export function OperatorConsoleDashboard() {
     actions.activate.mutate(
       { planId: plan.id, mode: "human" },
       {
-        onError: recoverFromActionConflict,
-        onSuccess: () => { setDialog(null); setPlanningSourceAt(undefined); setWorkflowStage("campaign"); },
+        onError: (cause) => { operatorLog.noteFailed("activate", cause); recoverFromActionConflict(cause); },
+        onSuccess: () => {
+          operatorLog.noteDone("activate", plan.id);
+          setDialog(null);
+          setPlanningSourceAt(undefined);
+          setWorkflowStage("campaign");
+        },
       },
     );
   };
@@ -540,8 +559,14 @@ export function OperatorConsoleDashboard() {
       return;
     }
     actions.releaseDispatch.mutate(plan.id, {
-      onError: recoverFromActionConflict,
-      onSuccess: () => { setDialog(null); setPlanningSourceAt(undefined); setWorkflowStage("executing"); setDrawerOpen(true); },
+      onError: (cause) => { operatorLog.noteFailed("release_dispatch", cause); recoverFromActionConflict(cause); },
+      onSuccess: () => {
+        operatorLog.noteDone("release_dispatch", plan.id);
+        setDialog(null);
+        setPlanningSourceAt(undefined);
+        setWorkflowStage("executing");
+        setDrawerOpen(true);
+      },
     });
   };
   const cancelApproved = (reason: string) => {
@@ -549,7 +574,9 @@ export function OperatorConsoleDashboard() {
     actions.cancelApprovedPlan.mutate(
       { planId: plan.id, reason },
       {
+        onError: (cause) => operatorLog.noteFailed("cancel_plan", cause),
         onSuccess: () => {
+          operatorLog.noteDone("cancel_plan", plan.id);
           setCancelApprovedOpen(false);
           setDrawerOpen(false);
           setPlanningSourceAt(undefined);
@@ -563,6 +590,7 @@ export function OperatorConsoleDashboard() {
   const stopActiveExecution = (reason: string) => {
     if (!stopTarget) return;
     const onSuccess = () => {
+      operatorLog.noteDone("stop_execution", stopTarget.kind === "dispatch" ? "lệnh điều xe" : "campaign");
       setStopTarget(null);
       setDialog(null);
       setDrawerOpen(false);
@@ -583,15 +611,16 @@ export function OperatorConsoleDashboard() {
         void snapshot.refetch();
       }
     };
+    const onError = (cause: unknown) => operatorLog.noteFailed("stop_execution", cause);
     if (stopTarget.kind === "dispatch") {
-      const stopDispatch = () => actions.cancelDispatch.mutate({ batchId: stopTarget.id, reason }, { onSuccess });
+      const stopDispatch = () => actions.cancelDispatch.mutate({ batchId: stopTarget.id, reason }, { onError, onSuccess });
       if (execution?.campaign) {
-        actions.cancelCampaign.mutate(execution.campaign.id, { onSuccess: stopDispatch });
+        actions.cancelCampaign.mutate(execution.campaign.id, { onError, onSuccess: stopDispatch });
       } else {
         stopDispatch();
       }
     } else {
-      actions.cancelCampaign.mutate(stopTarget.id, { onSuccess });
+      actions.cancelCampaign.mutate(stopTarget.id, { onError, onSuccess });
     }
   };
 
@@ -693,7 +722,13 @@ export function OperatorConsoleDashboard() {
               execution={execution}
               now={serverNow ? Date.parse(serverNow) : undefined}
               offers={offers.data}
-              onRetryMove={(batchId, moveId) => actions.retryDispatch.mutate({ batchId, moveId, reason: "Operator requested retry from the operation log." })}
+              onRetryMove={(batchId, moveId) => actions.retryDispatch.mutate(
+                { batchId, moveId, reason: "Operator requested retry from the operation log." },
+                {
+                  onError: (cause) => operatorLog.noteFailed("retry_move", cause),
+                  onSuccess: () => operatorLog.noteDone("retry_move", moveId),
+                },
+              )}
             />
           ) : (
             <ZoneFinder
@@ -740,7 +775,13 @@ export function OperatorConsoleDashboard() {
             zones={zones}
           />}
           {drawerOpen && !hasExecution && planReady && plan && (["executing", "executed"].includes(activeStage)
-            ? <ExecutionDrawer batch={dispatch} isComplete={activeStage === "executed"} onClose={() => setDrawerOpen(false)} onRetryMove={(batchId, moveId) => actions.retryDispatch.mutate({ batchId, moveId, reason: "Operator requested retry after reviewing the failed move." })} plan={plan} />
+            ? <ExecutionDrawer batch={dispatch} isComplete={activeStage === "executed"} onClose={() => setDrawerOpen(false)} onRetryMove={(batchId, moveId) => actions.retryDispatch.mutate(
+                { batchId, moveId, reason: "Operator requested retry after reviewing the failed move." },
+                {
+                  onError: (cause) => operatorLog.noteFailed("retry_move", cause),
+                  onSuccess: () => operatorLog.noteDone("retry_move", moveId),
+                },
+              )} plan={plan} />
             : activeStage === "activation_draft"
               ? <ActivationDraftDrawer onClose={() => setDrawerOpen(false)} plan={plan} />
               : <PlanDrawer
@@ -749,7 +790,10 @@ export function OperatorConsoleDashboard() {
                   onClose={() => setDrawerOpen(false)}
                   onRevise={(request) => actions.revise.mutate(
                     { planId: plan.id, request },
-                    { onSuccess: () => setWorkflowStage("plan") },
+                    {
+                      onError: (cause) => operatorLog.noteFailed("revise", cause),
+                      onSuccess: () => { operatorLog.noteDone("revise", plan.id); setWorkflowStage("plan"); },
+                    },
                   )}
                   plan={plan}
                 />)}
@@ -845,7 +889,7 @@ export function OperatorConsoleDashboard() {
           isBusy={observer.isBusy}
           isRunning={pipeline.run?.status === "RUNNING"}
           onAsk={(text) => observer.ask(text, { ...pipelineInput, onStartRun: startPipelineRun })}
-          rows={mergeLogRows(pipeline.events, observer.rows)}
+          rows={mergeLogRows(pipeline.events, [...observer.rows, ...operatorLog.rows])}
         />
       </div>
       {pipelineOpen && (

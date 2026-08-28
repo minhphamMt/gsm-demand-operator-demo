@@ -30,6 +30,10 @@ const placeholder = 'Hỏi hoặc ra lệnh — ví dụ: chạy phân tích, zo
 
 function toneOf(row: LogRow): string {
   if (row.origin === 'operator') return 'is-operator'
+  // Hai cổng người-duyệt được tô riêng: đọc lại nhật ký về sau, thứ cần tìm thấy trước tiên
+  // là "ai đã quyết định gì", không phải agent đã gọi tool nào.
+  if (row.code === 'GATE_PLAN_APPROVED' || row.code === 'GATE_CAMPAIGN_CONFIRMED') return 'is-gate'
+  if (row.origin === 'action') return row.ok === false ? 'is-bad' : 'is-action'
   if (row.kind === 'tool_denied' || row.code === 'GATE_IS_UI_ONLY') return 'is-denied'
   if (row.ok === false) return 'is-bad'
   if (row.kind === 'run_started' || row.kind === 'run_finished') return 'is-frame'
@@ -118,7 +122,9 @@ export function AgentInteractionLog({ rows, isRunning, isBusy, onAsk }: AgentInt
               <>
                 <span className="nf-agent-log__clock">[{eventClock(row.at)}]</span>
                 {' '}
-                <span className="nf-agent-log__actor">[{eventActorLabel(row)}]</span>
+                <span className="nf-agent-log__actor">
+                  [{row.origin === 'action' ? 'NGƯỜI VẬN HÀNH' : eventActorLabel(row)}]
+                </span>
                 {' > '}
                 {row.text}
                 {row.source === 'llm' && <span className="nf-agent-log__llm" title="Dòng do LLM viết">~llm</span>}

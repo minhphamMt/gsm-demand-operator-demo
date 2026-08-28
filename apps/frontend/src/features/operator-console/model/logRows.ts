@@ -4,6 +4,11 @@
 //   · `run`      — lượt chạy đồ thị, `seq` do AI service cấp
 //   · `session`  — phiên hỏi–đáp với agent quan sát, `seq` riêng, bắt đầu lại từ 1
 //   · `operator` — câu người vận hành vừa gõ, client tự đánh số
+//   · `action`   — thao tác người vận hành đã bấm, ghi khi biết kết quả (MA-6.8)
+//
+// `operator` và `action` tách nhau chứ không gộp: một câu gõ vào là *ý muốn*, một thao tác đã
+// xong là *sự việc*. Trên màn hình chúng cũng hiện khác nhau, và trộn lại là làm mờ đúng chỗ
+// người đọc cần phân biệt.
 //
 // Luật sắp xếp: **trong cùng một nguồn thì theo `seq`; giữa các nguồn thì theo `at`.**
 //
@@ -14,7 +19,7 @@
 
 import type { RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
-export type LogOrigin = 'run' | 'session' | 'operator'
+export type LogOrigin = 'run' | 'session' | 'operator' | 'action'
 
 export type LogRow = RunEvent & { origin: LogOrigin }
 
