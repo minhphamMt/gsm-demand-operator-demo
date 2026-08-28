@@ -384,8 +384,14 @@
    `z-index:40` là cố ý nằm DƯỚI 50 của `Dialog`: hộp thoại phê duyệt phải phủ
    được nhật ký. Một popup chỉ-đọc che mất cổng quyết định là đổi thứ tự ưu
    tiên của màn hình theo đúng chiều sai.
+
+   `bottom:68px` chứ không `16px`: footer của panel `connect` đặt nút "Chạy phân
+   tích" đúng góc dưới phải. Ở `16px`, `elementFromPoint` tại tâm nút đó trả về
+   chính popup — nút mất hẳn sau lượt chạy đầu, ở CẢ hai trạng thái mở và thu
+   gọn. 68px chừa trọn dải footer. Cùng lý do, popup không được rộng quá nửa
+   màn: nó là cửa sổ quan sát, không phải mặt phẳng chính.
    ========================================================================= */
-.nf-agent-log{position:fixed;right:16px;bottom:16px;z-index:40;border:1px solid var(--nf-ops-line);border-radius:10px;background:var(--nf-ops-surface);box-shadow:0 18px 44px rgba(0,0,0,.44);font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+.nf-agent-log{position:fixed;right:16px;bottom:68px;z-index:40;border:1px solid var(--nf-ops-line);border-radius:10px;background:var(--nf-ops-surface);box-shadow:0 18px 44px rgba(0,0,0,.44);font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
 
 .nf-agent-log--bar{display:flex;align-items:center;gap:8px;padding:8px 12px;color:var(--nf-ops-ink);cursor:pointer}
 .nf-agent-log--bar:hover{border-color:var(--nf-ops-teal)}

@@ -338,7 +338,10 @@ việc** hay vì **lỗi** — client đoán sẽ đoán sai ở đường FAILE
    `.nf-pipeline-stage` **không có khai báo CSS nào**, nên tab `connect` nằm trong luồng
    thường và đẩy workspace lên; neo theo workspace đưa nhật ký ra ngoài vùng nhìn đúng lúc nó
    cần được nhìn nhất (đã dựng lại được bằng Playwright: `y = -198`). `40` là cố ý nằm **dưới**
-   `z-50` của `Dialog`: hộp thoại phê duyệt phải phủ được nhật ký.
+   `z-50` của `Dialog`: hộp thoại phê duyệt phải phủ được nhật ký. Và `bottom: 68px` chứ không
+   `16px` — ở `16px`, popup **che trọn nút "Chạy phân tích"** ở footer panel: `elementFromPoint`
+   tại tâm nút trả về chính popup, ở cả trạng thái mở lẫn thu gọn. Đo lại sau khi sửa: chồng lấn
+   0 px.
 4. **Mock adapter nhả dòng dần** (4 dòng mỗi lượt poll) thay vì trả cả mảng ngay. Bắt buộc,
    không phải tiện tay: tiêu chí nghiệm thu §6 là *"dòng phải hiện dần"*, và bản mock là nơi
    duy nhất kiểm được điều đó mà không cần dựng AI service.
