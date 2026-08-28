@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.orchestration.agents.client import LLMClient, LLMUnavailableError
+from src.orchestration.run_log import NULL_SINK, EventSink
 from src.orchestration.state import ToolCall
 from src.orchestration.tools.registry import ToolPermissionError, ToolRegistry
 
@@ -76,6 +77,7 @@ def run_with_llm(
     user_prompt: str,
     fallback_sequence: Sequence[str],
     max_rounds: int,
+    emit: EventSink = NULL_SINK,
 ) -> AgentRun:
     """Để LLM tự chọn tool trong allowlist; hỏng ở bất kỳ đâu thì rơi về deterministic."""
     rounds = min(max(max_rounds, 1), HARD_ROUND_LIMIT)
@@ -91,7 +93,7 @@ def run_with_llm(
         try:
             reply = client.complete(model=model, messages=messages, tools=schemas)
         except LLMUnavailableError as error:
-            return _fallback(agent, registry, fallback_sequence, calls, results, str(error))
+            return _fallback(agent, registry, fallback_sequence, calls, results, str(error), emit)
 
         if not reply.tool_calls:
             return AgentRun(
@@ -136,6 +138,7 @@ def run_with_llm(
         calls,
         results,
         f"Vượt {rounds} vòng tool-use mà agent chưa kết luận.",
+        emit,
     )
 
 
@@ -146,6 +149,7 @@ def _fallback(
     calls: list[ToolCall],
     results: dict[str, dict[str, Any]],
     reason: str,
+    emit: EventSink = NULL_SINK,
 ) -> AgentRun:
     """Rơi về chuỗi deterministic, chỉ chạy những tool chưa có kết quả hợp lệ.
 
@@ -153,6 +157,16 @@ def _fallback(
     lại chỉ làm danh sách `tool_calls` hiển thị sai những gì đã thực sự xảy ra.
     """
     logger.warning("Agent %s rơi về chế độ deterministic: %s", agent, reason)
+    # Vừa log WARNING vừa vào `warnings[]` vừa thành một dòng trên màn hình: một lượt suy
+    # giảm mà người vận hành không thấy là một lượt suy giảm bị giấu (CLAUDE.md §9 #3).
+    emit(
+        "warning",
+        agent,
+        f"rơi về chuỗi tool cố định: {reason}",
+        source="system",
+        ok=False,
+        code="LLM_ROUTING_FALLBACK",
+    )
     remaining = [name for name in sequence if name not in results]
     recovered = run_deterministic(agent=agent, registry=registry, sequence=remaining)
     return AgentRun(

@@ -23,6 +23,7 @@ from src.optimizer.greedy import PlanStrategy, SolveResult
 from src.orchestration.agents.client import LLMClient
 from src.orchestration.agents.runner import AgentRun, run_deterministic, run_with_llm
 from src.orchestration.prompts import PROMPTS
+from src.orchestration.run_log import NULL_SINK, EventSink, guarded
 from src.orchestration.state import (
     AgentReport,
     AssessmentContext,
@@ -85,9 +86,19 @@ def _recommend(variants: dict[PlanStrategy, SolveResult]) -> PlanStrategy:
 class GraphDependencies:
     """Phụ thuộc của một run: context, registry, client LLM và cấu hình chế độ."""
 
-    def __init__(self, context: RunContext, *, llm_client: LLMClient | None = None) -> None:
+    def __init__(
+        self,
+        context: RunContext,
+        *,
+        llm_client: LLMClient | None = None,
+        emit: EventSink = NULL_SINK,
+    ) -> None:
         self.context = context
         self.registry: ToolRegistry = build_registry(context)
+        # Registry là chốt duy nhất mọi tool đi qua, nên gắn sink ở đây là gắn cho cả hai
+        # chế độ chạy cùng lúc — không có đường tool nào không được quan sát.
+        self.registry.observe(emit)
+        self.emit = emit
         settings = context.settings
         self.llm_enabled = settings.llm_routing_enabled
         self.max_rounds = settings.llm_max_tool_rounds
@@ -117,12 +128,14 @@ class GraphDependencies:
             user_prompt=user_prompt,
             fallback_sequence=sequence,
             max_rounds=self.max_rounds,
+            emit=self.emit,
         )
 
 
 def build_graph(deps: GraphDependencies) -> Any:
     """Dựng và compile đồ thị cho một run."""
     context = deps.context
+    emit = deps.emit
 
     def load_context(state: PipelineState) -> dict[str, Any]:
         return {
@@ -142,10 +155,12 @@ def build_graph(deps: GraphDependencies) -> Any:
         tục giữa các step, mà state đó nằm ở Supabase chứ không ở đây. Khai báo sẵn nhánh
         SUPPRESS mà không có đường nào đi vào sẽ là nhánh chết (CLAUDE.md §4 #2).
         """
+        emit("narration", "graph", "snapshot mới, cần đánh giá — vào nhánh NEW_INCIDENT")
         return {"route": "NEW_INCIDENT", "route_reason": "Snapshot mới cần đánh giá."}
 
     def situation_assessment(state: PipelineState) -> dict[str, Any]:
         started_at = now_iso()
+        emit("agent_started", AGENT_ASSESSMENT, "đánh giá tình hình cung–cầu")
         run = deps.run_agent(
             AGENT_ASSESSMENT,
             model=deps.model_analysis,
@@ -179,6 +194,7 @@ def build_graph(deps: GraphDependencies) -> Any:
             assessment_report.status = "FAILED"
             assessment_report.message = "Không dựng được bối cảnh đánh giá."
             assessment_report.finished_at = now_iso()
+            emit("agent_finished", AGENT_ASSESSMENT, assessment_report.message, ok=False)
             reports[AGENT_ASSESSMENT] = assessment_report
             return {
                 "agent_reports": reports,
@@ -190,6 +206,14 @@ def build_graph(deps: GraphDependencies) -> Any:
 
         assessment_report.status = "WARNING" if any(not call.ok for call in run.tool_calls) else "DONE"
         assessment_report.finished_at = now_iso()
+        emit(
+            "agent_finished",
+            AGENT_ASSESSMENT,
+            f"đánh giá xong ({assessment_report.status})",
+            # Suy từ chính tool_calls chứ không từ `status`: một capability hỏng vẫn cho ra
+            # đánh giá dùng được, nhưng dòng log phải nói là nó không sạch.
+            ok=all(call.ok for call in run.tool_calls),
+        )
         reports[AGENT_ASSESSMENT] = assessment_report
         return {
             "assessment": AssessmentContext(
@@ -206,6 +230,7 @@ def build_graph(deps: GraphDependencies) -> Any:
 
     def dispatch(state: PipelineState) -> dict[str, Any]:
         started_at = now_iso()
+        emit("agent_started", AGENT_DISPATCH, "sinh phương án điều chuyển")
         run = deps.run_agent(
             AGENT_DISPATCH,
             model=deps.model_analysis,
@@ -213,6 +238,12 @@ def build_graph(deps: GraphDependencies) -> Any:
         )
         reports = dict(state.get("agent_reports") or initial_agent_reports())
         ok = context.solve_result is not None
+        emit(
+            "agent_finished",
+            AGENT_DISPATCH,
+            "có phương án điều chuyển" if ok else "không giải được bài toán điều chuyển",
+            ok=ok,
+        )
         reports[AGENT_DISPATCH] = AgentReport(
             status="DONE" if ok else "FAILED",
             message="" if ok else "Không giải được bài toán điều chuyển.",
@@ -233,9 +264,11 @@ def build_graph(deps: GraphDependencies) -> Any:
         của chính tập phương án đem cho người duyệt.
         """
         if context.targets is None:
+            emit("narration", "graph", "chưa có tập đích, bỏ qua bước sinh phương án")
             return {}
         for strategy in PLAN_ORDER:
             context.plan_variants[strategy] = solve_strategy(context, strategy)
+        emit("narration", "graph", f"sinh {len(PLAN_ORDER)} phương án theo strategy {', '.join(PLAN_ORDER)}")
         return {}
 
     def score_and_rank(state: PipelineState) -> dict[str, Any]:
@@ -247,8 +280,10 @@ def build_graph(deps: GraphDependencies) -> Any:
         và được ghi vào `plan_set.converged` — hiện ba thẻ giống hệt nhau mà không nói gì là
         làm điều phối viên tưởng mình có ba lựa chọn.
         """
+        emit("agent_started", "optimization", "chấm điểm và xếp hạng phương án")
         reports = dict(state.get("agent_reports") or initial_agent_reports())
         if not context.plan_variants:
+            emit("agent_finished", "optimization", "không có phương án để chấm điểm", ok=False)
             reports["optimization"] = AgentReport(
                 status="FAILED",
                 message="Không có phương án để chấm điểm.",
@@ -291,6 +326,14 @@ def build_graph(deps: GraphDependencies) -> Any:
                     ),
                 }
             )
+        recommended = PLAN_IDS[_recommend(context.plan_variants)]
+        emit(
+            "agent_finished",
+            "optimization",
+            f"{len(plans)} phương án đã chấm, khuyến nghị {recommended}"
+            + (" (ba chiến lược hội tụ)" if converged else ""),
+            ok=True,
+        )
         return {
             "agent_reports": reports,
             "warnings": warnings,
@@ -300,22 +343,31 @@ def build_graph(deps: GraphDependencies) -> Any:
                 "converged": converged,
                 "distinct_plan_count": len(distinct),
             },
-            "recommended_plan_id": PLAN_IDS[_recommend(context.plan_variants)],
+            "recommended_plan_id": recommended,
         }
 
     def quality_gate(state: PipelineState) -> dict[str, Any]:
         """Loại phương án vi phạm ràng buộc tối thiểu trước khi đưa cho người duyệt."""
         result = context.solve_result
         if result is None:
+            emit("narration", "graph", "quality gate: không có phương án", ok=False)
             return {"quality_ok": False, "quality_reason": "no_plan"}
         cap = result.plan_totals.budget_cap
         if cap > 0 and result.plan_totals.total_cost > cap:
             # Guardrail deterministic: LLM không có đường đi vòng qua trần ngân sách.
+            emit(
+                "narration",
+                "graph",
+                f"quality gate chặn: chi phí {result.plan_totals.total_cost} vượt trần {cap} VNĐ",
+                ok=False,
+            )
             return {"quality_ok": False, "quality_reason": "budget_exceeded"}
+        emit("narration", "graph", "quality gate: phương án đạt ràng buộc tối thiểu", ok=True)
         return {"quality_ok": True, "quality_reason": ""}
 
     def explain(state: PipelineState) -> dict[str, Any]:
         started_at = now_iso()
+        emit("agent_started", AGENT_EXPLANATION, "viết lời giải thích cho điều phối viên")
         run = deps.run_agent(
             AGENT_EXPLANATION,
             model=deps.model_explanation,
@@ -328,6 +380,20 @@ def build_graph(deps: GraphDependencies) -> Any:
         used_llm = bool(llm_text) and _numbers_are_grounded(llm_text, source)
         if llm_text and not used_llm:
             logger.warning("Văn bản LLM chứa số không khớp nguồn; dùng template Lớp 1.")
+            emit(
+                "warning",
+                AGENT_EXPLANATION,
+                "văn bản LLM chứa số không có trong nguồn; đã thay bằng template",
+                source="system",
+                ok=False,
+                code="EXPLANATION_LLM_REJECTED",
+            )
+        emit(
+            "agent_finished",
+            AGENT_EXPLANATION,
+            f"giải thích xong (lớp {'llm' if used_llm else 'template'})",
+            ok=True,
+        )
         reports[AGENT_EXPLANATION] = AgentReport(status="DONE", started_at=started_at, finished_at=now_iso())
         extra_warnings = list(run.warnings)
         if llm_text and not used_llm:
@@ -359,7 +425,9 @@ def build_graph(deps: GraphDependencies) -> Any:
         strategy = STRATEGY_BY_PLAN_ID.get(str(state.get("recommended_plan_id")), "BALANCED")
         result = context.plan_variants.get(strategy) or context.solve_result
         if selection is None or targets is None or result is None:
+            emit("narration", "graph", "không đủ dữ liệu để dựng quyết định", ok=False)
             return {"decision": {}}
+        emit("narration", "graph", f"dựng quyết định cuối từ phương án {strategy}")
 
         if targets.planning_output.hotspots:
             planning_status = "optimizer_evaluated"
@@ -484,13 +552,22 @@ def run_pipeline(
     snapshot_id: int | str,
     data_source: str,
     llm_client: LLMClient | None = None,
+    emit: EventSink = NULL_SINK,
 ) -> PipelineState:
     """Chạy trọn đồ thị cho một snapshot và trả state cuối.
 
     `thread_id` gắn với `run_id`: một run là một thread checkpoint, nên hai request song
     song không giẫm lên state của nhau.
+
+    `emit` mặc định là **no-op callable thật**, không phải `None`. Nhờ vậy sáu nơi gọi
+    `run_pipeline` trong test không phải sửa một chữ, và trong thân đồ thị không có một
+    `if emit is not None` nào — chỗ duy nhất có thể quên. Sự kiện chảy ra ngoài qua sink
+    này; nó không bao giờ đi vào `PipelineState`, nên `decision` giống hệt nhau dù có log
+    hay không (kiểm bằng `test_orchestration_events.py`).
     """
-    deps = GraphDependencies(context, llm_client=llm_client)
+    # Bọc đúng một lần ở biên: từ đây trở vào, mọi chỗ phát sự kiện gọi thẳng, không phòng thủ.
+    sink = guarded(emit)
+    deps = GraphDependencies(context, llm_client=llm_client, emit=sink)
     compiled = build_graph(deps)
     run_id = str(uuid.uuid4())
     initial: PipelineState = {

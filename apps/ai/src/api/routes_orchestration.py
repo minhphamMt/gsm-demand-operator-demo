@@ -12,9 +12,10 @@ bản ghi phê duyệt thì không, và đó là lý do hai thứ này không �
 
 import asyncio
 import logging
+import threading
 import uuid
 from collections import OrderedDict
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 import pandas as pd
@@ -26,6 +27,7 @@ from src.common.policy import get_policy
 from src.config import get_settings
 from src.orchestration.agents.client import LLMClient
 from src.orchestration.graph import run_pipeline
+from src.orchestration.run_log import RunLog
 from src.orchestration.state import PipelineState
 from src.orchestration.tools.decision_tools import RunContext
 
@@ -37,14 +39,54 @@ router = APIRouter(prefix="/api/v1", tags=["orchestration"])
 # request — dạng rò rỉ chỉ lộ ra ở môi trường chạy dài, không lộ khi demo.
 MAX_TRACKED_RUNS = 64
 
-_runs: OrderedDict[str, dict[str, Any]] = OrderedDict()
+
+@dataclass
+class RunEntry:
+    """Bản ghi tiến độ và nhật ký của một run, gộp trong **một** object.
+
+    Không phải hai `OrderedDict` song song: hai map nghĩa là hai vòng thu hồi phải luôn đồng
+    ý với nhau mà không có gì ép chúng đồng ý — lệch một nhịp là hỏng im lặng (nhật ký sống
+    lâu hơn bản ghi, hoặc ngược lại). Gộp lại thì chỉ còn một vòng đời.
+
+    Vấn đề thật cần giải hẹp hơn thế: `_remember()` cũ **thay cả dict**, nên thứ gì để bên
+    trong đều bị hủy ở bước RUNNING→DONE. Ở đây nó chỉ thay `record`, `log` giữ nguyên.
+    """
+
+    record: dict[str, Any]
+    log: RunLog = field(default_factory=RunLog)
+
+
+# Khóa của run store. `get_run` là `def` nên FastAPI chạy nó trong threadpool, còn `_execute`
+# chạy trong worker của `asyncio.to_thread` — hai thread thật sự khác nhau, và `OrderedDict`
+# bị sửa từ cả hai phía.
+_store_lock = threading.Lock()
+
+_runs: OrderedDict[str, RunEntry] = OrderedDict()
+
+
+def _open_entry(run_id: str) -> RunEntry:
+    """Mở bản ghi mới cho một run và thu hồi run cũ nếu vượt trần."""
+    entry = RunEntry(record={"run_id": run_id, "status": "RUNNING"})
+    with _store_lock:
+        _runs[run_id] = entry
+        _runs.move_to_end(run_id)
+        while len(_runs) > MAX_TRACKED_RUNS:
+            _runs.popitem(last=False)
+    return entry
 
 
 def _remember(run_id: str, record: dict[str, Any]) -> None:
-    _runs[run_id] = record
-    _runs.move_to_end(run_id)
-    while len(_runs) > MAX_TRACKED_RUNS:
-        _runs.popitem(last=False)
+    """Cập nhật bản ghi tiến độ, **giữ nguyên** nhật ký của run đó.
+
+    Run đã bị thu hồi vì trần thì không hồi sinh: một bản ghi quay lại mà không còn nhật ký
+    đi kèm chính là dạng lệch mà `RunEntry` sinh ra để loại bỏ.
+    """
+    with _store_lock:
+        entry = _runs.get(run_id)
+        if entry is None:
+            return
+        entry.record = record
+        _runs.move_to_end(run_id)
 
 
 def _render(state: PipelineState) -> dict[str, Any]:
@@ -78,9 +120,14 @@ def _render(state: PipelineState) -> dict[str, Any]:
     }
 
 
-def _execute(run_id: str, request: DecisionRequest) -> None:
-    """Chạy đồ thị. Hàm đồng bộ — được gọi trong thread riêng để không chặn event loop."""
+def _execute(run_id: str, request: DecisionRequest, entry: RunEntry) -> None:
+    """Chạy đồ thị. Hàm đồng bộ — được gọi trong thread riêng để không chặn event loop.
+
+    Mọi lối ra đều phát `run_finished` **trước** khi ghi trạng thái cuối. Ghi ngược thứ tự
+    thì một lượt poll chen vào giữa sẽ thấy `DONE`, dừng poll, và mất đúng dòng cuối cùng.
+    """
     settings = get_settings()
+    log = entry.log
     try:
         context = RunContext(
             zones=request.zones,
@@ -94,9 +141,18 @@ def _execute(run_id: str, request: DecisionRequest) -> None:
             context,
             snapshot_id=request.snapshot_id,
             data_source=request.data_source,
+            emit=log.append,
         )
     except NovaFourError as error:
         logger.warning("Run %s dừng vì %s", run_id, error.error_code)
+        log.append(
+            "run_finished",
+            "graph",
+            f"dừng vì {error.error_code}: {error.message}",
+            source="system",
+            ok=False,
+            code=error.error_code,
+        )
         _remember(
             run_id,
             {"run_id": run_id, "status": "FAILED", "error": {"code": error.error_code, "message": error.message}},
@@ -104,10 +160,19 @@ def _execute(run_id: str, request: DecisionRequest) -> None:
         return
     except Exception as error:  # noqa: BLE001 - run hỏng không được làm chết tiến trình phục vụ.
         logger.exception("Run %s lỗi ngoài dự kiến", run_id)
+        log.append(
+            "run_finished",
+            "graph",
+            f"lỗi ngoài dự kiến: {error}",
+            source="system",
+            ok=False,
+            code="INTERNAL_ERROR",
+        )
         _remember(
             run_id, {"run_id": run_id, "status": "FAILED", "error": {"code": "INTERNAL_ERROR", "message": str(error)}}
         )
         return
+    log.append("run_finished", "graph", "hoàn tất — quyết định sẵn sàng để duyệt", source="system", ok=True)
     _remember(run_id, {"run_id": run_id, "status": "DONE", **_render(state)})
 
 
@@ -118,19 +183,36 @@ async def start_run(request: DecisionRequest) -> dict[str, Any]:
     Trả 202 chứ không phải 200: kết quả chưa có tại thời điểm trả lời, UI phải hỏi lại.
     """
     run_id = str(uuid.uuid4())
-    _remember(run_id, {"run_id": run_id, "status": "RUNNING"})
+    entry = _open_entry(run_id)
+    # Phát trước khi trả 202: lượt poll đầu tiên của UI phải có sẵn một dòng để hiện, chứ
+    # không phải một mảng rỗng trông y hệt "chưa có gì xảy ra".
+    entry.log.append(
+        "run_started",
+        "graph",
+        f"nhận yêu cầu phân tích snapshot {request.snapshot_id}, horizon {request.horizon_min} phút",
+        source="system",
+    )
     # Đồ thị là code đồng bộ (optimizer chạy MILP), nên đẩy sang thread — chạy thẳng trên
     # event loop sẽ chặn mọi request khác trong lúc giải bài toán.
-    asyncio.create_task(asyncio.to_thread(_execute, run_id, request))
+    asyncio.create_task(asyncio.to_thread(_execute, run_id, request, entry))
     return {"run_id": run_id, "status": "RUNNING"}
 
 
 @router.get("/runs/{run_id}")
 def get_run(run_id: str) -> dict[str, Any]:
-    record = _runs.get(run_id)
-    if record is None:
+    """Tiến độ **và** nhật ký trong cùng một response.
+
+    Không thêm endpoint riêng cho sự kiện, và không thêm tham số fetch tăng dần: một run
+    deterministic phát khoảng 35 dòng, chế độ LLM khoảng 120 — nhỏ hơn payload `decision`
+    đang gửi sẵn. Fetch tăng dần chỉ đổi lấy một đường merge phía client mà một response
+    rớt là thủng nhật ký vĩnh viễn. Gửi cả mảng, client thay trọn gói.
+    """
+    with _store_lock:
+        entry = _runs.get(run_id)
+        record = dict(entry.record) if entry is not None else None
+    if entry is None or record is None:
         raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Không có run {run_id}."})
-    return record
+    return {**record, "events": [asdict(event) for event in entry.log.snapshot()]}
 
 
 @router.get("/llm/health")

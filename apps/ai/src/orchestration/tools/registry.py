@@ -17,6 +17,9 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from src.orchestration.narration import describe_call, narrate
+from src.orchestration.run_log import NULL_SINK, EventSink
+
 # Tên agent dùng chung giữa registry, runner và state.
 AGENT_ASSESSMENT = "situation_assessment"
 AGENT_DISPATCH = "dispatch"
@@ -54,6 +57,17 @@ class ToolRegistry:
     def __init__(self) -> None:
         self._tools: dict[str, ToolSpec] = {}
         self._allowlist: dict[str, frozenset[str]] = {}
+        self._sink: EventSink = NULL_SINK
+
+    def observe(self, sink: EventSink) -> None:
+        """Gắn nơi nhận sự kiện cho registry này.
+
+        Phát sự kiện ở đây chứ không ở hai runner, vì `invoke` là **chốt duy nhất** mọi tool
+        đi qua ở cả hai chế độ. Đặt ở runner sẽ trùng ba chỗ (`_fallback` gọi lại
+        `run_deterministic`) và bỏ sót hẳn nhánh guardrail — mà `tool_denied` mới là dòng
+        đáng phơi ra nhất: nó là lúc một agent với ra ngoài phạm vi của nó.
+        """
+        self._sink = sink
 
     def register(self, spec: ToolSpec) -> None:
         if spec.name in self._tools:
@@ -83,14 +97,32 @@ class ToolRegistry:
         """
         allowed = self._allowlist.get(agent, frozenset())
         if tool_name not in allowed:
+            # Phát TRƯỚC khi ném: exception đi lên theo đường của nó, còn nhật ký phải giữ
+            # lại dấu vết lần với tay ra ngoài allowlist kể cả khi bên trên nuốt lỗi.
+            self._sink(
+                "tool_denied",
+                agent,
+                f"bị chặn: {tool_name} không nằm trong allowlist của {agent}",
+                source="system",
+                tool=tool_name,
+                ok=False,
+                code="TOOL_NOT_ALLOWED",
+            )
             raise ToolPermissionError(
                 f"Agent {agent!r} không được gọi tool {tool_name!r}. Allowlist: {sorted(allowed)}"
             )
+        self._sink("tool_started", agent, describe_call(tool_name), tool=tool_name)
         spec = self._tools[tool_name]
         try:
             result = spec.handler(**arguments)
         except Exception as error:  # noqa: BLE001 - lỗi tool là dữ liệu cho LLM, không phải sự cố của run.
-            return {"status": "error", "error": type(error).__name__, "message": str(error)}
+            failed = {"status": "error", "error": type(error).__name__, "message": str(error)}
+            self._sink("tool_finished", agent, narrate(tool_name, failed), tool=tool_name, ok=False)
+            return failed
+        # `text` của tool_finished CHÍNH LÀ câu tường thuật — không phát thêm một sự kiện
+        # `narration` nữa. Một lượt gọi tool là một dòng kết quả, không phải hai.
+        ok = result.get("status") != "error"
+        self._sink("tool_finished", agent, narrate(tool_name, result), tool=tool_name, ok=ok)
         return result
 
     @property
