@@ -4,7 +4,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/auth.decorators';
 import { SensitiveMutation } from '../common/security/sensitive-mutation.decorator';
 import { AiService } from './ai.service';
-import { GenerateAiDecisionDto, OptimizeAiDecisionDto, RunNextAiDecisionDto, RunPipelineDto, RunReplayAiDecisionDto } from './dto/generate-ai-decision.dto';
+import { AskAgentDto, GenerateAiDecisionDto, OptimizeAiDecisionDto, RunNextAiDecisionDto, RunPipelineDto, RunReplayAiDecisionDto } from './dto/generate-ai-decision.dto';
 
 @ApiTags('operator-ai')
 @Controller('operator/ai')
@@ -76,6 +76,23 @@ export class AiController {
   @ApiOkResponse({ description: 'Run state: agents, plan set, explanation, decision.' })
   getRun(@Param('runId') runId: string) {
     return this.service.getRun(runId);
+  }
+
+  // Trần 30 lượt/phút thay vì 10 mặc định: đây là ô chat, người gõ nhanh chạm trần 10 rất
+  // dễ. Vẫn phải có trần vì mỗi câu có thể là một lượt gọi LLM tính tiền.
+  @Post('observe')
+  @SensitiveMutation(30)
+  @ApiOperation({ summary: 'Ask the read-only observer agent a question in natural language' })
+  @ApiOkResponse({ description: 'Accepted, with an optional client-side directive.' })
+  observe(@Body() body: AskAgentDto) {
+    return this.service.ask(body.sessionId, body.text, body.horizonMinutes, body.snapshotId);
+  }
+
+  @Get('observe/:sessionId')
+  @ApiOperation({ summary: 'Poll the transcript of one question-and-answer session' })
+  @ApiOkResponse({ description: 'Session events, same shape as run events.' })
+  observeSession(@Param('sessionId') sessionId: string) {
+    return this.service.getSession(sessionId);
   }
 
   @Get('llm/health')

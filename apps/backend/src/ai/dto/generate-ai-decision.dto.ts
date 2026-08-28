@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsDateString, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsDateString, IsIn, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 
 export class GenerateAiDecisionDto {
   @Transform(({ value }) => Number(value))
@@ -38,6 +38,33 @@ export class RunReplayAiDecisionDto {
 }
 
 export class RunPipelineDto {
+  @Transform(({ value }) => Number(value))
+  @IsIn([5, 10, 15])
+  horizonMinutes: 5 | 10 | 15 = 10;
+
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  @Min(1)
+  snapshotId?: number;
+}
+
+/**
+ * Câu hỏi của điều phối viên gõ vào nhật ký agent.
+ *
+ * Kèm horizon và snapshot vì observer phải nhìn **cùng một snapshot** với lượt chạy đang
+ * hiển thị — trả lời về một thế giới khác với thế giới trên màn hình là dạng sai tệ nhất
+ * mà một câu trả lời có thể mắc.
+ */
+export class AskAgentDto {
+  @IsString()
+  @Length(1, 64)
+  sessionId!: string;
+
+  @IsString()
+  @Length(1, 500)
+  text!: string;
+
   @Transform(({ value }) => Number(value))
   @IsIn([5, 10, 15])
   horizonMinutes: 5 | 10 | 15 = 10;

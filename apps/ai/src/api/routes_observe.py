@@ -153,17 +153,22 @@ def _answer_with_keywords(request: ObserveRequest, log: RunLog, intent: Intent) 
 
 
 def _respond(request: ObserveRequest, log: RunLog, intent: Intent) -> None:
-    """Chạy trong thread riêng: tool đọc parquet và giải model, không được chặn event loop."""
+    """Chạy trong thread riêng: tool đọc parquet và giải model, không được chặn event loop.
+
+    Luôn đóng bằng `agent_finished`, kể cả khi hỏng. Đó là hợp đồng để client biết khi nào
+    ngừng poll: nó đếm `agent_started` so với `agent_finished`, không đoán theo đồng hồ.
+    """
     try:
-        if _answer_with_llm(request, log):
-            return
-        _answer_with_keywords(request, log, intent)
+        if not _answer_with_llm(request, log):
+            _answer_with_keywords(request, log, intent)
     except NovaFourError as error:
         logger.warning("Phiên %s dừng vì %s", request.session_id, error.error_code)
         log.append("warning", AGENT_OBSERVER, error.message, source="system", ok=False, code=error.error_code)
     except Exception as error:  # noqa: BLE001 - một câu hỏi hỏng không được làm chết tiến trình.
         logger.exception("Phiên %s lỗi ngoài dự kiến", request.session_id)
         log.append("warning", AGENT_OBSERVER, str(error), source="system", ok=False, code="INTERNAL_ERROR")
+    finally:
+        log.append("agent_finished", AGENT_OBSERVER, "trả lời xong", source="system")
 
 
 @router.post("/observe", status_code=202)

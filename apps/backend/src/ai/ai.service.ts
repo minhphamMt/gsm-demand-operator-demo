@@ -177,6 +177,30 @@ export class AiService {
     return this.request<Record<string, unknown>>(`/api/v1/runs/${encodeURIComponent(runId)}`, { method: 'GET' });
   }
 
+  /**
+   * Chuyển một câu hỏi tiếng Việt tới agent quan sát.
+   *
+   * Cố ý KHÔNG gọi `assertNoActiveExecution` như `startRun`: hỏi han là việc chỉ-đọc, và
+   * lúc đang có lệnh điều xe chạy dở mới đúng là lúc điều phối viên cần hỏi nhất. Guard đó
+   * bảo vệ việc *tạo* lượt chạy mới, không phải việc nhìn.
+   *
+   * Route trả về `action`. Đúng một giá trị có nghĩa — `start_run` — và client tự quyết định
+   * có thi hành hay không bằng allowlist riêng của nó. Không có action nào chạm tới hai cổng
+   * phê duyệt, và AI service cũng không sinh ra được action như vậy.
+   */
+  async ask(sessionId: string, text: string, horizonMinutes: 5 | 10 | 15, snapshotId?: number) {
+    const inputPayload = await this.buildInferencePayload(horizonMinutes, snapshotId);
+    return this.request<{ session_id: string; action: string | null }>('/api/v1/observe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...inputPayload, session_id: sessionId, text }),
+    });
+  }
+
+  async getSession(sessionId: string) {
+    return this.request<Record<string, unknown>>(`/api/v1/observe/${encodeURIComponent(sessionId)}`, { method: 'GET' });
+  }
+
   // Cùng hình dạng payload mà `generate()` gửi tới `/api/v1/decisions` — đồ thị đa-agent
   // và đường suy luận trực tiếp phải nhận đúng một input để INV-1 (khớp baseline) còn ý nghĩa.
   // Tách riêng khỏi `generate()` để không đụng vào thân hàm đó: nó vừa được sửa các lỗi
