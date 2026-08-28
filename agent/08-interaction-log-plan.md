@@ -1,6 +1,10 @@
 # Kế hoạch triển khai: AI Agent Interaction Log
 
-**Ngày:** 28/08/2026 · **Nhánh:** `integrate/multi-agent-orchestration` · **Task:** MA-6.1…MA-6.9
+**Ngày:** 28/08/2026 · **Nhánh:** `integrate/multi-agent-orchestration` · **Task:** MA-6.1…MA-6.15
+
+*Cập nhật 28/08/2026 — PM bổ sung hai yêu cầu: vòng chờ người vận hành hiện thành dòng log, và ô
+nhập cho phép sai agent chạy lại tool quan sát. Xem §2.5, §3.6, §3.7, Chặng 6–7, và §5.1 (một điều
+luật an toàn đã được viết lại, không phải bỏ đi).*
 
 > **Không phải spec.** Đây là kế hoạch triển khai cho một tính năng đã có neo trong bộ thiết kế.
 > Bộ spec là `00`–`07`. File này mô tả *cách làm* và *vì sao làm như vậy*, để người khác đọc lại
@@ -22,6 +26,17 @@ thành một mạch:
 người vận hành giao việc → agent thực thi → agent trình phương án → người duyệt → agent chạy tiếp
 ```
 
+Bản kế hoạch đầu chỉ lấp được ba mắt xích giữa. Hai đầu còn đứt:
+
+- **"người duyệt"** là một khoảng lặng trong log. Agent trình phương án xong là hết dòng, log đứng
+  im cho tới khi có người bấm. Nhìn vào không phân biệt được *hệ thống đang chờ mình* với *hệ thống
+  đã chết*.
+- **"người vận hành giao việc"** mới đúng ở đúng lần khởi động. Đang xem mà muốn hỏi thêm — dự báo
+  zone khác, thời tiết ra sao — thì phải rời màn hình.
+
+Chặng 6 và Chặng 7 lấp đúng hai chỗ đó: một **dòng chờ duyệt treo ở đáy log**, và một **ô nhập chỉ
+gọi được tool quan sát**. Không phải tool quyết định — ranh giới này là toàn bộ nội dung §3.6.
+
 ### 1.1. Neo tài liệu
 
 Theo CLAUDE.md §4.1 #1, mọi thay đổi phải truy ngược được về một task ID hoặc một mục spec.
@@ -38,7 +53,7 @@ Tính năng này cũng buộc phải trả lời câu hỏi mở **MA-Q8** — x
 
 ---
 
-## 2. Hiện trạng — bốn phát hiện định hình thiết kế
+## 2. Hiện trạng — năm phát hiện định hình thiết kế
 
 ### 2.1. Backend hiện không stream
 
@@ -84,6 +99,20 @@ khi `_execute` chạy trong worker của `asyncio.to_thread`. Hai thread thật 
 
 → `threading.Lock` trong `RunLog` là **bắt buộc**, không phải trang trí.
 
+### 2.5. Đồ thị đã kết thúc trước khi người vận hành bấm duyệt
+
+Docstring `graph.py` dòng 8–10 nói thẳng:
+
+> Đồ thị dừng ở trạng thái `PROPOSED`. Không có node `apply_relocation`, `campaign_gate` hay
+> `issue_offers`: hai cổng phê duyệt và mọi side effect do NestJS giữ.
+
+Lúc thẻ phương án hiện lên màn hình, `run_pipeline` đã trả về và thread đã thoát. **Không còn task
+nào trong đồ thị để chạy tiếp.** Việc sau duyệt — điều xe, phát campaign — do NestJS làm.
+
+→ **Hệ quả kiến trúc:** "agent đợi người rồi chạy tiếp" phải cài thành **trạng thái của phiên**, chứ
+không phải trạng thái của đồ thị. Người vận hành nhìn thấy y hệt nhau; §3.7 ghi vì sao không dùng
+`interrupt()` để làm cho nó "thật".
+
 ---
 
 ## 3. Kiến trúc
@@ -94,6 +123,9 @@ route tạo RunEntry{record, log} ──emit──> run_pipeline(emit=…) ─�
                                             ├─ graph nodes: agent_started/finished, narration
                                             └─ runner: narration (reply.content), warning
 GET /runs/{id} → {**record, "events": log.snapshot()}     ← poll 2 giây thấy dòng hiện dần
+
+POST /observe {session_id, text} ──emit──> observer (allowlist CON, chỉ đọc) ──> ObserveLog riêng
+GET  /observe/{session_id} → {"events": […]}              ← luồng thứ hai, KHÔNG chạm PipelineState
 ```
 
 **`PipelineState`, `ToolCall`, `_render`, `decision` — không đổi một dòng nào.**
@@ -104,7 +136,9 @@ Module mới `apps/ai/src/orchestration/run_log.py`:
 
 ```python
 EventKind = Literal["run_started","agent_started","agent_finished","tool_started",
-                    "tool_finished","tool_denied","narration","warning","run_finished"]
+                    "tool_finished","tool_denied","narration","warning","run_finished",
+                    # Chặng 6–7
+                    "awaiting_approval","approval_resolved","operator_message"]
 
 @dataclass(frozen=True)
 class RunEvent:
@@ -118,6 +152,10 @@ class RunEvent:
     ok: bool | None = None
     code: str | None = None
 ```
+
+`awaiting_approval` là **dòng treo**: client giữ nó ở đáy log, có hiệu ứng nhấp nháy, cho tới khi
+nhận `approval_resolved`. Nó không phải trạng thái máy — nó là cách nói cho người xem biết *hệ thống
+đang chờ chính bạn*. Đúng một dòng, và nó không khoá gì cả.
 
 **`seq` là thẩm quyền sắp xếp duy nhất.** `at` là đồng hồ tường: có thể trùng ở mức mili-giây và
 có thể lùi khi NTP chỉnh giờ. Client sắp theo `seq`, không bao giờ theo `at`.
@@ -136,6 +174,9 @@ route dùng làm khóa — hiện id đó ra UI sẽ là một số không khớ
 | `narration` (llm) | `agents/runner.py::run_with_llm` — chỗ `reply.content` đang bị bỏ |
 | `warning` | `runner.py::_fallback`; `graph.py::explain`, `score_and_rank` |
 | `run_finished` | `routes_orchestration.py::_execute` — cả ba lối ra |
+| `awaiting_approval` | `routes_orchestration.py::_execute` — phát **ngay trước** `run_finished` khi state đạt `PROPOSED`. AI service là nơi duy nhất biết đồ thị dừng vì hết việc hay vì lỗi |
+| `approval_resolved` | client, tại `onSuccess`/`onError` của approve/reject/revise — đúng 3 trong 10 handler Chặng 3 đã ghi log |
+| `operator_message` | client, ngay lúc gửi. Câu trả lời quay về qua `GET /observe/{session_id}` |
 
 ### 3.3. Ba chỗ đã sửa so với thiết kế nháp đầu tiên
 
@@ -178,6 +219,63 @@ lại lý do:
 Run deterministic phát ~35 sự kiện, chế độ LLM ~120; khoảng 5–18 KB mỗi lượt poll — nhỏ hơn payload
 `decision` đang gửi sẵn. Fetch tăng dần chỉ đổi lấy một đường merge phía client mà **một response
 rớt là thủng log vĩnh viễn**. Gửi cả mảng, client thay trọn gói.
+
+### 3.6. Agent quan sát — agent thứ tư, chỉ-đọc
+
+`decision_tools.py:274` đã nhóm sẵn đúng bốn tool quan sát, không phải dựng mới:
+
+```python
+AGENT_ASSESSMENT: ("run_forecast", "get_weather", "get_travel_conditions", "get_supply_state")
+```
+
+Agent mới chỉ là một **tên thứ tư** dùng lại `run_with_llm` (đã generic sẵn: `agent` + `registry` +
+`system_prompt`) với allowlist là **tập con** của trên:
+
+```python
+AGENT_OBSERVER = "observer"
+registry.allow(AGENT_OBSERVER, frozenset({
+    "run_forecast", "get_weather", "get_travel_conditions", "get_supply_state",
+}))
+```
+
+Ba nhóm cố ý **không** có mặt, và lý do khác nhau ở từng nhóm:
+
+| Vắng mặt | Vì sao |
+|---|---|
+| `compute_relocation` | Sinh ra phương án. Chat mà đẻ được plan là đẻ ra ngoài cổng duyệt §11.1 |
+| `render_explanation` | Văn bản đi kèm quyết định, có `_numbers_are_grounded` canh riêng — không cho đi đường vòng |
+| `execute_relocation`, `issue_offers` | Chưa từng đăng ký ở bất kỳ đâu (`registry.py` dòng 8). Không phải bỏ sót — prompt injection vì thế không mở được đường tới tiền hay tới xe |
+
+**"Chạy lại phương án đi" thì observer không tự chạy.** Nó trả lời, và client hiện nút gọi
+`POST /runs` như bình thường → **run mới, `run_id` mới, thẻ mới, cổng duyệt cũ**. Không có đường nào
+sửa tại chỗ plan đang chờ duyệt — đó là cách duy nhất giữ `expectedVersion` còn nghĩa.
+
+**Hai chế độ, và chế độ không-LLM làm trước.** `llm_routing_enabled` mặc định `False`
+(`config.py:58`) — mặc định của dự án, của CI và của eval. Nên ô nhập có hai hình thái:
+
+- LLM **tắt** → command palette: `/forecast zone 7`, `/weather`, `/supply`. Gọi thẳng registry,
+  deterministic, chạy được trong CI, và **không chết giữa buổi trình bày vì hết quota**.
+- LLM **bật** → câu chữ tự nhiên qua `run_with_llm`, hỏng ở đâu rơi về đúng bốn lệnh trên.
+
+Làm chế độ lệnh trước vì nó là cái chắc chắn chạy được lúc demo; chế độ LLM là phần tô thêm.
+
+### 3.7. Vì sao không dùng `interrupt()` để pause thật
+
+`langgraph` có `interrupt()` + resume, và đồ thị **đã** compile với `InMemorySaver()`, `thread_id`
+đã gắn với `run_id`. Về mặt thư viện thì làm được. Không làm, ghi lại lý do:
+
+1. **Phải kéo side effect vào đồ thị.** Muốn "chạy tiếp sau khi duyệt" thì đồ thị phải có node sau
+   duyệt — tức `apply_relocation` / `issue_offers` chui vào graph. Ngược thẳng quyết định đã chốt ở
+   docstring `graph.py` và ở §11.1: gate và side effect do NestJS giữ.
+2. **`InMemorySaver` không chịu được restart.** Một lượt chờ duyệt kéo dài vài phút mà server nạp
+   lại là mất trắng. Pause "thật" nhưng dễ vỡ hơn pause "giả" là đánh đổi lỗ.
+3. **Đúng đường code parity đang canh.** `state["decision"] == http_response.json()` byte-identical;
+   thêm interrupt là đổi hình dạng lượt chạy, bốn ngày trước bàn giao.
+4. **Người vận hành không phân biệt được.** Hệ thống *thật sự* đứng im chờ người bấm ở cả hai
+   phương án. Khác biệt duy nhất là một process có bị treo hay không — thứ không hiện ra màn hình.
+
+Đổi lại: `awaiting_approval` phải do AI service phát (§3.2), vì chỉ nó biết đồ thị dừng vì **hết
+việc** hay vì **lỗi** — client đoán sẽ đoán sai ở đường FAILED.
 
 ---
 
@@ -266,6 +364,57 @@ rớt là thủng log vĩnh viễn**. Gửi cả mảng, client thay trọn gói
 - Rủi ro với CI/parity/eval bằng **0**: prompt chỉ đọc trong nhánh `run_with_llm`, không với tới
   được khi `llm_routing_enabled=false` — tức là ở mặc định của dự án, của CI và của eval.
 
+### Chặng 6 — Vòng chờ người vận hành · BẮT BUỘC
+
+Lấp mắt xích "người duyệt" ở §1. Ba mảnh, không mảnh nào chạm đồ thị.
+
+- **AI service:** phát `awaiting_approval` ngay trước `run_finished` khi state đạt `PROPOSED` —
+  không phát ở đường FAILED, vì "đang chờ bạn" mà thật ra đã hỏng là nói dối người xem.
+- **Client:** dòng treo ở đáy log, nhấp nháy, kèm số phương án đang chờ; `approval_resolved` từ
+  handler approve/reject/revise thay nó bằng dòng tĩnh. Mạch đọc ra:
+
+  ```
+  [17:02:09] [DISPATCH_AGENT] > 3 phương án đã chấm điểm, đề xuất PLAN_B
+  [17:02:09] [GRAPH]          > ⏸ chờ người vận hành duyệt — hệ thống không tự quyết
+  [17:04:31] [NGƯỜI VẬN HÀNH] > đã phê duyệt PLAN_B (v1)
+  [17:04:31] [THỰC THI]       > tạo lệnh điều 15 xe Cầu Giấy → Hoàn Kiếm
+  ```
+
+- **Thẻ phương án:** nút trên thẻ **chỉ gọi lại** `openDialog("approve")` đã có
+  (`OperatorConsoleDashboard.tsx:805`). Không viết đường mới, không nút duyệt-một-chạm.
+
+**Không làm nút "duyệt nhanh" bỏ qua popup.** `approve()` (`OperatorConsoleDashboard.tsx:474`) đang
+mang bốn lớp canh — `canReviewPlan`, `expectedVersion`, `recoverFromActionConflict`, và hộp thoại
+xác nhận. Một nút đi vòng qua chúng là cửa thứ hai vào §11.1 (xem §5.1). Nhãn trên thẻ phải nói
+đúng việc nó làm: **mở phương án để xem**, không phải "duyệt".
+
+**Test mới:** `awaiting_approval` xuất hiện đúng một lần ở đường PROPOSED và **không** xuất hiện ở
+đường FAILED · dòng treo bị thay chứ không bị nhân đôi khi `approval_resolved` tới · thẻ phương án
+gọi đúng handler cũ (assert trên `openDialog`, không assert trên network).
+
+### Chặng 7 — Ô nhập cho người vận hành hỏi lại · lệnh: BẮT BUỘC, LLM: NÊN CÓ
+
+Lấp mắt xích "người vận hành giao việc" ở §1. Thiết kế ở §3.6.
+
+- **AI service:** `AGENT_OBSERVER` + allowlist chỉ-đọc, `POST /observe` (202 + `message_id`, chạy
+  trong `to_thread`), `GET /observe/{session_id}` cùng khuôn `GET /runs/{id}`. `ObserveLog` là
+  **object riêng, seq riêng** — không dùng chung `RunEntry`, vì vòng đời khác hẳn: phiên hội thoại
+  sống theo người xem, run sống theo trần 64.
+- **Client:** ô nhập ở đáy popup log. Chế độ lệnh trước (`/forecast`, `/weather`, `/supply`), chế độ
+  LLM sau. `operator_message` hiện ngay khi gửi để ô nhập có phản hồi tức thì; câu trả lời về sau
+  theo lượt poll.
+- **Trộn hai luồng:** `interactionLog.ts` đã phải trộn ba nguồn sẵn (sự kiện run, thao tác người
+  vận hành, dòng audit). Nguồn thứ tư đi đúng khuôn đó — sắp theo `seq` **trong cùng một nguồn**,
+  theo thứ tự đến giữa các nguồn. Không cố đồng bộ hai không gian `seq`; terminal cũng làm vậy.
+- **Nhãn nguồn phải khác nhau trên màn hình:** dòng của pipeline và dòng của phiên hỏi-đáp không
+  được lẫn. Một câu quan sát trông như một bước của lượt chạy là hiểu nhầm tệ nhất mà tính năng này
+  có thể gây ra.
+
+**Test mới:** observer gọi `compute_relocation` → `tool_denied`, không phải kết quả (dùng lại chốt
+`ToolRegistry.invoke` của MA-6.3) · chế độ lệnh chạy được với `llm_routing_enabled=false` ·
+**test giá trị cao nhất của chặng:** chạy pipeline khi có một phiên observer đang hoạt động và khi
+không có, assert `decision` bằng nhau từng byte — cùng khuôn `NULL_SINK` vs `RunLog` của MA-6.6.
+
 ---
 
 ## 5. Quyết định và đánh đổi
@@ -274,9 +423,11 @@ rớt là thủng log vĩnh viễn**. Gửi cả mảng, client thay trọn gói
 
 | Rủi ro | Chốt chặn |
 |---|---|
-| Log trở thành đầu vào của một quyết định | Không module nào đọc `RunLog`; sink chỉ ghi. Nhật ký là **điểm cuối, không bao giờ là nguồn** |
-| Nút trong popup tạo đường thứ hai tới cổng duyệt | **Popup chỉ đọc, không có control nào.** Một nút trong log là con đường thứ hai tới §11.1 |
-| Endpoint mới bị nhầm là kênh lệnh | Không có endpoint mới; `events` đi nhờ `GET /runs/{id}` |
+| Log trở thành đầu vào của một quyết định | **Sự kiện không bao giờ đi vào `PipelineState`.** Xóa sạch log và mọi phiên hỏi-đáp, từng `decision` vẫn giống hệt từng byte — kiểm bằng MA-6.6 và MA-6.14 |
+| Nút trong popup tạo đường thứ hai tới cổng duyệt | **Popup không có control hành động nào.** Ô nhập của Chặng 7 không phải ngoại lệ: nó gọi được đúng bốn tool chỉ-đọc, không gọi được `compute_relocation` (§3.6) |
+| Chat sai được agent làm việc thật | Allowlist observer là **tập con** của `AGENT_ASSESSMENT`; `ToolRegistry.invoke` ném lỗi chứ không cảnh báo, và phát `tool_denied` để lần thử hiện lên màn hình |
+| "Chạy lại đi" sửa tại chỗ plan đang chờ duyệt | Observer không tự chạy pipeline. Người dùng bấm → `POST /runs` → **run mới, thẻ mới, cổng cũ**. `expectedVersion` vì thế còn nghĩa |
+| Endpoint mới bị nhầm là kênh lệnh | `events` đi nhờ `GET /runs/{id}`. `POST /observe` là endpoint mới **duy nhất**, và nó không tới được tool nào có side effect |
 | "Đã log được thực thi thì đưa luôn vào đồ thị" | Ngoài phạm vi. `execute_relocation`/`issue_offers` vẫn vắng mặt ở mọi allowlist, đã có test canh |
 | Prompt dài làm LLM nói sai số | Bán kính đúng một dòng log; `explanation.text` vẫn được `_numbers_are_grounded` canh |
 
@@ -297,11 +448,17 @@ tự dừng khi DONE/FAILED.
 ### 5.3. Thứ tự cắt khi thiếu thời gian
 
 1. Giữ log qua reload (`sessionStorage`)
-2. Dòng thực thi từ audit — lùi về chỉ có sự kiện người vận hành, vẫn mạch lạc
-3. Narration LLM + nâng prompt — log deterministic đã đủ, và LLM mặc định tắt
-4. `narration` cho `route_trigger` / `generate_plans` / `quality_gate`
+2. **Chat chế độ LLM** — chế độ lệnh đã đủ để trình bày, và LLM mặc định tắt
+3. Dòng thực thi từ audit — lùi về chỉ có sự kiện người vận hành, vẫn mạch lạc
+4. Narration LLM + nâng prompt — log deterministic đã đủ
+5. **Chat chế độ lệnh** — cắt cả Chặng 7; vòng chờ duyệt vẫn đứng một mình được
+6. `narration` cho `route_trigger` / `generate_plans` / `quality_gate`
 
-**Lõi không cắt được:** Chặng 1 + Chặng 2 + ghi log 4 handler cổng duyệt.
+**Lõi không cắt được:** Chặng 1 + Chặng 2 + ghi log 4 handler cổng duyệt + **Chặng 6**.
+
+Chặng 6 vào lõi vì nó là thứ làm cho log đọc ra thành một mạch có người trong đó. Chặng 7 thì không:
+nó thêm chiều sâu, nhưng cắt đi vẫn còn một câu chuyện hoàn chỉnh. Cắt theo thứ tự trên, mỗi bước
+vẫn để lại một bản demo tự đứng được — đó là tiêu chí chọn thứ tự, không phải công sức bỏ ra.
 
 ---
 
@@ -316,3 +473,11 @@ tự dừng khi DONE/FAILED.
 
 > **Tiêu chí nghiệm thu của Chặng 1: dòng phải hiện dần, không hiện một lượt.**
 > Đây là thứ chỉ chạy thật mới thấy — test không bắt được.
+
+Hai tiêu chí nghiệm thu bổ sung, cũng chỉ chạy thật mới thấy:
+
+> **Chặng 6: từ lúc agent trình phương án tới lúc người bấm duyệt, log phải nói được là nó đang
+> chờ.** Màn hình đứng im không kèm dòng chờ là hỏng, kể cả khi mọi test xanh.
+>
+> **Chặng 7: hỏi một câu quan sát trong lúc pipeline đang chạy, `decision` không được đổi.**
+> Chụp lại `decision` trước và sau — đây là bản chạy tay của MA-6.14.

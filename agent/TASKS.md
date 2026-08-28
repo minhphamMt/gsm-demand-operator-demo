@@ -227,17 +227,29 @@ thắng technical-spec. Bốn mục còn lại bị chặn bởi câu hỏi mở
 `04-agent-architecture.md` §9 — *"stream trạng thái node: pipeline hiện tick từng bước, không đợi
 chạy xong"*. Yêu cầu có sẵn trong thiết kế, chưa được cài.
 
+*Mở rộng 28/08/2026 (MA-6.10…MA-6.15, yêu cầu của PM):* vòng chờ người vận hành hiện thành dòng
+log, và ô nhập cho phép sai agent chạy lại **tool quan sát**. Hai chỗ phải đọc trước khi cài:
+kế hoạch §2.5 (đồ thị **kết thúc ở `PROPOSED`** → "chờ rồi chạy tiếp" là trạng thái của phiên,
+không phải của đồ thị) và §3.6 (allowlist observer là **tập con** chỉ-đọc). Điều luật an toàn
+*"nhật ký không bao giờ là nguồn"* đã được **viết lại**, không bỏ — bản mới ở §5.1.
+
 | ID | Việc | Trạng thái | Chặn bởi | Ghi chú |
 |---|---|---|---|---|
-| MA-6.1 | `run_log.py` — `RunEvent` + `RunLog` có khoá, trần 500 sự kiện | ⬜ | — | `get_run` là `def` nên FastAPI chạy nó ở threadpool, khác thread với `_execute` → khoá là **bắt buộc**. Tràn trần thì thêm dòng báo bị cắt, không bỏ âm thầm (§9 #3) |
-| MA-6.2 | `narration.py` — câu tường thuật dựng từ chính dict tool trả về | ⬜ | MA-6.1 | Đọc **nguyên văn** số, không tính, không làm tròn. Đây là thứ giữ cho log đầy đủ khi `LLM_ROUTING_ENABLED=false` — tức mặc định của dự án, CI và eval |
-| MA-6.3 | `ToolRegistry.observe()` + phát sự kiện trong `invoke` | ⬜ | MA-6.1 | `invoke` là chốt **duy nhất** mọi tool đi qua ở cả hai chế độ. Phát ở hai runner sẽ trùng ba chỗ và **bỏ sót nhánh guardrail** — `tool_denied` mới là dòng đáng thấy nhất. Giữ nguyên chữ ký `build_registry(context)`: 4 test guardrail gọi trực tiếp |
-| MA-6.4 | `run_pipeline(emit=NULL_SINK)` + phát sự kiện ở node | ⬜ | MA-6.3 | Mặc định **no-op callable thật**, không `None` + rải `if` — để "log không thể đổi luồng điều khiển" nhìn là thấy. 6/7 nơi gọi `run_pipeline` nằm trong test và không truyền tham số mới |
-| MA-6.5 | `RunEntry{record, log}` + merged GET | ⬜ | MA-6.4 | Một map, **không phải hai `OrderedDict` song song** — hai vòng thu hồi phải luôn đồng ý mà không có gì ép chúng đồng ý. Lợi thêm: đường FAILED cũng giữ được log |
-| MA-6.6 | Test: `decision` giống hệt khi có và không có sink | ⬜ | MA-6.5 | **Test giá trị cao nhất của cả phase** — phát biểu kiểm được bằng máy rằng nhật ký không làm dịch một con số nào. Parity + guardrails + INV phải xanh **mà không sửa một dòng test nào** |
+| MA-6.1 | `run_log.py` — `RunEvent` + `RunLog` có khoá, trần 500 sự kiện | ✅ | — | `run_log.py` + `tests/test_run_log.py` (14 test: seq đơn điệu, snapshot là bản sao, trần cắt có dòng báo, 8 thread × 50 append cho tập seq duy nhất, sink ném lỗi không lan) |
+| MA-6.2 | `narration.py` — câu tường thuật dựng từ chính dict tool trả về | ✅ | MA-6.1 | `narration.py` — bảng tra thuần, đọc nguyên văn số. Test chặn định dạng lại số: `197681` không được thành `197.681` |
+| MA-6.3 | `ToolRegistry.observe()` + phát sự kiện trong `invoke` | ✅ | MA-6.1 | `ToolRegistry.observe()`; phát `tool_started`/`tool_finished`/`tool_denied` trong `invoke`. Chữ ký `build_registry(context)` giữ nguyên — 4 test guardrail vẫn xanh |
+| MA-6.4 | `run_pipeline(emit=NULL_SINK)` + phát sự kiện ở node | ✅ | MA-6.3 | `run_pipeline(..., emit=NULL_SINK)`; `guarded()` bọc đúng một lần ở biên nên trong thân đồ thị không có `if emit is not None` nào |
+| MA-6.5 | `RunEntry{record, log}` + merged GET | ✅ | MA-6.4 | `RunEntry{record, log}` + `_store_lock` + merged GET. `test_runs_api.py` chứng minh đường FAILED cũng giữ log và run bị thu hồi mang theo đúng log của nó |
+| MA-6.6 | Test: `decision` giống hệt khi có và không có sink | ✅ | MA-6.5 | `test_orchestration_events.py::test_decision_giong_het_khi_co_va_khong_co_sink`. **105 test xanh, không sửa một dòng test cũ nào**; ruff + mypy xanh. Mutation check: tắt sink → 6 test đỏ |
 | MA-6.7 | Nâng `usePipelineRun` lên dashboard + popup `AgentInteractionLog` | ⬜ | MA-6.5 | **Đóng MA-Q8.** Popup **chỉ đọc, không có nút hành động nào** — một nút trong log là đường thứ hai tới cổng duyệt (§11.1) |
 | MA-6.8 | Thao tác người vận hành vào cùng log | ⬜ | MA-6.7 | Ghi ở 10 handler tại callback `onSuccess`/`onError`, **không** lúc bấm. Ghi trong handler, **không** trong `operatorMutations.ts` (file dùng chung với màn hình khác) |
 | MA-6.9 | Bước thực thi sau duyệt + system prompt + narration LLM | ⬜ | MA-6.8 | Bước sau duyệt gán actor `[THỰC THI]`, **không** dán nhãn `[DISPATCH_AGENT]` — chúng do NestJS làm, không phải agent trong đồ thị |
+| MA-6.10 | `awaiting_approval` + dòng chờ treo ở đáy log | ⬜ | MA-6.8 | Phát ở đường `PROPOSED`, **không** ở đường FAILED — "đang chờ bạn" mà thật ra đã hỏng là nói dối người xem. Không dùng `interrupt()`: sẽ phải kéo side effect vào đồ thị, ngược quyết định "gate do NestJS giữ" (kế hoạch §3.7) |
+| MA-6.11 | Thẻ phương án mở đúng cửa duyệt cũ | ⬜ | MA-6.10 | Thẻ **chỉ gọi lại** `openDialog("approve")` đã có. **Không** làm nút duyệt-một-chạm: bốn lớp canh ở `approve()` (`canReviewPlan`, `expectedVersion`, conflict recovery, dialog) không được đi vòng. Nhãn phải nói đúng việc: "mở phương án", không phải "duyệt" |
+| MA-6.12 | `AGENT_OBSERVER` + allowlist chỉ-đọc + `POST /observe` | ⬜ | MA-6.5 | Allowlist là **tập con** của `AGENT_ASSESSMENT`. `compute_relocation` và `render_explanation` **không** có mặt — chat mà đẻ được phương án là đẻ ngoài cổng duyệt. `ObserveLog` là object riêng, seq riêng: vòng đời phiên khác vòng đời run |
+| MA-6.13 | Ô nhập chế độ lệnh (`/forecast`, `/weather`, `/supply`) | ⬜ | MA-6.12 | Làm **trước** chế độ LLM vì `LLM_ROUTING_ENABLED` mặc định `false` — mặc định của dự án, CI và demo. Đây là cái chắc chắn chạy được lúc trình bày, không phụ thuộc quota |
+| MA-6.14 | Test: có phiên observer hay không, `decision` giống hệt từng byte | ⬜ | MA-6.13 | Thay cho phát biểu *"log không bao giờ là nguồn"* mà chat đã làm hết đúng. Cùng khuôn MA-6.6 — điều luật mới phải **kiểm được bằng máy**, không chỉ ghi trong tài liệu |
+| MA-6.15 | Chat chế độ LLM tự nhiên | ⬜ | MA-6.14 | **Cắt được** — mục 2 trong thứ tự cắt (§5.3). Hỏng ở đâu rơi về đúng bốn lệnh của MA-6.13 |
 
 **Cố ý làm khác `04` §9.** §9 nêu đích danh `astream_events`; kế hoạch dùng cơ chế callback. Ba lý
 do: (1) `.stream()` chỉ tick theo **node**, mà 4/6 tool call nằm *bên trong* một node
