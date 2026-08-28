@@ -461,6 +461,12 @@ Lấp mắt xích "người vận hành giao việc" ở §1. Thiết kế ở �
 
 **Hai chỗ cố ý deterministic, không giao cho LLM** — lý do khác nhau ở từng chỗ:
 
+- **Từ chối mốc dự báo model không chạy**, cũng kiểm *trước* LLM. `HorizonMin` là `5 | 10 | 15`;
+  mốc +30 có trên bảng nhưng là **ngoại suy tuyến tính, không phải output model** và theo thiết
+  kế không được dùng để tạo hay duyệt phương án (`ForecastConfig.tsx`). Hỏi "dự báo 30 phút" mà
+  im lặng chạy ở mốc đang chọn là trả lời sai câu hỏi không dấu hiệu nào; còn để LLM đọc số
+  ngoại suy ra như số dự báo là trình bày sai bản chất của nó. Mốc **hợp lệ** nêu trong câu thì
+  ghi đè mốc đang chọn trên màn hình — cùng lý do.
 - **Từ chối lệnh chạm cổng phê duyệt**, kiểm *trước* khi gọi LLM. Model không có tool để duyệt
   nên nó không thể duyệt, nhưng nó viết được một câu nghe như đã duyệt — và một dòng nhật ký
   nói dối về tiền và về điều xe thì tệ hơn là không có dòng nào. Bảng từ khoá xếp nhóm cổng

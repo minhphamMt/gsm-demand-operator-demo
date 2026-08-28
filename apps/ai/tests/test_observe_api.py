@@ -188,6 +188,47 @@ def test_cau_khong_hieu_thi_goi_y_viec_lam_duoc(zones: list[dict[str, object]]) 
     assert any("chạy phân tích" in event.text for event in log.snapshot())
 
 
+# --- Mốc dự báo -------------------------------------------------------------------------
+
+
+def test_hoi_moc_30_bi_chan_truoc_llm_va_khong_goi_tool_nao(zones: list[dict[str, object]]) -> None:
+    """Model 1 chỉ tới +15 phút. Mốc +30 là ngoại suy của bảng, không phải output model."""
+    with TestClient(app) as client:
+        response = client.post("/api/v1/observe", json=_payload(zones, "dự báo 30 phút tới ra sao"))
+
+    assert response.status_code == 202
+    assert response.json()["action"] is None
+
+    events = module._sessions["S1"].snapshot()
+    assert [event.code for event in events] == ["HORIZON_NOT_FORECAST"]
+    assert not [event for event in events if event.kind.startswith("tool_")]
+    assert "ngoại suy" in events[0].text
+
+
+def test_moc_neu_trong_cau_ghi_de_moc_dang_chon_tren_man_hinh(zones: list[dict[str, object]]) -> None:
+    """Hỏi "dự báo 10 phút" mà chạy ở mốc đang chọn là trả lời sai câu hỏi, không dấu hiệu nào."""
+    # Payload mang horizon_min=5, nhưng câu hỏi nêu 10.
+    request = ObserveRequest(**_payload(zones, "dự báo 10 phút tới thế nào"))
+    assert request.horizon_min == 5
+    log = RunLog()
+
+    _respond(request, log, classify(request.text))
+
+    forecast = [event for event in log.snapshot() if event.tool == "run_forecast" and event.kind == "tool_finished"]
+    assert forecast, "Phải có dòng kết quả dự báo để đọc mốc ra."
+    assert "horizon 10 phút" in forecast[0].text
+
+
+def test_khong_neu_moc_thi_dung_moc_dang_chon(zones: list[dict[str, object]]) -> None:
+    request = ObserveRequest(**_payload(zones, "dự báo thế nào"))
+    log = RunLog()
+
+    _respond(request, log, classify(request.text))
+
+    forecast = [event for event in log.snapshot() if event.tool == "run_forecast" and event.kind == "tool_finished"]
+    assert "horizon 5 phút" in forecast[0].text
+
+
 # --- Vòng đời phiên ---------------------------------------------------------------------
 
 

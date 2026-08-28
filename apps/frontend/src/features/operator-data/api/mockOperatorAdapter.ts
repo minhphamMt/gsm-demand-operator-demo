@@ -391,6 +391,20 @@ function mockAnswer(text: string): { action: string | null; events: MockLine[] }
       }],
     }
   }
+  // Mốc ngoài tầm Model 1 bị chặn trước mọi nhánh khác, y như bản thật: model chỉ dự báo tới
+  // +15 phút, còn +30 trên bảng là ngoại suy tuyến tính chứ không phải output model.
+  const moc = /(\d{1,3})\s*(?:phút|phut|p|min)/.exec(t)
+  if (moc && ![5, 10, 15].includes(Number(moc[1]))) {
+    return {
+      action: null,
+      events: [{
+        kind: 'narration', actor: observer, source: 'system', ok: false, code: 'HORIZON_NOT_FORECAST',
+        text: Number(moc[1]) === 30
+          ? 'Model 1 chỉ dự báo tới +15 phút. Mốc +30 phút có trên bảng nhưng là ngoại suy tuyến tính, không phải output model — và theo thiết kế thì nó không được dùng để tạo hay duyệt phương án.'
+          : `Không có dự báo cho mốc +${moc[1]} phút. Model 1 chỉ chạy ở 5 phút, 10 phút, 15 phút.`,
+      }],
+    }
+  }
   if (has('chạy phân tích', 'chay phan tich', 'phân tích', 'phan tich', 'chạy lại', 'chay lai', 'phương án mới')) {
     return {
       action: 'start_run',

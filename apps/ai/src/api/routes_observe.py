@@ -84,19 +84,25 @@ def _session_log(session_id: str) -> RunLog:
         return log
 
 
-def _context(request: ObserveRequest) -> RunContext:
+def _context(request: ObserveRequest, horizon: int | None = None) -> RunContext:
+    """Bối cảnh cho một câu hỏi.
+
+    `horizon` ghi đè mốc đang chọn trên màn hình khi người vận hành nêu mốc ngay trong câu.
+    Không ghi đè thì hỏi "dự báo 10 phút tới" sẽ chạy ở mốc đang chọn rồi trả lời như thể đúng
+    câu hỏi — sai câu hỏi mà không có dấu hiệu nào.
+    """
     settings = get_settings()
     return RunContext(
         zones=request.zones,
         t=pd.Timestamp(request.t),
-        horizon_min=request.horizon_min,
+        horizon_min=horizon or request.horizon_min,  # type: ignore[arg-type]
         replay_source_at=(pd.Timestamp(request.replay_source_at) if request.replay_source_at else None),
         policy=get_policy(settings.policy_path),
         settings=settings,
     )
 
 
-def _answer_with_llm(request: ObserveRequest, log: RunLog) -> bool:
+def _answer_with_llm(request: ObserveRequest, log: RunLog, horizon: int | None) -> bool:
     """Đường chính. Trả `False` nếu tầng LLM không dùng được để bên gọi rơi về bảng từ khoá.
 
     `fallback_sequence=()` là cố ý: fallback của `run_with_llm` không được chạy thay một chuỗi
@@ -112,7 +118,7 @@ def _answer_with_llm(request: ObserveRequest, log: RunLog) -> bool:
     if not settings.llm_routing_enabled or not client.configured:
         return False
 
-    registry = build_registry(_context(request))
+    registry = build_registry(_context(request, horizon))
     registry.observe(log.append)
     run = run_with_llm(
         agent=AGENT_OBSERVER,
@@ -144,7 +150,7 @@ def _answer_with_keywords(request: ObserveRequest, log: RunLog, intent: Intent) 
     if intent.kind != "observe" or intent.tool is None:
         log.append("narration", AGENT_OBSERVER, UNKNOWN_HINT, source="deterministic")
         return
-    registry = build_registry(_context(request))
+    registry = build_registry(_context(request, intent.horizon))
     registry.observe(log.append)
     # `get_supply_state` cần forecast chạy trước — ràng buộc dữ liệu thật, không phải quy ước.
     if intent.tool == "get_supply_state":
@@ -159,7 +165,7 @@ def _respond(request: ObserveRequest, log: RunLog, intent: Intent) -> None:
     ngừng poll: nó đếm `agent_started` so với `agent_finished`, không đoán theo đồng hồ.
     """
     try:
-        if not _answer_with_llm(request, log):
+        if not _answer_with_llm(request, log, intent.horizon):
             _answer_with_keywords(request, log, intent)
     except NovaFourError as error:
         logger.warning("Phiên %s dừng vì %s", request.session_id, error.error_code)
@@ -186,11 +192,25 @@ async def ask(request: ObserveRequest) -> dict[str, Any]:
         log.append("narration", AGENT_OBSERVER, intent.message, source="system", ok=False, code="GATE_IS_UI_ONLY")
         return {"session_id": request.session_id, "action": None}
 
+    if intent.kind == "horizon_unsupported":
+        # Cũng chặn trước LLM, cùng lý lẽ: model không có số ở mốc này, nên bất cứ câu nào nó
+        # viết ra cũng là câu dựng trên một mốc khác với mốc được hỏi.
+        log.append(
+            "narration",
+            AGENT_OBSERVER,
+            intent.message,
+            source="system",
+            ok=False,
+            code="HORIZON_NOT_FORECAST",
+        )
+        return {"session_id": request.session_id, "action": None}
+
     if intent.kind == "run_analysis":
         log.append("narration", AGENT_OBSERVER, intent.message, source="deterministic")
         return {"session_id": request.session_id, "action": ACTION_START_RUN}
 
-    log.append("agent_started", AGENT_OBSERVER, "đọc câu hỏi của điều phối viên", source="system")
+    moc = f" ở mốc +{intent.horizon} phút" if intent.horizon else ""
+    log.append("agent_started", AGENT_OBSERVER, f"đọc câu hỏi của điều phối viên{moc}", source="system")
     asyncio.create_task(asyncio.to_thread(_respond, request, log, intent))
     return {"session_id": request.session_id, "action": None}
 

@@ -10,7 +10,10 @@ Hai điều module này **không** làm, và cả hai đều có chủ ý:
 1. **Không chạm tới cổng phê duyệt.** Câu "duyệt luôn đi" được nhận ra chỉ để **từ chối** kèm
    lời giải thích. Không có ý định nào ánh xạ tới `approve` / `activate` / `issue_offers`
    (CLAUDE.md §11.1). Người vận hành duyệt bằng nút, và chỉ bằng nút.
-2. **Không tự đoán khi không chắc.** Không khớp thì trả `unknown` kèm gợi ý việc làm được,
+2. **Không nhận mốc dự báo mà model không chạy.** Model 1 chỉ tới +15 phút; mốc +30 trên bảng
+   là ngoại suy tuyến tính. Hỏi "dự báo 30 phút" mà im lặng trả lời bằng mốc 15 là trả lời sai
+   câu hỏi, còn đọc số ngoại suy ra như số dự báo là trình bày sai bản chất của nó.
+3. **Không tự đoán khi không chắc.** Không khớp thì trả `unknown` kèm gợi ý việc làm được,
    chứ không chọn đại ý định gần nhất — đoán sai một lệnh "chạy phân tích" thì tốn một lượt
    chạy, còn đoán sai theo chiều ngược lại thì người dùng tưởng hệ thống đã làm mà nó chưa làm.
 
@@ -18,15 +21,26 @@ Module thuần: không đọc file, không mạng, không state. Bỏ dấu trư
 "chay phan tich" gõ không dấu vẫn nhận ra.
 """
 
+import re
 import unicodedata
 from dataclasses import dataclass
 from typing import Literal
 
-IntentKind = Literal["run_analysis", "observe", "gate_blocked", "unknown"]
+IntentKind = Literal["run_analysis", "observe", "gate_blocked", "horizon_unsupported", "unknown"]
 
 # Tool quan sát mà một ý định có thể dẫn tới. Đúng bằng allowlist của `AGENT_OBSERVER` —
 # danh sách này không được phép rộng hơn allowlist đó.
 ObserveTool = Literal["run_forecast", "get_weather", "get_travel_conditions", "get_supply_state"]
+
+
+# Mốc dự báo Model 1 thật sự cho ra. Trùng `HorizonMin` ở `src/contracts/forecast.py` — mốc
+# nào ngoài tập này thì không có số của model để trả lời.
+SUPPORTED_HORIZONS: tuple[int, ...] = (5, 10, 15)
+
+# Mốc +30 có trên panel nhưng là **ngoại suy tuyến tính**, không chạy model và không được dùng
+# để tạo hay duyệt phương án (`ForecastConfig.tsx`). Nó được gọi tên riêng để câu từ chối nói
+# đúng chuyện đang xảy ra thay vì chỉ báo "không hỗ trợ".
+EXTRAPOLATED_HORIZON = 30
 
 
 @dataclass(frozen=True)
@@ -36,6 +50,8 @@ class Intent:
     kind: IntentKind
     tool: ObserveTool | None = None
     message: str = ""
+    # Mốc phút người vận hành nêu trong câu. `None` = không nêu, dùng mốc đang chọn trên màn hình.
+    horizon: int | None = None
 
 
 def strip_accents(text: str) -> str:
@@ -92,6 +108,32 @@ GATE_REFUSAL = (
     "chúng cam kết điều xe và cam kết tiền thưởng."
 )
 
+# Đòi đơn vị thời gian đứng ngay sau số. Không có nó thì "zone 15 thế nào" bị đọc thành mốc
+# 15 phút — một câu hỏi về địa điểm biến thành câu hỏi về thời gian.
+_HORIZON_PATTERN = re.compile(r"(\d{1,3})\s*(?:phut|p|min|minute|phút)\b")
+
+
+def parse_horizon(text: str) -> int | None:
+    """Mốc phút nêu trong câu, nếu có."""
+    match = _HORIZON_PATTERN.search(strip_accents(text))
+    return int(match.group(1)) if match else None
+
+
+def horizon_refusal(horizon: int) -> str:
+    """Vì sao không trả lời được ở mốc này. Nói đúng chuyện, không nói chung chung."""
+    if horizon == EXTRAPOLATED_HORIZON:
+        return (
+            f"Model 1 chỉ dự báo tới +{SUPPORTED_HORIZONS[-1]} phút. Mốc +{EXTRAPOLATED_HORIZON} phút có trên "
+            "bảng nhưng là ngoại suy tuyến tính, không phải output model — và theo thiết kế thì nó "
+            "không được dùng để tạo hay duyệt phương án. Tôi không đọc số ngoại suy ra như số dự báo. "
+            f"Hỏi lại ở {', '.join(f'{value} phút' for value in SUPPORTED_HORIZONS)} thì tôi trả lời được."
+        )
+    return (
+        f"Không có dự báo cho mốc +{horizon} phút. Model 1 chỉ chạy ở "
+        f"{', '.join(f'{value} phút' for value in SUPPORTED_HORIZONS)}."
+    )
+
+
 UNKNOWN_HINT = (
     "Chưa hiểu ý. Tôi làm được: chạy phân tích · xem dự báo · xem thời tiết · "
     "xem điều kiện di chuyển · xem tình hình cung."
@@ -111,11 +153,18 @@ def classify(text: str) -> Intent:
     if any(keyword in normalised for keyword in _GATE_KEYWORDS):
         return Intent(kind="gate_blocked", message=GATE_REFUSAL)
 
+    # Mốc phút được đọc TRƯỚC khi chọn tool, và mốc ngoài tầm model thì chặn ngay — cùng lý lẽ
+    # với nhóm cổng phê duyệt: để LLM tự xoay xở với một mốc không có số sẽ ra một câu trả lời
+    # nghe hợp lý dựng trên mốc khác, tức là trả lời sai câu hỏi mà không ai biết.
+    horizon = parse_horizon(text)
+    if horizon is not None and horizon not in SUPPORTED_HORIZONS:
+        return Intent(kind="horizon_unsupported", message=horizon_refusal(horizon), horizon=horizon)
+
     if any(keyword in normalised for keyword in _RUN_KEYWORDS):
-        return Intent(kind="run_analysis", message="Bắt đầu một lượt phân tích mới.")
+        return Intent(kind="run_analysis", message="Bắt đầu một lượt phân tích mới.", horizon=horizon)
 
     for tool, keywords in _OBSERVE_KEYWORDS:
         if any(keyword in normalised for keyword in keywords):
-            return Intent(kind="observe", tool=tool, message=f"Chạy {tool} để trả lời.")
+            return Intent(kind="observe", tool=tool, message=f"Chạy {tool} để trả lời.", horizon=horizon)
 
-    return Intent(kind="unknown", message=UNKNOWN_HINT)
+    return Intent(kind="unknown", message=UNKNOWN_HINT, horizon=horizon)
