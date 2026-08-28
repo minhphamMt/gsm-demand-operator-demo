@@ -1,51 +1,21 @@
-# Cấu hình công cụ cho GSM-14 NovaFour.
+# Cấu hình công cụ ở gốc repo.
 #
-# Cố ý KHÔNG có [project] / [build-system]: repo này chạy trực tiếp bằng uvicorn,
-# không đóng gói để cài đặt. Đưa danh sách dependency vào đây sẽ tạo nguồn thứ hai
-# cạnh requirements.txt — CLAUDE.md §6 chốt requirements.txt là nơi duy nhất.
+# Repo là monorepo apps/ai + apps/backend + apps/frontend (mỗi app có runner/lint/test
+# riêng, xem Makefile và .github/workflows/ci.yml). Không còn pipeline Python nào chạy
+# ở gốc repo kể từ khi src/, tests/ ở gốc bị xoá (issue #14 — bản sao chết của apps/ai).
 #
-# Cố ý KHÔNG có [tool.ruff]: cấu hình lint/format nằm ở ruff.toml và chỉ ở đó.
+# Khối pytest dưới đây CHỈ để chặn `legacy/ai20k-template` khỏi bị quét nhầm nếu ai đó
+# chạy `pytest` từ gốc repo không kèm path — thư mục đó là starter scaffold cũ, cố ý giữ
+# lại để tham khảo (xem README.md) nhưng import gãy (thiếu package `src` riêng khi chạy
+# ngoài context của nó), nên gộp vào một lượt collect chung sẽ báo lỗi hoặc làm sai lệch
+# số ca test đếm được.
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-asyncio_mode = "auto"
-addopts = "--strict-markers"
-markers = [
-    "invariant: bất biến INV-1/2/3 — vỡ là crash, không fallback (CLAUDE.md §3.1)",
+testpaths = []
+# norecursedirs GHI ĐÈ toàn bộ default của pytest (không cộng dồn) — phải liệt kê lại
+# "*.egg", ".*", "build", "dist", "node_modules", "venv" (default) cùng "legacy"/"apps"
+# (đặc thù repo này), nếu không các thư mục ẩn như .agents/ sẽ lọt vào lượt collect.
+norecursedirs = [
+    "*.egg", ".*", "build", "dist", "node_modules", "venv",
+    "legacy", "apps", "data", "_bmad", "_bmad-output",
 ]
-
-[tool.mypy]
-python_version = "3.11"
-files = ["src"]
-plugins = ["pydantic.mypy"]
-
-# Bắt buộc type hint cho hàm — CLAUDE.md §5.2 yêu cầu với mọi public function.
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-
-no_implicit_optional = true
-strict_equality = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_return_any = true
-
-# Không bật warn_unused_configs: khối override bên dưới cố ý khai báo trước cho các
-# thư viện mà T0.3/T1/T4 mới import, nên nó sẽ "chưa dùng đến" trong một thời gian.
-
-pretty = true
-
-# Các thư viện khoa học dữ liệu không phát hành stub. Bỏ qua ở đây chứ không rải
-# "# type: ignore" khắp code — ignore rải rác sẽ che cả lỗi thật.
-[[tool.mypy.overrides]]
-module = ["lightgbm.*", "sklearn.*", "scipy.*", "pyarrow.*", "pandas.*"]
-ignore_missing_imports = true
-
-# PyYAML là ca khác: có stub chính thức (types-PyYAML) nhưng đó là dependency MỚI,
-# mà CLAUDE.md §6 #1 buộc hỏi user trước khi thêm. Bỏ qua tạm ở đây để không tự ý
-# thêm gói; đổi sang types-PyYAML bất cứ lúc nào bằng cách xoá khối này.
-# Mất mát: yaml.* thành Any, nên yaml.YAMLError trong src/common/policy.py không được
-# kiểm kiểu — chỉ một chỗ, đã có test bao (test_yaml_sai_cu_phap_thi_crash).
-[[tool.mypy.overrides]]
-module = ["yaml.*"]
-ignore_missing_imports = true
