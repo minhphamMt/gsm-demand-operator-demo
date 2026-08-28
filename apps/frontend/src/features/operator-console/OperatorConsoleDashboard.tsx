@@ -47,7 +47,9 @@ import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, 
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
 import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline";
 import { usePipelineRun } from "@/features/operator-pipeline/hooks/usePipelineRun";
+import { useObserverSession } from "@/features/operator-pipeline/hooks/useObserverSession";
 import { AgentInteractionLog } from "@/features/operator-console/components/AgentInteractionLog";
+import { mergeLogRows } from "@/features/operator-console/model/logRows";
 import { AiImpactChart } from "./components/AiImpactChart";
 import { DemandTrendChart } from "./components/DemandTrendChart";
 import { NetworkHealthPanel } from "./components/NetworkHealthPanel";
@@ -222,6 +224,9 @@ export function OperatorConsoleDashboard() {
   // còn đang tải. Đó cũng là lý do horizon và snapshot đi vào ở `start()` chứ không ở đây —
   // lúc này chúng chưa được tính.
   const pipeline = usePipelineRun();
+  // Phiên hỏi–đáp cũng phải nằm trên ba guard clause vì nó là hook. Tham số của từng câu hỏi
+  // đi vào ở `ask()`, nên hook không cần biết gì tại thời điểm này.
+  const observer = useObserverSession();
 
   if (plans.isPending || campaigns.isPending || dispatches.isPending)
     return (
@@ -590,6 +595,12 @@ export function OperatorConsoleDashboard() {
     }
   };
 
+  // Đầu vào của một lượt chạy, dựng sau ba guard clause nên `activeSnapshot` chắc chắn có.
+  // Cả nút "Chạy phân tích" lẫn câu "chạy phân tích" gõ vào nhật ký đều đi qua đúng chỗ này —
+  // một đường tạo run, không phải hai.
+  const pipelineInput = { horizonMinutes: displayedHorizon, snapshotId: Number(activeSnapshot.replayStep) };
+  const startPipelineRun = () => pipeline.start(pipelineInput);
+
   return (
     <div className="nf-ops">
       <SnapshotStaleAlert
@@ -830,7 +841,12 @@ export function OperatorConsoleDashboard() {
         </aside>
         {/* Ngoài nhánh `pipelineOpen`: nhật ký phải sống sót khi người vận hành đóng panel,
             nếu không thì thu gọn panel là mất luôn lượt phân tích đang chạy (MA-Q8). */}
-        <AgentInteractionLog events={pipeline.events} isRunning={pipeline.run?.status === "RUNNING"} />
+        <AgentInteractionLog
+          isBusy={observer.isBusy}
+          isRunning={pipeline.run?.status === "RUNNING"}
+          onAsk={(text) => observer.ask(text, { ...pipelineInput, onStartRun: startPipelineRun })}
+          rows={mergeLogRows(pipeline.events, observer.rows)}
+        />
       </div>
       {pipelineOpen && (
         <PipelineModal
@@ -839,7 +855,7 @@ export function OperatorConsoleDashboard() {
           isStarting={pipeline.isStarting}
           onClose={() => setPipelineOpen(false)}
           onOpenPlan={() => { setPipelineOpen(false); setDrawerOpen(true); }}
-          onStart={() => pipeline.start({ horizonMinutes: displayedHorizon, snapshotId: Number(activeSnapshot.replayStep) })}
+          onStart={startPipelineRun}
           onTabChange={setPipelineTab}
           run={pipeline.run}
           runError={pipeline.error}

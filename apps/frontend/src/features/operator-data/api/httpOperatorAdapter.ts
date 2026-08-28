@@ -21,7 +21,7 @@ import {
   latestAgentProposalForSnapshot,
   latestAgentProposalRecordForSnapshot,
 } from '@/features/operator-data/model/proposalSelection'
-import { isPipelineRunRecord, readLlmHealth } from '@/features/operator-pipeline/model/pipelineRunGuard'
+import { isPipelineRunRecord, isRunEvent, readLlmHealth } from '@/features/operator-pipeline/model/pipelineRunGuard'
 import { AppError, requestJson } from '@/shared/api/client'
 
 const body = (value: unknown) => JSON.stringify(value)
@@ -232,6 +232,23 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
     const result = await requestJson(`/operator/ai/runs/${encodeURIComponent(runId)}`)
     if (!isPipelineRunRecord(result)) throw new AppError('Trạng thái pipeline trả về không hợp lệ.', { code: 'INVALID_RESPONSE' })
     return result
+  },
+  askAgent: async ({ sessionId, text, horizonMinutes, snapshotId }) => {
+    const result = await requestJson('/operator/ai/observe', {
+      method: 'POST',
+      body: body({ sessionId, text, horizonMinutes, ...(snapshotId === undefined ? {} : { snapshotId }) }),
+    })
+    if (!isRecord(result)) throw new AppError('Phản hồi của agent không hợp lệ.', { code: 'INVALID_RESPONSE' })
+    return {
+      sessionId: typeof result.session_id === 'string' ? result.session_id : sessionId,
+      action: typeof result.action === 'string' ? result.action : null,
+    }
+  },
+  getAgentSession: async (sessionId) => {
+    const result = await requestJson(`/operator/ai/observe/${encodeURIComponent(sessionId)}`)
+    // Nới tay như guard của run: phiên chưa có gì là trạng thái bình thường, không phải lỗi.
+    if (!isRecord(result) || !Array.isArray(result.events)) return []
+    return result.events.filter(isRunEvent)
   },
   getLlmHealth: async () => {
     const health = readLlmHealth(await requestJson('/operator/ai/llm/health'))

@@ -423,3 +423,17 @@
 .nf-agent-log__llm{margin-left:6px;padding:0 4px;border-radius:3px;background:rgba(127,169,245,.16);font-size:9px}
 
 .nf-agent-log__jump{position:absolute;right:14px;bottom:10px;padding:4px 10px;border:1px solid var(--nf-ops-teal);border-radius:99px;background:var(--nf-ops-surface-3);color:var(--nf-ops-teal-bright);font-size:9px;font-weight:800;cursor:pointer}
+
+/* Ô nhập: đây là chỗ người vận hành ra lệnh, nên nó phải luôn thấy được khi popup mở. */
+.nf-agent-log__empty{margin:0;padding:6px 0;color:var(--nf-ops-muted);font-size:11px;line-height:1.6}
+.nf-agent-log__empty b{color:var(--nf-ops-teal-bright);font-weight:700}
+.nf-agent-log__prompt{color:var(--nf-ops-teal-bright);font-weight:700}
+.nf-agent-log__line.is-operator{color:var(--nf-ops-ink);font-weight:600}
+
+.nf-agent-log__compose{display:flex;align-items:center;gap:7px;flex:none;padding:7px 10px;border-top:1px solid var(--nf-ops-line);background:var(--nf-ops-surface-2);border-radius:0 0 9px 9px}
+.nf-agent-log__compose>span{color:var(--nf-ops-teal-bright);font-weight:700;font-size:12px}
+.nf-agent-log__compose input{min-width:0;flex:1;border:0;background:transparent;color:var(--nf-ops-ink);font:inherit;font-size:11px;outline:none}
+.nf-agent-log__compose input::placeholder{color:var(--nf-ops-muted)}
+.nf-agent-log__compose button{display:grid;place-items:center;width:24px;height:24px;flex:none;border:1px solid var(--nf-ops-line);border-radius:6px;background:var(--nf-ops-surface-3);color:var(--nf-ops-muted);cursor:pointer}
+.nf-agent-log__compose button:not(:disabled):hover{border-color:var(--nf-ops-teal);color:var(--nf-ops-teal-bright)}
+.nf-agent-log__compose button:disabled{cursor:not-allowed;opacity:.45}

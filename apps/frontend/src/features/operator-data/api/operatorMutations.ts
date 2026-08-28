@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { operatorAdapter } from '@/features/operator-data/api/operatorAdapter'
 import { operatorQueryKeys } from '@/features/operator-data/api/operatorQueries'
-import type { Campaign, ForecastHorizon, PersistentNotification, Proposal, RejectPlanRequest, ResponseMode, RevisePlanRequest } from '@/features/operator-data/model/types'
+import type { AskAgentInput, Campaign, ForecastHorizon, PersistentNotification, Proposal, RejectPlanRequest, ResponseMode, RevisePlanRequest } from '@/features/operator-data/model/types'
 import { AppError } from '@/shared/api/client'
 
 export function useOperatorActions() {
@@ -186,6 +186,8 @@ export function useOperatorActions() {
     expireOffer: useMutation({ mutationFn: operatorAdapter.expireOffer, onError: refreshCampaignConflict, onSuccess: refreshCampaignFlow }),
     startPipelineRun: useMutation({ mutationFn: ({ horizonMinutes, snapshotId }: { horizonMinutes: ForecastHorizon; snapshotId?: number }) => operatorAdapter.startPipelineRun(horizonMinutes, snapshotId) }),
     getPipelineRun: useMutation({ mutationFn: ({ runId }: { runId: string }) => operatorAdapter.getPipelineRun(runId) }),
+    askAgent: useMutation({ mutationFn: (input: AskAgentInput) => operatorAdapter.askAgent(input) }),
+    getAgentSession: useMutation({ mutationFn: ({ sessionId }: { sessionId: string }) => operatorAdapter.getAgentSession(sessionId) }),
   }
 }
 

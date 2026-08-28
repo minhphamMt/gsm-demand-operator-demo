@@ -1,17 +1,18 @@
-// Popup nhật ký agent — MA-6.7.
+// Popup nhật ký agent — MA-6.7 và Chặng 7.
 //
-// Khẳng định quan trọng nhất ở đây không phải chuyện hiển thị mà là **popup không có nút hành
-// động nào**: một nút duyệt nằm trong nhật ký là con đường thứ hai tới cổng phê duyệt §11.1,
-// và nhật ký là khung nhìn quá khứ nên nó sẽ duyệt phải bản đã cũ.
+// Khẳng định quan trọng nhất vẫn là **không có nút hành động nào**, và giờ có thêm một vế:
+// ô nhập cũng không phải cửa thứ hai vào cổng phê duyệt. Nó chỉ gọi `onAsk`; mọi ranh giới
+// nằm ở server (chặn trước LLM) và ở allowlist directive của hook.
 
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AgentInteractionLog } from '@/features/operator-console/components/AgentInteractionLog'
-import type { RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
+import type { LogRow } from '@/features/operator-console/model/logRows'
 
-const event = (seq: number, patch: Partial<RunEvent> = {}): RunEvent => ({
+const row = (seq: number, patch: Partial<LogRow> = {}): LogRow => ({
+  origin: 'run',
   seq,
   at: `2026-08-28T17:02:${String(seq).padStart(2, '0')}+07:00`,
   kind: 'narration',
@@ -21,95 +22,142 @@ const event = (seq: number, patch: Partial<RunEvent> = {}): RunEvent => ({
   ...patch,
 })
 
+function show(rows: readonly LogRow[], props: Partial<Parameters<typeof AgentInteractionLog>[0]> = {}) {
+  const onAsk = vi.fn()
+  const view = render(<AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={rows} {...props} />)
+  return { onAsk, ...view }
+}
+
 describe('AgentInteractionLog', () => {
   afterEach(cleanup)
 
-  it('không chiếm chỗ khi chưa có lượt chạy nào', () => {
-    const { container } = render(<AgentInteractionLog events={[]} isRunning={false} />)
+  it('luôn hiện dù chưa chạy lượt nào — nó là chỗ ra lệnh, không chỉ chỗ xem kết quả', () => {
+    show([])
 
-    expect(container).toBeEmptyDOMElement()
+    expect(screen.getByRole('log')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toBeInTheDocument()
+    expect(screen.getByRole('log')).toHaveTextContent('Gõ chạy phân tích để agent bắt đầu')
   })
 
   it('dựng đúng khuôn [giờ] [ACTOR] > nội dung', () => {
-    render(<AgentInteractionLog events={[event(1, { actor: 'dispatch', text: '3 chặng, 6 xe' })]} isRunning={false} />)
+    show([row(1, { actor: 'dispatch', text: '3 chặng, 6 xe' })])
 
     expect(screen.getByRole('log')).toHaveTextContent('[17:02:01] [DISPATCH_AGENT] > 3 chặng, 6 xe')
   })
 
   it('cắt giờ thẳng từ chuỗi ISO của server, không dựng lại Date theo múi giờ máy đang xem', () => {
-    render(<AgentInteractionLog events={[event(7, { at: '2026-08-28T23:45:12+07:00' })]} isRunning={false} />)
+    show([row(7, { at: '2026-08-28T23:45:12+07:00' })])
 
     expect(screen.getByRole('log')).toHaveTextContent('[23:45:12]')
   })
 
   it('chia ba capability của situation_assessment theo tool, đúng như sơ đồ luồng chia', () => {
-    render(
-      <AgentInteractionLog
-        events={[
-          event(1, { actor: 'situation_assessment', tool: 'get_weather', kind: 'tool_started' }),
-          event(2, { actor: 'situation_assessment', tool: 'run_forecast', kind: 'tool_started' }),
-          event(3, { actor: 'situation_assessment', kind: 'agent_started' }),
-        ]}
-        isRunning={false}
-      />,
-    )
+    show([
+      row(1, { actor: 'situation_assessment', tool: 'get_weather', kind: 'tool_started' }),
+      row(2, { actor: 'situation_assessment', tool: 'run_forecast', kind: 'tool_started' }),
+      row(3, { actor: 'situation_assessment', kind: 'agent_started' }),
+    ])
 
     const log = screen.getByRole('log')
     expect(log).toHaveTextContent('[TRAFFIC_AGENT]')
     expect(log).toHaveTextContent('[FORECAST_AGENT]')
-    // Không có tool để suy ra capability thì ở lại thẻ tổng, không gán bừa.
     expect(log).toHaveTextContent('[SITUATION_AGENT]')
   })
 
+  it('câu người vận hành gõ hiện dạng dấu nhắc, không đội lốt một agent', () => {
+    show([row(1, { origin: 'operator', actor: 'operator', kind: 'operator_message', text: 'chạy phân tích' })])
+
+    const log = screen.getByRole('log')
+    expect(log).toHaveTextContent('> chạy phân tích')
+    expect(log).not.toHaveTextContent('[OPERATOR]')
+  })
+
   it('báo dòng do LLM viết để không lẫn với dòng dựng từ template', () => {
-    render(<AgentInteractionLog events={[event(1, { source: 'llm', text: 'tôi đang kiểm tra thời tiết' })]} isRunning={false} />)
+    show([row(1, { source: 'llm', text: 'tôi đang kiểm tra thời tiết' })])
 
     expect(screen.getByRole('log')).toHaveTextContent('~llm')
   })
 
   it('công bố là vùng log sống để trình đọc màn hình đọc dòng mới', () => {
-    render(<AgentInteractionLog events={[event(1)]} isRunning />)
+    show([row(1)], { isRunning: true })
 
     expect(screen.getByRole('log')).toHaveAttribute('aria-live', 'polite')
   })
 
+  // --- ô nhập ---
+
+  it('gửi câu đã gõ rồi xoá ô nhập', async () => {
+    const { onAsk } = show([])
+
+    await userEvent.type(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' }), 'zone nào thiếu xe{Enter}')
+
+    expect(onAsk).toHaveBeenCalledWith('zone nào thiếu xe')
+    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toHaveValue('')
+  })
+
+  it('không gửi câu rỗng hay chỉ có khoảng trắng', async () => {
+    const { onAsk } = show([])
+    const box = screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })
+
+    await userEvent.type(box, '{Enter}')
+    await userEvent.type(box, '    {Enter}')
+
+    expect(onAsk).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Gửi' })).toBeDisabled()
+  })
+
+  // --- ranh giới ---
+
+  it('không mang nút hành động nào — ô nhập không phải cửa thứ hai vào cổng phê duyệt', () => {
+    show([row(1, { actor: 'optimization', text: '3 phương án đã chấm, khuyến nghị PLAN_B' })])
+
+    const region = within(screen.getByRole('region', { name: 'Nhật ký agent' }))
+    // Đúng hai nút: thu gọn (đổi cách nhìn) và gửi (đưa chữ cho agent quan sát chỉ-đọc).
+    expect(region.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Thu gọn nhật ký',
+      'Gửi',
+    ])
+
+    for (const cam of [/duyệt/i, /phê duyệt/i, /từ chối/i, /phát offer/i, /kích hoạt/i]) {
+      expect(screen.queryByRole('button', { name: cam })).not.toBeInTheDocument()
+    }
+  })
+
+  it('hiện nguyên văn lời từ chối của server khi bị hỏi chuyện phê duyệt', () => {
+    show([row(1, {
+      origin: 'session',
+      actor: 'observer',
+      code: 'GATE_IS_UI_ONLY',
+      ok: false,
+      text: 'Việc phê duyệt và phát hành offer không gõ được ở đây.',
+    })])
+
+    expect(screen.getByRole('log')).toHaveTextContent('không gõ được ở đây')
+  })
+
+  // --- thu gọn ---
+
   it('thu gọn rồi đếm số dòng tới sau đó', async () => {
-    const { rerender } = render(<AgentInteractionLog events={[event(1), event(2)]} isRunning />)
+    const { rerender, onAsk } = show([row(1), row(2)], { isRunning: true })
 
     await userEvent.click(screen.getByRole('button', { name: 'Thu gọn nhật ký' }))
     expect(screen.queryByRole('log')).not.toBeInTheDocument()
 
-    rerender(<AgentInteractionLog events={[event(1), event(2), event(3), event(4)]} isRunning />)
+    rerender(
+      <AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2), row(3), row(4)]} />,
+    )
 
     expect(screen.getByRole('button')).toHaveTextContent('2 dòng mới')
   })
 
   it('mở lại từ thanh thu gọn và xoá số dòng chưa đọc', async () => {
-    const { rerender } = render(<AgentInteractionLog events={[event(1)]} isRunning />)
+    const { rerender, onAsk } = show([row(1)], { isRunning: true })
     await userEvent.click(screen.getByRole('button', { name: 'Thu gọn nhật ký' }))
-    rerender(<AgentInteractionLog events={[event(1), event(2)]} isRunning />)
+    rerender(<AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2)]} />)
 
     await userEvent.click(screen.getByRole('button', { name: /Nhật ký agent/ }))
 
     expect(screen.getByRole('log')).toBeInTheDocument()
     expect(screen.queryByText(/dòng mới/)).not.toBeInTheDocument()
-  })
-
-  it('không mang bất kỳ nút hành động nào — đây là cửa thứ hai vào cổng phê duyệt', async () => {
-    render(
-      <AgentInteractionLog
-        events={[event(1, { actor: 'optimization', text: '3 phương án đã chấm, khuyến nghị PLAN_B' })]}
-        isRunning={false}
-      />,
-    )
-
-    const buttons = within(screen.getByRole('region', { name: 'Nhật ký agent' })).getAllByRole('button')
-    // Đúng một nút, và nó chỉ đổi cách nhìn.
-    expect(buttons).toHaveLength(1)
-    expect(buttons[0]).toHaveAccessibleName('Thu gọn nhật ký')
-
-    for (const cam of [/duyệt/i, /phê duyệt/i, /từ chối/i, /chạy lại/i, /phát/i, /kích hoạt/i]) {
-      expect(screen.queryByRole('button', { name: cam })).not.toBeInTheDocument()
-    }
   })
 })

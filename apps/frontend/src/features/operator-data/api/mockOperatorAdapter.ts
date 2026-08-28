@@ -349,6 +349,17 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
       events: run.events.slice(0, run.revealed),
     })
   }),
+  askAgent: ({ sessionId, text }) => requestLocal(() => {
+    const log = mockSessions.get(sessionId) ?? []
+    const reply = mockAnswer(text)
+    mockSessions.set(sessionId, [...log, ...reply.events.map((event, index) => ({
+      ...event,
+      seq: log.length + index + 1,
+      at: new Date().toISOString(),
+    }))])
+    return { sessionId, action: reply.action }
+  }),
+  getAgentSession: (sessionId) => requestLocal(() => clone(mockSessions.get(sessionId) ?? [])),
   // Bản mock chạy không gateway: đúng trạng thái mặc định của dự án — định tuyến LLM tắt,
   // đồ thị đi đường cố định (CLAUDE.md §10.1).
   getLlmHealth: () => requestLocal(() => ({
@@ -358,6 +369,68 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     analysis: { ok: false, model: 'google/gemini-3.7-flash', error: 'LLM_API_KEY chưa được đặt' },
     explanation: { ok: false, model: 'anthropic/claude-haiku-4.5', error: 'LLM_API_KEY chưa được đặt' },
   })),
+}
+
+const mockSessions = new Map<string, RunEvent[]>()
+
+type MockLine = Omit<RunEvent, 'seq' | 'at'>
+
+// Bản mock của agent quan sát. Cùng ranh giới với bản thật: nhóm chạm cổng phê duyệt được
+// kiểm TRƯỚC, và không nhánh nào ở đây sinh ra action khác `start_run`.
+function mockAnswer(text: string): { action: string | null; events: MockLine[] } {
+  const t = text.toLowerCase()
+  const has = (...keys: string[]) => keys.some((key) => t.includes(key))
+  const observer = 'observer'
+
+  if (has('duyệt', 'duyet', 'từ chối', 'tu choi', 'phát offer', 'phat offer', 'kích hoạt', 'kich hoat')) {
+    return {
+      action: null,
+      events: [{
+        kind: 'narration', actor: observer, source: 'system', ok: false, code: 'GATE_IS_UI_ONLY',
+        text: 'Việc phê duyệt và phát hành offer không gõ được ở đây. Hai bước đó phải bấm ở đúng hộp thoại của chúng.',
+      }],
+    }
+  }
+  if (has('chạy phân tích', 'chay phan tich', 'phân tích', 'phan tich', 'chạy lại', 'chay lai', 'phương án mới')) {
+    return {
+      action: 'start_run',
+      events: [{ kind: 'narration', actor: observer, source: 'deterministic', text: 'Bắt đầu một lượt phân tích mới.' }],
+    }
+  }
+  if (has('thời tiết', 'thoi tiet', 'mưa', 'mua')) {
+    return {
+      action: null,
+      events: [
+        { kind: 'tool_started', actor: observer, source: 'deterministic', tool: 'get_weather', text: 'gọi get_weather()' },
+        { kind: 'tool_finished', actor: observer, source: 'deterministic', tool: 'get_weather', ok: true, text: '23 zone mưa (ngưỡng 0.5 mm/h), 30 zone cao điểm' },
+      ],
+    }
+  }
+  if (has('cung', 'thiếu xe', 'thieu xe', 'hotspot', 'zone')) {
+    return {
+      action: null,
+      events: [
+        { kind: 'tool_started', actor: observer, source: 'deterministic', tool: 'get_supply_state', text: 'gọi get_supply_state()' },
+        { kind: 'tool_finished', actor: observer, source: 'deterministic', tool: 'get_supply_state', ok: true, text: '5 hotspot chính sách, 28 zone dư, tổng cung rỗi 524 xe' },
+      ],
+    }
+  }
+  if (has('dự báo', 'du bao', 'forecast', 'nhu cầu', 'nhu cau')) {
+    return {
+      action: null,
+      events: [
+        { kind: 'tool_started', actor: observer, source: 'deterministic', tool: 'run_forecast', text: 'gọi run_forecast()' },
+        { kind: 'tool_finished', actor: observer, source: 'deterministic', tool: 'run_forecast', ok: true, text: 'dự báo 30 zone, horizon 5 phút — regime rain_peak, model mock-forecast-v1' },
+      ],
+    }
+  }
+  return {
+    action: null,
+    events: [{
+      kind: 'narration', actor: observer, source: 'deterministic',
+      text: 'Chưa hiểu ý. Tôi làm được: chạy phân tích · xem dự báo · xem thời tiết · xem điều kiện di chuyển · xem tình hình cung.',
+    }],
+  }
 }
 
 // Một map giữ cả bản ghi lẫn nhật ký lẫn tiến độ nhả dòng — cùng lý do như `RunEntry` ở AI

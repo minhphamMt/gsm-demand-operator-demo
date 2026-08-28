@@ -1,5 +1,5 @@
 import type { LlmHealth } from '@/features/operator-pipeline/model/llmHealth'
-import type { PipelineRunRecord } from '@/features/operator-pipeline/model/pipelineRun'
+import type { PipelineRunRecord, RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
 export type Severity = 'Low' | 'Medium' | 'High' | 'Critical'
 export type ProposalStatus = 'Generated' | 'UnderReview' | 'Revised' | 'Approved' | 'Rejected' | 'Stale' | 'FailedGeneration'
@@ -220,5 +220,16 @@ export type OperatorDataAdapter = {
   acknowledgeAllNotifications: () => Promise<readonly PersistentNotification[]>
   startPipelineRun: (horizonMinutes: ForecastHorizon, snapshotId?: number) => Promise<{ runId: string; status: string }>
   getPipelineRun: (runId: string) => Promise<PipelineRunRecord>
+  // Câu hỏi tiếng Việt gõ vào nhật ký. `action` là gợi ý cho client, không phải mệnh lệnh:
+  // client có allowlist riêng và chỉ thi hành thứ nằm trong đó.
+  askAgent: (input: AskAgentInput) => Promise<{ sessionId: string; action: string | null }>
+  getAgentSession: (sessionId: string) => Promise<readonly RunEvent[]>
   getLlmHealth: () => Promise<LlmHealth>
+}
+
+export type AskAgentInput = {
+  sessionId: string
+  text: string
+  horizonMinutes: ForecastHorizon
+  snapshotId?: number | undefined
 }
