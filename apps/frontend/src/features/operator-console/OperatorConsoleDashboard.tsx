@@ -46,6 +46,8 @@ import { operatorQueryKeys } from "@/features/operator-data/api/operatorQueries"
 import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, Proposal, Snapshot, Zone } from "@/features/operator-data";
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
 import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline";
+import { usePipelineRun } from "@/features/operator-pipeline/hooks/usePipelineRun";
+import { AgentInteractionLog } from "@/features/operator-console/components/AgentInteractionLog";
 import { AiImpactChart } from "./components/AiImpactChart";
 import { DemandTrendChart } from "./components/DemandTrendChart";
 import { NetworkHealthPanel } from "./components/NetworkHealthPanel";
@@ -212,6 +214,14 @@ export function OperatorConsoleDashboard() {
       window.clearTimeout(autoReplayRetryTimerRef.current);
     }
   }, []);
+
+  // Vòng đời lượt phân tích nằm ở đây chứ không ở trong `PipelineModal` (MA-Q8): panel được
+  // render có điều kiện, nên hook ở trong đó sẽ bị tháo cùng panel và giết lượt chạy.
+  //
+  // Gọi TRƯỚC ba guard clause bên dưới: hook phải chạy ở mọi lần render, kể cả lần màn hình
+  // còn đang tải. Đó cũng là lý do horizon và snapshot đi vào ở `start()` chứ không ở đây —
+  // lúc này chúng chưa được tính.
+  const pipeline = usePipelineRun();
 
   if (plans.isPending || campaigns.isPending || dispatches.isPending)
     return (
@@ -818,14 +828,21 @@ export function OperatorConsoleDashboard() {
             </>
           )}
         </aside>
+        {/* Ngoài nhánh `pipelineOpen`: nhật ký phải sống sót khi người vận hành đóng panel,
+            nếu không thì thu gọn panel là mất luôn lượt phân tích đang chạy (MA-Q8). */}
+        <AgentInteractionLog events={pipeline.events} isRunning={pipeline.run?.status === "RUNNING"} />
       </div>
       {pipelineOpen && (
         <PipelineModal
           horizonMinutes={displayedHorizon}
           isLive={isLiveEdge}
+          isStarting={pipeline.isStarting}
           onClose={() => setPipelineOpen(false)}
           onOpenPlan={() => { setPipelineOpen(false); setDrawerOpen(true); }}
+          onStart={() => pipeline.start({ horizonMinutes: displayedHorizon, snapshotId: Number(activeSnapshot.replayStep) })}
           onTabChange={setPipelineTab}
+          run={pipeline.run}
+          runError={pipeline.error}
           snapshot={activeSnapshot}
           snapshotId={Number(activeSnapshot.replayStep)}
           tab={pipelineTab}

@@ -5,7 +5,7 @@ import { isPlanInputFresh } from '@/features/operator-data/model/proposalRules'
 import { createSeededOperatorState } from '@/features/operator-data/model/seedOperatorState'
 import { eligibleDriversFor, refreshStaleProposalQueue, withLiveEligibility } from '@/features/operator-data/model/proposalWorkflowState'
 import { createZones } from '@/features/operator-data/model/zoneGeometry'
-import type { PipelineRunRecord } from '@/features/operator-pipeline/model/pipelineRun'
+import type { PipelineRunRecord, RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 import type { AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DispatchBatch, DriverView, Offer, OperationsReport, OperationsReportFilters, OperatorDataAdapter, PersistentNotification, Proposal, ScenarioComparison, Snapshot } from '@/features/operator-data/model/types'
 
 const baseZones = createZones()
@@ -328,13 +328,26 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
   }),
   startPipelineRun: (horizonMinutes) => requestLocal(() => {
     const runId = `RUN-${Date.now()}`
-    mockPipelineRuns.set(runId, buildMockPipelineRun(runId, horizonMinutes))
+    mockPipelineRuns.set(runId, {
+      record: buildMockPipelineRun(runId, horizonMinutes),
+      events: buildMockRunEvents(),
+      revealed: 0,
+    })
     return { runId, status: 'RUNNING' }
   }),
   getPipelineRun: (runId) => requestLocal(() => {
-    const record = mockPipelineRuns.get(runId)
-    if (!record) throw new Error('Không tìm thấy run pipeline.')
-    return clone(record)
+    const run = mockPipelineRuns.get(runId)
+    if (!run) throw new Error('Không tìm thấy run pipeline.')
+    // Nhả dần từng nhóm dòng thay vì trả hết ngay: tiêu chí nghiệm thu của tính năng là
+    // "dòng phải hiện dần, không hiện một lượt", và bản mock là nơi duy nhất kiểm được điều
+    // đó mà không cần dựng AI service.
+    run.revealed = Math.min(run.events.length, run.revealed + eventsPerMockPoll)
+    const isDone = run.revealed >= run.events.length
+    return clone({
+      ...run.record,
+      status: isDone ? 'DONE' : 'RUNNING',
+      events: run.events.slice(0, run.revealed),
+    })
   }),
   // Bản mock chạy không gateway: đúng trạng thái mặc định của dự án — định tuyến LLM tắt,
   // đồ thị đi đường cố định (CLAUDE.md §10.1).
@@ -347,7 +360,49 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
   })),
 }
 
-const mockPipelineRuns = new Map<string, PipelineRunRecord>()
+// Một map giữ cả bản ghi lẫn nhật ký lẫn tiến độ nhả dòng — cùng lý do như `RunEntry` ở AI
+// service: hai map song song là hai vòng đời phải tự đồng ý với nhau mà không có gì ép.
+const mockPipelineRuns = new Map<string, { record: PipelineRunRecord; events: RunEvent[]; revealed: number }>()
+
+// Bốn dòng mỗi lượt poll 2 giây: đủ chậm để thấy nó chạy, đủ nhanh để không phải chờ một phút.
+const eventsPerMockPoll = 4
+
+// Bản sao rút gọn của nhật ký thật (26 dòng ở chế độ deterministic). Số liệu khớp với
+// `buildMockPipelineRun` bên dưới để hai chỗ trên cùng màn hình không nói hai con số khác nhau.
+function buildMockRunEvents(): RunEvent[] {
+  const base = Date.now()
+  const lines: readonly Omit<RunEvent, 'seq' | 'at'>[] = [
+    { kind: 'run_started', actor: 'graph', text: 'nhận yêu cầu phân tích snapshot demo', source: 'system' },
+    { kind: 'narration', actor: 'graph', text: 'snapshot mới, cần đánh giá — vào nhánh NEW_INCIDENT', source: 'deterministic' },
+    { kind: 'agent_started', actor: 'situation_assessment', text: 'đánh giá tình hình cung–cầu', source: 'deterministic' },
+    { kind: 'tool_started', actor: 'situation_assessment', text: 'gọi run_forecast()', source: 'deterministic', tool: 'run_forecast' },
+    { kind: 'tool_finished', actor: 'situation_assessment', text: 'dự báo 30 zone, horizon 5 phút — regime rain_peak, model mock-forecast-v1', source: 'deterministic', tool: 'run_forecast', ok: true },
+    { kind: 'tool_started', actor: 'situation_assessment', text: 'gọi get_weather()', source: 'deterministic', tool: 'get_weather' },
+    { kind: 'tool_finished', actor: 'situation_assessment', text: '23 zone mưa (ngưỡng 0.5 mm/h), 30 zone cao điểm', source: 'deterministic', tool: 'get_weather', ok: true },
+    { kind: 'tool_started', actor: 'situation_assessment', text: 'gọi get_supply_state()', source: 'deterministic', tool: 'get_supply_state' },
+    { kind: 'tool_finished', actor: 'situation_assessment', text: '5 hotspot chính sách, 28 zone dư, tổng cung rỗi 524 xe', source: 'deterministic', tool: 'get_supply_state', ok: true },
+    { kind: 'agent_finished', actor: 'situation_assessment', text: 'đánh giá xong (WARNING)', source: 'deterministic', ok: false },
+    { kind: 'agent_started', actor: 'dispatch', text: 'sinh phương án điều chuyển', source: 'deterministic' },
+    { kind: 'tool_started', actor: 'dispatch', text: 'gọi compute_relocation()', source: 'deterministic', tool: 'compute_relocation' },
+    { kind: 'tool_finished', actor: 'dispatch', text: '6 chặng, 42 xe, chi phí 180000 VNĐ / trần 500000 VNĐ, còn 2 zone chưa phủ hết', source: 'deterministic', tool: 'compute_relocation', ok: true },
+    { kind: 'agent_finished', actor: 'dispatch', text: 'có phương án điều chuyển', source: 'deterministic', ok: true },
+    { kind: 'narration', actor: 'graph', text: 'sinh 3 phương án theo strategy MIN_COST, BALANCED, MIN_ETA', source: 'deterministic' },
+    { kind: 'agent_started', actor: 'optimization', text: 'chấm điểm và xếp hạng phương án', source: 'deterministic' },
+    { kind: 'agent_finished', actor: 'optimization', text: '3 phương án đã chấm, khuyến nghị PLAN_B (ba chiến lược hội tụ)', source: 'deterministic', ok: true },
+    { kind: 'narration', actor: 'graph', text: 'quality gate: phương án đạt ràng buộc tối thiểu', source: 'deterministic', ok: true },
+    { kind: 'agent_started', actor: 'explanation', text: 'viết lời giải thích cho điều phối viên', source: 'deterministic' },
+    { kind: 'tool_finished', actor: 'explanation', text: 'lấy số nguồn để viết giải thích: 6 chặng, 42 xe, 180000 VNĐ', source: 'deterministic', tool: 'render_explanation', ok: true },
+    { kind: 'agent_finished', actor: 'explanation', text: 'giải thích xong (lớp template)', source: 'deterministic', ok: true },
+    { kind: 'narration', actor: 'graph', text: 'dựng quyết định cuối từ phương án BALANCED', source: 'deterministic' },
+    { kind: 'run_finished', actor: 'graph', text: 'hoàn tất — quyết định sẵn sàng để duyệt', source: 'system', ok: true },
+  ]
+  return lines.map((line, index) => ({
+    ...line,
+    seq: index + 1,
+    // Giãn 400ms mỗi dòng để cột giờ đọc ra một tiến trình, không phải 23 dòng cùng một giây.
+    at: new Date(base + index * 400).toISOString(),
+  }))
+}
 
 function buildMockPipelineRun(runId: string, horizonMinutes: number): PipelineRunRecord {
   return {

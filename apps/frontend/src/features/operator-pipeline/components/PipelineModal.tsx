@@ -9,9 +9,9 @@ import type { ForecastControl } from '@/features/operator-pipeline/components/Fo
 import { OverviewTab } from '@/features/operator-pipeline/components/OverviewTab'
 import { PipelinePanel } from '@/features/operator-pipeline/components/PipelinePanel'
 import { useMetricHistory } from '@/features/operator-pipeline/hooks/useMetricHistory'
-import { usePipelineRun } from '@/features/operator-pipeline/hooks/usePipelineRun'
 import type { AgentTask } from '@/features/operator-pipeline/model/agentTasks'
 import type { PanelHorizon } from '@/features/operator-pipeline/model/horizonProjection'
+import type { PipelineRunRecord } from '@/features/operator-pipeline/model/pipelineRun'
 import { Button } from '@/shared/components/ui/Button'
 
 import '@/features/operator-pipeline/operator-pipeline.css'
@@ -40,15 +40,20 @@ export type PipelineModalProps = {
   // Nút quyết định của quy trình (duyệt / từ chối / phát lệnh / phát offer). Console dựng sẵn
   // rồi truyền vào: toàn bộ logic hai cổng phê duyệt ở lại console, panel chỉ đặt chỗ ngồi.
   decisionSlot?: ReactNode
+  // Lượt phân tích do console giữ (MA-Q8), panel chỉ hiển thị. Bốn field optional để mọi nơi
+  // render panel mà không quan tâm tới pipeline vẫn dựng được.
+  run?: PipelineRunRecord | undefined
+  runError?: string | undefined
+  isStarting?: boolean | undefined
+  onStart?: (() => void) | undefined
 }
 
 // Tab do bên ngoài giữ: thanh icon dọc ở rìa phải là bộ chuyển tab duy nhất, panel không có
 // thanh tab riêng nữa. Tab `connect` mở dạng popup rộng vì sơ đồ và ba phương án không vừa
 // bề ngang của flyout.
-export function PipelineModal({ horizonMinutes, onClose, snapshot, tab, onTabChange, snapshotId, isLive = true, onOpenPlan, planStatus, tasks = [], forecastControl, contextLabel, decisionSlot }: PipelineModalProps) {
+export function PipelineModal({ horizonMinutes, onClose, snapshot, tab, onTabChange, isLive = true, onOpenPlan, planStatus, tasks = [], forecastControl, contextLabel, decisionSlot, run, runError: error, isStarting = false, onStart }: PipelineModalProps) {
   const [focusedAgentId, setFocusedAgentId] = useState<string>()
   const [horizon, setHorizon] = useState<PanelHorizon>(0)
-  const { run, error, isStarting, start } = usePipelineRun(horizonMinutes, snapshotId)
   const history = useMetricHistory(snapshot)
   const llmHealth = useQuery(llmHealthQuery())
   const isWide = tab === 'connect'
@@ -128,7 +133,7 @@ export function PipelineModal({ horizonMinutes, onClose, snapshot, tab, onTabCha
 
       {isWide && (
         <footer className="flex items-center justify-end gap-3 border-t border-[var(--nfp-line)] px-4 py-2.5">
-          <Button isLoading={isStarting} onClick={start} variant="secondary">
+          <Button disabled={!onStart} isLoading={isStarting} onClick={onStart} variant="secondary">
             <RefreshCw className="size-3.5" />{run ? 'Chạy lại phân tích' : 'Chạy phân tích'}
           </Button>
         </footer>

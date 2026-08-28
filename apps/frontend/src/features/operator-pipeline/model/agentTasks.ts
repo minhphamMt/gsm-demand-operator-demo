@@ -4,7 +4,7 @@
 // Task đến từ bảng chỉ huy (`operator-console/model/systemSteps.ts`) qua props — feature này
 // không tự dựng lại logic quy trình, và cũng không import trực tiếp feature kia.
 
-import type { PipelineToolCall } from '@/features/operator-pipeline/model/pipelineRun'
+import type { PipelineToolCall, RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
 export type AgentTaskState = 'done' | 'running' | 'waiting' | 'queued' | 'attention' | 'stale' | 'skipped' | 'idle'
 
@@ -52,6 +52,28 @@ function attributedAgent(call: PipelineToolCall): string {
   const tool = call.tool.toLowerCase()
   return capabilityKeywords.find((entry) => entry.keywords.some((keyword) => tool.includes(keyword)))?.agentId
     ?? 'situation_assessment'
+}
+
+// Nhãn hiển thị trên nhật ký. Suy ra **ở client** từ `actor` + `tool`, dùng lại đúng phép
+// quy thuộc của sơ đồ luồng — nếu không, cùng một lượt gọi tool sẽ mang hai cái tên ở hai
+// chỗ trên cùng màn hình.
+//
+// Trên dây vẫn là tên agent thật: `situation_assessment` không tồn tại ba bản sao ở backend,
+// và không được bịa ra thẻ agent nào không có trong đồ thị.
+const actorDisplayName: Record<string, string> = {
+  forecast: 'FORECAST_AGENT',
+  traffic: 'TRAFFIC_AGENT',
+  supply: 'SUPPLY_AGENT',
+  situation_assessment: 'SITUATION_AGENT',
+  dispatch: 'DISPATCH_AGENT',
+  optimization: 'OPTIMIZATION_AGENT',
+  explanation: 'EXPLANATION_AGENT',
+  graph: 'GRAPH',
+}
+
+export function eventActorLabel(event: Pick<RunEvent, 'actor' | 'tool'>): string {
+  const attributed = attributedAgent({ agent: event.actor, tool: event.tool ?? '', ok: true, detail: '' })
+  return actorDisplayName[attributed] ?? attributed.toUpperCase()
 }
 
 export function outsideTasks(tasks: readonly AgentTask[]): readonly AgentTask[] {

@@ -3,7 +3,7 @@
 // mà không bị guard bỏ cả cây — trạng thái FAILED là dữ liệu hợp lệ, không phải payload lỗi.
 
 import type { LlmHealth, LlmModelHealth } from '@/features/operator-pipeline/model/llmHealth'
-import type { PipelineRunRecord, PipelineAgent, PipelinePlan, PipelinePlanSet } from '@/features/operator-pipeline/model/pipelineRun'
+import type { PipelineRunRecord, PipelineAgent, PipelinePlan, PipelinePlanSet, RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const hasString = (value: Record<string, unknown>, key: string) => typeof value[key] === 'string'
@@ -27,6 +27,15 @@ const isAgent = (value: unknown): value is PipelineAgent =>
 
 const isToolCall = (value: unknown): boolean => isRecord(value) && hasString(value, 'agent') && hasString(value, 'tool') && hasBoolean(value, 'ok')
 
+// Nới tay hai tầng, có chủ ý:
+// - Chỉ đòi năm field dựng nên một dòng đọc được. `tool`/`ok`/`code` thiếu thì dòng vẫn hiện,
+//   chỉ không có badge.
+// - `kind` và `source` không so với union đóng. Backend thêm loại sự kiện mới trước khi client
+//   kịp cập nhật là chuyện bình thường; bỏ dòng lạ sẽ để lại lỗ hổng im lặng giữa nhật ký.
+export const isRunEvent = (value: unknown): value is RunEvent =>
+  isRecord(value) && hasNumber(value, 'seq') && hasString(value, 'at')
+    && hasString(value, 'kind') && hasString(value, 'actor') && hasString(value, 'text')
+
 const isPlan = (value: unknown): value is PipelinePlan =>
   isRecord(value) && hasString(value, 'plan_id') && hasString(value, 'strategy')
     && hasNumber(value, 'move_count') && hasNumber(value, 'total_units')
@@ -45,6 +54,9 @@ export const isPipelineRunRecord = (value: unknown): value is PipelineRunRecord 
   if (value.tool_calls !== undefined && !value.tool_calls.every(isToolCall)) return false
   if (value.plan_set !== undefined && !isPlanSet(value.plan_set)) return false
   if (value.warnings !== undefined && !Array.isArray(value.warnings)) return false
+  // Chỉ đòi `events` là mảng. Dòng hỏng lẻ được lọc ở hook, không kéo cả bản ghi run xuống —
+  // mất một dòng nhật ký thì tiếc, mất cả trạng thái run thì UI trắng.
+  if (value.events !== undefined && !Array.isArray(value.events)) return false
   return true
 }
 

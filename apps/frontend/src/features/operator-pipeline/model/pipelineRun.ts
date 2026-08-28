@@ -32,6 +32,47 @@ export type PipelineToolCall = {
   detail: string
 }
 
+// Một dòng nhật ký của lượt chạy — `apps/ai/src/orchestration/run_log.py`.
+//
+// `kind` và `source` cố ý khai báo là `string` chứ không phải union đóng: Chặng 6–7 sẽ thêm
+// `awaiting_approval`, `approval_resolved`, `operator_message`, và một client cũ gặp kind lạ
+// phải hiện dòng đó chứ không được bỏ. Union bên dưới là để *đọc*, không để *chặn*.
+export type RunEventKind =
+  | 'run_started'
+  | 'agent_started'
+  | 'agent_finished'
+  | 'tool_started'
+  | 'tool_finished'
+  | 'tool_denied'
+  | 'narration'
+  | 'warning'
+  | 'run_finished'
+
+export type RunEventSource = 'deterministic' | 'llm' | 'system'
+
+export type RunEvent = {
+  seq: number
+  at: string
+  kind: string
+  actor: string
+  text: string
+  source: string
+  tool?: string | null
+  ok?: boolean | null
+  code?: string | null
+}
+
+/** Giờ hiển thị `HH:MM:SS` cắt thẳng từ chuỗi ISO có offset +07:00 của server.
+ *
+ * Không `new Date()` rồi format lại: mốc đã ở giờ vận hành, dựng lại Date sẽ đổi nó sang
+ * múi giờ của máy đang xem và làm hai người ở hai múi giờ đọc ra hai dòng thời gian khác nhau
+ * cho cùng một sự kiện.
+ */
+export function eventClock(at: string): string {
+  const time = at.slice(11, 19)
+  return /^\d{2}:\d{2}:\d{2}$/.test(time) ? time : '--:--:--'
+}
+
 export type PipelinePlan = {
   plan_id: string
   strategy: string
@@ -77,6 +118,8 @@ export type PipelineRunRecord = {
   warnings?: PipelineWarning[]
   decision?: Record<string, unknown>
   error?: { code: string; message: string }
+  // Field optional, thêm ở MA-6.5 — CLAUDE.md §3 #1 cấm sửa field cũ sau W2.
+  events?: readonly RunEvent[]
 }
 
 export const agentDisplayOrder = ['situation_assessment', 'dispatch', 'optimization', 'explanation'] as const
