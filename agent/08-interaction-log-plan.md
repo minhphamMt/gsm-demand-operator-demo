@@ -414,7 +414,19 @@ xác nhận. Một nút đi vòng qua chúng là cửa thứ hai vào §11.1 (xe
 đường FAILED · dòng treo bị thay chứ không bị nhân đôi khi `approval_resolved` tới · thẻ phương án
 gọi đúng handler cũ (assert trên `openDialog`, không assert trên network).
 
-### Chặng 7 — Ô nhập cho người vận hành hỏi lại · lệnh: BẮT BUỘC, LLM: NÊN CÓ
+### Chặng 7 — Ô nhập cho người vận hành ra lệnh · BẮT BUỘC
+
+> **Sửa 28/08 theo yêu cầu của PM.** Hai điểm đảo so với bản viết ở trên:
+>
+> 1. **Popup luôn hiện**, không đợi có lượt chạy. Nó là chỗ *ra lệnh*, không chỉ chỗ xem kết
+>    quả — mà một chỗ ra lệnh chỉ xuất hiện sau khi đã ra lệnh bằng đường khác thì vô nghĩa.
+> 2. **LLM là đường chính, bảng từ khoá là đường đỡ** — không phải ngược lại. `apps/ai/.env`
+>    trên máy phát triển đã có `LLM_ROUTING_ENABLED=true` và khóa gateway thật, nên ngôn ngữ
+>    tự nhiên chạy được ngay; `intent.py` chỉ vào cuộc khi tầng LLM hỏng. Mặc định của
+>    `config.py` vẫn là `false`, nên CI và eval chạy đúng đường đỡ — tức đường phải còn sống
+>    khi hết quota giữa buổi trình bày.
+>
+> Phạm vi PM chốt: **chạy + hỏi**. Hai cổng phê duyệt vẫn chỉ mở bằng nút bấm.
 
 Lấp mắt xích "người vận hành giao việc" ở §1. Thiết kế ở §3.6.
 
@@ -432,10 +444,23 @@ Lấp mắt xích "người vận hành giao việc" ở §1. Thiết kế ở �
   được lẫn. Một câu quan sát trông như một bước của lượt chạy là hiểu nhầm tệ nhất mà tính năng này
   có thể gây ra.
 
-**Test mới:** observer gọi `compute_relocation` → `tool_denied`, không phải kết quả (dùng lại chốt
-`ToolRegistry.invoke` của MA-6.3) · chế độ lệnh chạy được với `llm_routing_enabled=false` ·
-**test giá trị cao nhất của chặng:** chạy pipeline khi có một phiên observer đang hoạt động và khi
-không có, assert `decision` bằng nhau từng byte — cùng khuôn `NULL_SINK` vs `RunLog` của MA-6.6.
+**Hai chỗ cố ý deterministic, không giao cho LLM** — lý do khác nhau ở từng chỗ:
+
+- **Từ chối lệnh chạm cổng phê duyệt**, kiểm *trước* khi gọi LLM. Model không có tool để duyệt
+  nên nó không thể duyệt, nhưng nó viết được một câu nghe như đã duyệt — và một dòng nhật ký
+  nói dối về tiền và về điều xe thì tệ hơn là không có dòng nào. Bảng từ khoá xếp nhóm cổng
+  **trước** mọi nhóm khác: "duyệt phương án" chứa cả `duyet` lẫn `phuong an`, đảo thứ tự là mở
+  một đường vòng qua §11.1 bằng một câu tiếng Việt bình thường.
+- **Phát lệnh chạy phân tích.** Không phải lựa chọn mà là sự thật cấu trúc: allowlist observer
+  chỉ-đọc nên nó *không có tool nào* để diễn đạt "hãy chạy một lượt". Route trả về directive,
+  client gọi `POST /runs` như khi bấm nút. Một đường tạo run, không phải hai — và client có
+  allowlist directive riêng, nên đó là hai khoá cho một não.
+
+**Test mới:** observer gọi `compute_relocation` → `tool_denied`, không phải kết quả · mọi câu
+chạm cổng đều bị chặn và **không tool nào được gọi** trên đường đó · đường đỡ chạy được với
+`llm_routing_enabled=false` · client bỏ qua mọi directive lạ (`approve_plan`, `issue_offers`,
+kể cả `START_RUN` viết hoa) · **test giá trị cao nhất của chặng:** chạy pipeline khi có một
+phiên observer đang hoạt động và khi không có, assert `decision` bằng nhau từng byte.
 
 ---
 
@@ -446,7 +471,7 @@ không có, assert `decision` bằng nhau từng byte — cùng khuôn `NULL_SIN
 | Rủi ro | Chốt chặn |
 |---|---|
 | Log trở thành đầu vào của một quyết định | **Sự kiện không bao giờ đi vào `PipelineState`.** Xóa sạch log và mọi phiên hỏi-đáp, từng `decision` vẫn giống hệt từng byte — kiểm bằng MA-6.6 và MA-6.14 |
-| Nút trong popup tạo đường thứ hai tới cổng duyệt | **Popup không có control hành động nào.** Ô nhập của Chặng 7 không phải ngoại lệ: nó gọi được đúng bốn tool chỉ-đọc, không gọi được `compute_relocation` (§3.6) |
+| Nút trong popup tạo đường thứ hai tới cổng duyệt | **Popup không có control hành động nào.** Ô nhập không phải ngoại lệ: nó chỉ đưa chữ cho một agent chỉ-đọc. Câu chạm cổng bị chặn ở server *trước* LLM, rồi bị chặn lần nữa bởi allowlist directive của client |
 | Chat sai được agent làm việc thật | Allowlist observer là **tập con** của `AGENT_ASSESSMENT`; `ToolRegistry.invoke` ném lỗi chứ không cảnh báo, và phát `tool_denied` để lần thử hiện lên màn hình |
 | "Chạy lại đi" sửa tại chỗ plan đang chờ duyệt | Observer không tự chạy pipeline. Người dùng bấm → `POST /runs` → **run mới, thẻ mới, cổng cũ**. `expectedVersion` vì thế còn nghĩa |
 | Endpoint mới bị nhầm là kênh lệnh | `events` đi nhờ `GET /runs/{id}`. `POST /observe` là endpoint mới **duy nhất**, và nó không tới được tool nào có side effect |
@@ -470,13 +495,16 @@ tự dừng khi DONE/FAILED.
 ### 5.3. Thứ tự cắt khi thiếu thời gian
 
 1. Giữ log qua reload (`sessionStorage`)
-2. **Chat chế độ LLM** — chế độ lệnh đã đủ để trình bày, và LLM mặc định tắt
-3. Dòng thực thi từ audit — lùi về chỉ có sự kiện người vận hành, vẫn mạch lạc
-4. Narration LLM + nâng prompt — log deterministic đã đủ
-5. **Chat chế độ lệnh** — cắt cả Chặng 7; vòng chờ duyệt vẫn đứng một mình được
-6. `narration` cho `route_trigger` / `generate_plans` / `quality_gate`
+2. Dòng thực thi từ audit — lùi về chỉ có sự kiện người vận hành, vẫn mạch lạc
+3. Narration LLM trong đồ thị + nâng prompt — log deterministic đã đủ
+4. `narration` cho `route_trigger` / `generate_plans` / `quality_gate`
 
-**Lõi không cắt được:** Chặng 1 + Chặng 2 + ghi log 4 handler cổng duyệt + **Chặng 6**.
+**Lõi không cắt được:** Chặng 1 + Chặng 2 + ghi log 4 handler cổng duyệt + **Chặng 6** +
+**Chặng 7**.
+
+Chặng 7 vào lõi sau khi PM đảo phạm vi: ô nhập giờ là đường ra lệnh chính, cắt nó đi là cắt
+mất cách người vận hành nói chuyện với hệ thống. Đường đỡ bằng từ khoá cũng không cắt được —
+nó là thứ duy nhất chắc chắn chạy khi gateway hỏng.
 
 Chặng 6 vào lõi vì nó là thứ làm cho log đọc ra thành một mạch có người trong đó. Chặng 7 thì không:
 nó thêm chiều sâu, nhưng cắt đi vẫn còn một câu chuyện hoàn chỉnh. Cắt theo thứ tự trên, mỗi bước
