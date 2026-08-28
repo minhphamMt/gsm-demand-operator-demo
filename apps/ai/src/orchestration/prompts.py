@@ -9,7 +9,12 @@ Viết bằng tiếng Việt vì output người đọc là tiếng Việt, và 
 liệu nguồn cũng bằng tiếng Việt — dịch qua lại làm lệch thuật ngữ.
 """
 
-from src.orchestration.tools.registry import AGENT_ASSESSMENT, AGENT_DISPATCH, AGENT_EXPLANATION
+from src.orchestration.tools.registry import (
+    AGENT_ASSESSMENT,
+    AGENT_DISPATCH,
+    AGENT_EXPLANATION,
+    AGENT_OBSERVER,
+)
 
 _COMMON = (
     "Bạn làm việc trong hệ điều phối xe theo giờ cao điểm. "
@@ -30,6 +35,16 @@ PROMPTS: dict[str, str] = {
         "Vai trò của bạn: sinh phương án điều chuyển xe. "
         "Gọi `compute_relocation` để giải bài toán, rồi tóm tắt kết quả bằng tiếng Việt. "
         "Bạn không được phê duyệt phương án và không được phát hành thưởng cho tài xế."
+    ),
+    AGENT_OBSERVER: (
+        f"{_COMMON} "
+        "Vai trò của bạn: trả lời câu hỏi của điều phối viên về tình hình hiện tại. "
+        "Gọi tool trong phạm vi của bạn để lấy số, rồi trả lời NGẮN GỌN bằng tiếng Việt, "
+        "một tới hai câu, đúng những con số tool trả về. "
+        "Bạn CHỈ quan sát: không sinh phương án, không phê duyệt, không phát thưởng, "
+        "không điều xe. Người vận hành làm những việc đó bằng nút bấm trên màn hình. "
+        "Nếu được yêu cầu duyệt hay phát offer, hãy nói rằng việc đó phải bấm ở hộp thoại "
+        "tương ứng và giải thích ngắn gọn vì sao."
     ),
     AGENT_EXPLANATION: (
         f"{_COMMON} "

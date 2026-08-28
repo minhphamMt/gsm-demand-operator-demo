@@ -25,6 +25,11 @@ AGENT_ASSESSMENT = "situation_assessment"
 AGENT_DISPATCH = "dispatch"
 AGENT_EXPLANATION = "explanation"
 
+# Agent thứ tư, CHỈ ĐỌC: trả lời câu hỏi của người vận hành gõ vào nhật ký. Nó không nằm
+# trong đồ thị và không ghi vào `PipelineState` — xoá sạch mọi phiên hỏi–đáp thì từng
+# `decision` vẫn giống hệt từng byte (kế hoạch `agent/08` §3.6, §5.1).
+AGENT_OBSERVER = "observer"
+
 
 class ToolPermissionError(Exception):
     """Agent gọi tool ngoài allowlist. Là lỗi lập trình/định tuyến, không phải lỗi dữ liệu."""

@@ -36,6 +36,7 @@ from src.orchestration.tools.registry import (
     AGENT_ASSESSMENT,
     AGENT_DISPATCH,
     AGENT_EXPLANATION,
+    AGENT_OBSERVER,
     NO_ARGS,
     ToolRegistry,
     ToolSpec,
@@ -265,8 +266,23 @@ def build_registry(context: RunContext) -> ToolRegistry:
     )
     registry.allow(AGENT_DISPATCH, frozenset({"compute_relocation"}))
     registry.allow(AGENT_EXPLANATION, frozenset({"render_explanation"}))
+    # Observer nhìn thấy ĐÚNG bằng Assessment — bốn tool đó vốn đã chỉ-đọc cả bốn. Điều đáng
+    # nói không phải nó nhỏ hơn Assessment, mà là nó là **tập con thật sự của cả registry**:
+    # ba thứ vắng mặt dưới đây có ba lý do khác nhau, và không cái nào là bỏ sót.
+    #   - `compute_relocation` sinh ra phương án. Một câu chat đẻ được plan là đẻ ra ngoài
+    #     cổng phê duyệt §11.1.
+    #   - `render_explanation` cho ra văn bản đi kèm quyết định, đã có `_numbers_are_grounded`
+    #     canh riêng — không mở đường vòng.
+    #   - `execute_relocation` / `issue_offers` chưa từng đăng ký ở đâu (xem docstring đầu file).
+    registry.allow(AGENT_OBSERVER, OBSERVER_TOOLS)
     return registry
 
+
+# Allowlist của agent quan sát. Khai báo trên cùng để test tĩnh so được nó với allowlist của
+# Assessment mà không phải dựng registry.
+OBSERVER_TOOLS: frozenset[str] = frozenset(
+    {"run_forecast", "get_weather", "get_travel_conditions", "get_supply_state"}
+)
 
 # Chuỗi tool cố định của chế độ deterministic. Thứ tự này là ràng buộc dữ liệu thật, không
 # phải quy ước: `get_supply_state` cần forecast, `compute_relocation` cần tập đích.
