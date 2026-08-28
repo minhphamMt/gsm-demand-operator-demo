@@ -36,11 +36,18 @@ export type OperatorLogLine = {
 export const GATE_PLAN_CODE = 'GATE_PLAN_APPROVED'
 export const GATE_CAMPAIGN_CODE = 'GATE_CAMPAIGN_CONFIRMED'
 
+// Từ chối cũng đóng vòng chờ duyệt, nên nó cần mã để nhận ra — dù không phải một cổng mở ra.
+export const GATE_PLAN_REJECTED_CODE = 'GATE_PLAN_REJECTED'
+
+// Hai mã đóng vòng chờ. `revise` cố ý KHÔNG có mặt: lưu bản chỉnh sửa sinh ra v2, và v2 vẫn
+// phải được duyệt — coi nó là đã xong là bỏ mất đúng cái cổng vừa được dựng lại.
+export const APPROVAL_RESOLVING_CODES: readonly string[] = [GATE_PLAN_CODE, GATE_PLAN_REJECTED_CODE]
+
 const wording: Record<OperatorAction, { done: string; failed: string; code?: string }> = {
   forecast: { done: 'đã chạy dự báo', failed: 'chạy dự báo không thành' },
   optimize: { done: 'đã yêu cầu tối ưu phương án', failed: 'tối ưu phương án không thành' },
   approve: { done: 'đã phê duyệt phương án', failed: 'phê duyệt không thành', code: GATE_PLAN_CODE },
-  reject: { done: 'đã từ chối phương án', failed: 'từ chối không thành' },
+  reject: { done: 'đã từ chối phương án', failed: 'từ chối không thành', code: GATE_PLAN_REJECTED_CODE },
   revise: { done: 'đã lưu bản chỉnh sửa', failed: 'lưu bản chỉnh sửa không thành' },
   activate: { done: 'đã xác nhận phát hành campaign', failed: 'phát hành campaign không thành', code: GATE_CAMPAIGN_CODE },
   release_dispatch: { done: 'đã phát lệnh điều xe', failed: 'phát lệnh điều xe không thành' },

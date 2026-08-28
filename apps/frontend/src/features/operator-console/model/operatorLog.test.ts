@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  APPROVAL_RESOLVING_CODES,
   GATE_CAMPAIGN_CODE,
   GATE_PLAN_CODE,
+  GATE_PLAN_REJECTED_CODE,
   failureDetail,
   operatorLogLine,
   type OperatorAction,
@@ -41,12 +43,31 @@ describe('operatorLogLine', () => {
     expect(hong.ok).toBe(false)
   })
 
-  it('đúng hai hành động mang mã cổng — không hơn, không kém', () => {
-    const coMa = MOI_HANH_DONG.filter((action) => operatorLogLine(action, 'ok').code !== null)
-
-    expect(coMa).toEqual(['approve', 'activate'])
+  it('đúng hai cổng §11.1 mang mã cổng — không hơn, không kém', () => {
     expect(operatorLogLine('approve', 'ok').code).toBe(GATE_PLAN_CODE)
     expect(operatorLogLine('activate', 'ok').code).toBe(GATE_CAMPAIGN_CODE)
+
+    const khac = MOI_HANH_DONG.filter(
+      (action) => ![GATE_PLAN_CODE, GATE_CAMPAIGN_CODE].includes(operatorLogLine(action, 'ok').code ?? ''),
+    )
+    expect(khac).not.toContain('approve')
+    expect(khac).not.toContain('activate')
+  })
+
+  it('từ chối cũng mang mã, vì nó ĐÓNG vòng chờ dù không mở cổng nào', () => {
+    expect(operatorLogLine('reject', 'ok').code).toBe(GATE_PLAN_REJECTED_CODE)
+  })
+
+  it('đúng duyệt và từ chối đóng được vòng chờ — revise thì không', () => {
+    // Lưu bản chỉnh sửa sinh ra v2, và v2 vẫn phải được duyệt. Coi nó là đã xong sẽ tắt dòng
+    // "đang chờ bạn" đúng lúc vẫn còn phải chờ.
+    const dong = MOI_HANH_DONG.filter((action) =>
+      APPROVAL_RESOLVING_CODES.includes(operatorLogLine(action, 'ok').code ?? ''),
+    )
+
+    expect(dong).toEqual(['approve', 'reject'])
+    expect(dong).not.toContain('revise')
+    expect(dong).not.toContain('activate')
   })
 
   it('không có định danh thì vẫn ra câu đọc được, không thừa khoảng trắng', () => {

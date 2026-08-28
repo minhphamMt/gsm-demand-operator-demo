@@ -481,6 +481,7 @@ function buildMockRunEvents(): RunEvent[] {
     { kind: 'tool_finished', actor: 'explanation', text: 'lấy số nguồn để viết giải thích: 6 chặng, 42 xe, 180000 VNĐ', source: 'deterministic', tool: 'render_explanation', ok: true },
     { kind: 'agent_finished', actor: 'explanation', text: 'giải thích xong (lớp template)', source: 'deterministic', ok: true },
     { kind: 'narration', actor: 'graph', text: 'dựng quyết định cuối từ phương án BALANCED', source: 'deterministic' },
+    { kind: 'awaiting_approval', actor: 'graph', text: '⏸ chờ người vận hành duyệt PLAN_B — hệ thống không tự quyết', source: 'system', code: 'AWAITING_APPROVAL' },
     { kind: 'run_finished', actor: 'graph', text: 'hoàn tất — quyết định sẵn sàng để duyệt', source: 'system', ok: true },
   ]
   return lines.map((line, index) => ({

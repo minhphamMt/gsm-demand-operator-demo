@@ -36,6 +36,9 @@ EventKind = Literal[
     "narration",
     "warning",
     "run_finished",
+    # Đồ thị dừng ở PROPOSED và cổng duyệt là của con người — dòng này nói ra điều đó thay vì
+    # để màn hình im lặng (Chặng 6). Nó KHÔNG khoá gì cả: đồ thị đã chạy xong khi nó được phát.
+    "awaiting_approval",
 ]
 
 # Nguồn của dòng chữ, không phải nguồn của con số. `llm` được tô màu khác trên UI kèm chú

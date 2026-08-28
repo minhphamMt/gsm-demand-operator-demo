@@ -103,6 +103,33 @@ describe('AgentInteractionLog', () => {
     expect(screen.getByRole('log')).toHaveTextContent('Phương án đã đổi phiên bản')
   })
 
+  // --- vòng chờ người duyệt (Chặng 6) ---
+
+  it('dòng chờ nhấp nháy và báo trên tiêu đề khi còn đang chờ', () => {
+    const { container } = show([row(1, {
+      kind: 'awaiting_approval', actor: 'graph', source: 'system', code: 'AWAITING_APPROVAL',
+      text: '⏸ chờ người vận hành duyệt PLAN_B — hệ thống không tự quyết',
+    })])
+
+    expect(container.querySelectorAll('.is-waiting')).toHaveLength(1)
+    expect(screen.getByRole('log')).toHaveTextContent('hệ thống không tự quyết')
+    expect(screen.getByText('chờ bạn duyệt')).toBeInTheDocument()
+  })
+
+  it('duyệt xong thì dòng chờ thành lịch sử tĩnh, không nhấp nháy nữa', () => {
+    const { container } = show([
+      row(1, { kind: 'awaiting_approval', actor: 'graph', source: 'system', text: '⏸ chờ duyệt' }),
+      row(2, {
+        origin: 'action', kind: 'operator_action', actor: 'operator',
+        text: 'đã phê duyệt phương án PLAN_B (v1)', ok: true, code: 'GATE_PLAN_APPROVED',
+      }),
+    ])
+
+    // Để nó nhấp nháy mãi là nói rằng hệ thống vẫn đang đợi một việc đã xong.
+    expect(container.querySelectorAll('.is-waiting')).toHaveLength(0)
+    expect(screen.queryByText('chờ bạn duyệt')).not.toBeInTheDocument()
+  })
+
   it('báo dòng do LLM viết để không lẫn với dòng dựng từ template', () => {
     show([row(1, { source: 'llm', text: 'tôi đang kiểm tra thời tiết' })])
 

@@ -120,6 +120,29 @@ def _render(state: PipelineState) -> dict[str, Any]:
     }
 
 
+def _awaiting_approval_text(state: PipelineState) -> str | None:
+    """Câu "đang chờ bạn", hoặc `None` nếu lượt này không có gì để duyệt.
+
+    Ba trường hợp KHÔNG chờ, và gộp chúng lại thành một là nói dối người xem:
+
+    - `quality_ok` sai — quality gate đã chặn (vượt trần ngân sách, không có phương án). Đồ thị
+      dừng vì **không đạt**, không phải vì đang đợi ai.
+    - `planning_status == "not_required"` — không có hotspot chính sách nên không có gì để điều.
+      Quy trình chốt là dừng ngay sau Dự báo, không đi tới cổng duyệt (`OpsHeader.tsx`).
+    - `decision` rỗng — không dựng được payload.
+
+    Một dòng "⏸ chờ bạn duyệt" ở bất kỳ trường hợp nào trong ba là để người vận hành ngồi đợi
+    một cổng sẽ không bao giờ mở.
+    """
+    if state.get("quality_ok") is not True:
+        return None
+    decision = state.get("decision") or {}
+    if not decision or decision.get("planning_status") == "not_required":
+        return None
+    plan_id = state.get("recommended_plan_id") or "phương án"
+    return f"⏸ chờ người vận hành duyệt {plan_id} — hệ thống không tự quyết"
+
+
 def _execute(run_id: str, request: DecisionRequest, entry: RunEntry) -> None:
     """Chạy đồ thị. Hàm đồng bộ — được gọi trong thread riêng để không chặn event loop.
 
@@ -172,6 +195,12 @@ def _execute(run_id: str, request: DecisionRequest, entry: RunEntry) -> None:
             run_id, {"run_id": run_id, "status": "FAILED", "error": {"code": "INTERNAL_ERROR", "message": str(error)}}
         )
         return
+    # Phát TRƯỚC `run_finished`: dòng chờ là chuyện xảy ra trong lượt chạy, không phải sau nó.
+    # Chỉ ở đường thành công — "đang chờ bạn" mà thật ra đã hỏng là nói dối đúng lúc người vận
+    # hành cần biết sự thật nhất.
+    awaiting = _awaiting_approval_text(state)
+    if awaiting is not None:
+        log.append("awaiting_approval", "graph", awaiting, source="system", code="AWAITING_APPROVAL")
     log.append("run_finished", "graph", "hoàn tất — quyết định sẵn sàng để duyệt", source="system", ok=True)
     _remember(run_id, {"run_id": run_id, "status": "DONE", **_render(state)})
 

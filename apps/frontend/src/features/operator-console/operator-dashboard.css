@@ -440,3 +440,7 @@
 .nf-agent-log__line.is-action{color:var(--nf-ops-ink)}
 /* Quyết định của con người ở hai cổng §11.1 — thứ phải tìm thấy đầu tiên khi đọc lại. */
 .nf-agent-log__line.is-gate{padding:1px 5px;margin:2px -5px;border-radius:4px;background:rgba(53,183,165,.13);color:var(--nf-ops-teal-bright);font-weight:600}
+/* Dòng chờ người duyệt: nhấp nháy trong lúc còn chờ, thành dòng tĩnh khi đã quyết. */
+.nf-agent-log__line.is-waiting{padding:2px 6px;margin:2px -6px;border-radius:4px;border-left:2px solid var(--nf-ops-amber);background:rgba(238,177,81,.1);color:var(--nf-ops-amber);animation:nf-agent-log-pulse 1.8s ease-in-out infinite}
+.nf-agent-log__waiting{padding:2px 7px;border-radius:99px;background:rgba(238,177,81,.16);color:var(--nf-ops-amber);font-size:9px;font-style:normal;font-weight:800}
+@media(prefers-reduced-motion:reduce){.nf-agent-log__line.is-waiting{animation:none}}

@@ -11,7 +11,7 @@
 import { ChevronDown, ChevronUp, CornerDownLeft, Terminal } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { rowKey, type LogRow } from '@/features/operator-console/model/logRows'
+import { liveAwaitingSeq, rowKey, type LogRow } from '@/features/operator-console/model/logRows'
 import { eventActorLabel } from '@/features/operator-pipeline/model/agentTasks'
 import { eventClock } from '@/features/operator-pipeline/model/pipelineRun'
 
@@ -28,7 +28,10 @@ const bottomSlackPx = 24
 
 const placeholder = 'Hỏi hoặc ra lệnh — ví dụ: chạy phân tích, zone nào đang thiếu xe'
 
-function toneOf(row: LogRow): string {
+function toneOf(row: LogRow, liveAwaiting: number | null): string {
+  // Dòng chờ nhấp nháy CHỈ khi còn đang chờ thật. Duyệt hoặc từ chối xong thì nó thành một
+  // dòng lịch sử tĩnh — để nó nhấp nháy mãi là nói rằng hệ thống vẫn đang đợi một việc đã xong.
+  if (row.kind === 'awaiting_approval') return row.seq === liveAwaiting ? 'is-waiting' : 'is-frame'
   if (row.origin === 'operator') return 'is-operator'
   // Hai cổng người-duyệt được tô riêng: đọc lại nhật ký về sau, thứ cần tìm thấy trước tiên
   // là "ai đã quyết định gì", không phải agent đã gọi tool nào.
@@ -49,6 +52,7 @@ export function AgentInteractionLog({ rows, isRunning, isBusy, onAsk }: AgentInt
   const listRef = useRef<HTMLDivElement>(null)
 
   const unread = Math.max(0, rows.length - seenCount)
+  const liveAwaiting = liveAwaitingSeq(rows)
 
   // Tự cuộn **chỉ khi** người dùng đang ở đáy. Kéo lên đọc lại một dòng cũ mà bị giật xuống
   // đáy mỗi hai giây là cách chắc chắn nhất để nhật ký thành thứ không ai đọc được.
@@ -96,6 +100,7 @@ export function AgentInteractionLog({ rows, isRunning, isBusy, onAsk }: AgentInt
         <Terminal aria-hidden="true" className="size-3.5" />
         <strong>Nhật ký agent</strong>
         {(isRunning || isBusy) && <span aria-label="đang chạy" className="nf-agent-log__live" />}
+        {liveAwaiting !== null && <em className="nf-agent-log__waiting">chờ bạn duyệt</em>}
         <small>{rows.length} dòng</small>
         <button aria-label="Thu gọn nhật ký" onClick={() => setIsOpen(false)} type="button">
           <ChevronDown className="size-3.5" />
@@ -109,7 +114,7 @@ export function AgentInteractionLog({ rows, isRunning, isBusy, onAsk }: AgentInt
           </p>
         )}
         {rows.map((row) => (
-          <p className={`nf-agent-log__line ${toneOf(row)}`} key={rowKey(row)}>
+          <p className={`nf-agent-log__line ${toneOf(row, liveAwaiting)}`} key={rowKey(row)}>
             {row.origin === 'operator' ? (
               <>
                 <span className="nf-agent-log__clock">[{eventClock(row.at)}]</span>

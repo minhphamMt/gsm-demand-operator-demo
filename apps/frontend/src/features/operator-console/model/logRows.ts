@@ -17,6 +17,7 @@
 // đánh số độc lập nên không có thứ tự chung nào ngoài thời gian, và lệch một mili-giây giữa
 // một dòng pipeline với một dòng hội thoại thì không đổi nghĩa của gì cả.
 
+import { APPROVAL_RESOLVING_CODES } from '@/features/operator-console/model/operatorLog'
 import type { RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
 export type LogOrigin = 'run' | 'session' | 'operator' | 'action'
@@ -42,4 +43,19 @@ export function mergeLogRows(
     if (left.origin === right.origin) return left.seq - right.seq
     return left.at < right.at ? -1 : left.at > right.at ? 1 : 0
   })
+}
+
+/** `seq` của dòng chờ duyệt còn đang treo, hoặc `null` nếu không có vòng chờ nào đang mở.
+ *
+ * Vòng chờ đóng khi người vận hành **duyệt hoặc từ chối** — hai việc kết thúc cổng §11.1.
+ * Lưu bản chỉnh sửa thì không: nó sinh ra v2, và v2 vẫn phải được duyệt. Coi `revise` là đã
+ * xong sẽ tắt dòng chờ đúng lúc vẫn còn phải chờ.
+ */
+export function liveAwaitingSeq(rows: readonly LogRow[]): number | null {
+  const index = rows.findLastIndex((row) => row.kind === 'awaiting_approval')
+  if (index < 0) return null
+  const resolved = rows
+    .slice(index + 1)
+    .some((row) => row.code !== null && row.code !== undefined && APPROVAL_RESOLVING_CODES.includes(row.code))
+  return resolved ? null : (rows[index]?.seq ?? null)
 }
