@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { liveAwaitingSeq, mergeLogRows, rowKey, type LogRow } from '@/features/operator-console/model/logRows'
+import { awaitingApprovalRow, liveAwaitingSeq, mergeLogRows, rowKey, type LogRow } from '@/features/operator-console/model/logRows'
 import { GATE_CAMPAIGN_CODE, GATE_PLAN_CODE, GATE_PLAN_REJECTED_CODE } from '@/features/operator-console/model/operatorLog'
 import type { RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
@@ -93,5 +93,51 @@ describe('liveAwaitingSeq', () => {
     const rows = [cho(1), thaoTac(2, GATE_PLAN_CODE), cho(3)]
 
     expect(liveAwaitingSeq(rows)).toBe(3)
+  })
+})
+
+describe('awaitingApprovalRow', () => {
+  const plan = { id: 'PLAN_B', createdAt: at(30) }
+
+  it('không có phương án thì không hứa cổng nào', () => {
+    // `POST /runs` chạy đồ thị trong bộ nhớ và KHÔNG ghi phương án nào. Dựng dòng chờ từ lượt
+    // chạy đó là để người vận hành ngồi đợi một nút không bao giờ hiện ra.
+    expect(awaitingApprovalRow(undefined, true)).toEqual([])
+  })
+
+  it('phương án không còn duyệt được thì cũng không chờ', () => {
+    expect(awaitingApprovalRow(plan, false)).toEqual([])
+  })
+
+  it('có phương án duyệt được thì nói ra, kèm đúng mã của nó', () => {
+    const [row] = awaitingApprovalRow(plan, true)
+
+    expect(row?.kind).toBe('awaiting_approval')
+    expect(row?.origin).toBe('gate')
+    expect(row?.text).toContain('PLAN_B')
+    expect(row?.code).toBe('AWAITING_APPROVAL')
+  })
+
+  it('mốc lấy từ phương án, không phải đồng hồ — nếu không dòng nhảy chỗ mỗi nhịp poll', () => {
+    const [a] = awaitingApprovalRow(plan, true)
+    const [b] = awaitingApprovalRow(plan, true)
+
+    expect(a?.at).toBe(plan.createdAt)
+    expect(a?.at).toBe(b?.at)
+  })
+
+  it('nguồn riêng nên nó sắp theo thời gian, không bị ghim trước mọi thao tác', () => {
+    // Cùng nguồn thì `seq` thắng; nhét dòng chờ vào `action` sẽ đẩy nó lên đầu bất kể lúc nào.
+    const thaoTacSom: LogRow = {
+      origin: 'action', seq: 1, at: at(10), kind: 'operator_action',
+      actor: 'operator', text: 'đã chạy dự báo', source: 'system', ok: true,
+    }
+    const merged = mergeLogRows([], [thaoTacSom, ...awaitingApprovalRow(plan, true)])
+
+    expect(merged.map((row) => row.origin)).toEqual(['action', 'gate'])
+  })
+
+  it('dòng dựng ra vẫn được liveAwaitingSeq nhận là đang treo', () => {
+    expect(liveAwaitingSeq(awaitingApprovalRow(plan, true))).not.toBeNull()
   })
 })

@@ -158,12 +158,18 @@ def _state(**patch: Any) -> Any:
     return {**base, **patch}
 
 
-def test_dat_proposed_thi_noi_ra_la_dang_cho_nguoi_van_hanh() -> None:
-    text = module._awaiting_approval_text(_state())
+def test_dat_proposed_thi_noi_ra_nhung_khong_hua_mot_cong_duyet() -> None:
+    """`POST /runs` không ghi phương án nào vào CSDL, nên nó không có gì để hứa duyệt.
+
+    Trạng thái "đang chờ duyệt" thuộc về phương án trong CSDL — thứ chỉ client biết. Một dòng
+    "chờ bạn duyệt" phát từ đây sẽ để người vận hành ngồi đợi một nút không bao giờ hiện.
+    """
+    text = module._proposed_text(_state())
 
     assert text is not None
     assert "PLAN_B" in text
-    assert "không tự quyết" in text
+    assert "không ghi phương án" in text
+    assert "chờ" not in text, "Lượt chạy này không tạo ra cổng duyệt nào."
 
 
 @pytest.mark.parametrize(
@@ -182,7 +188,7 @@ def test_khong_hua_hen_mot_cong_se_khong_bao_gio_mo(ten: str, state: Any) -> Non
     `not_required` đặc biệt đáng chú ý: quy trình chốt là dừng ngay sau Dự báo, và
     `canReviewPlan` phía client cũng loại nó.
     """
-    assert module._awaiting_approval_text(state) is None
+    assert module._proposed_text(state) is None
 
 
 def test_duong_failed_khong_bao_gio_co_dong_cho_duyet() -> None:
@@ -194,14 +200,15 @@ def test_duong_failed_khong_bao_gio_co_dong_cho_duyet() -> None:
     assert not [event for event in entry.log.snapshot() if event.kind == "awaiting_approval"]
 
 
-def test_dong_cho_dung_truoc_run_finished_chu_khong_sau() -> None:
-    """Dòng chờ là chuyện xảy ra TRONG lượt chạy, không phải sau khi nó kết thúc."""
+def test_dong_proposed_dung_truoc_run_finished_chu_khong_sau() -> None:
+    """Đây là chuyện xảy ra TRONG lượt chạy, không phải sau khi nó kết thúc."""
     entry = module._open_entry("run-thu-tu")
-    entry.log.append("awaiting_approval", "graph", "⏸ chờ duyệt", source="system", code="AWAITING_APPROVAL")
+    entry.log.append("narration", "graph", "phân tích đạt PROPOSED", source="system", code="GRAPH_PROPOSED")
     entry.log.append("run_finished", "graph", "hoàn tất", source="system", ok=True)
 
+    codes = [event.code for event in entry.log.snapshot()]
     kinds = [event.kind for event in entry.log.snapshot()]
-    assert kinds.index("awaiting_approval") < kinds.index("run_finished")
+    assert codes.index("GRAPH_PROPOSED") < kinds.index("run_finished")
 
 
 def test_remember_thay_ban_ghi_nhung_giu_nguyen_nhat_ky() -> None:

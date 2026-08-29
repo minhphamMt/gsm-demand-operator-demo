@@ -120,19 +120,20 @@ def _render(state: PipelineState) -> dict[str, Any]:
     }
 
 
-def _awaiting_approval_text(state: PipelineState) -> str | None:
-    """Câu "đang chờ bạn", hoặc `None` nếu lượt này không có gì để duyệt.
+def _proposed_text(state: PipelineState) -> str | None:
+    """Câu đóng một lượt phân tích đạt `PROPOSED`, hoặc `None` nếu lượt này không đạt.
 
-    Ba trường hợp KHÔNG chờ, và gộp chúng lại thành một là nói dối người xem:
+    **Cố ý KHÔNG nói "chờ bạn duyệt".** `POST /runs` không ghi gì vào CSDL — nó chạy đồ thị
+    rồi trả kết quả trong bộ nhớ (`ai.service.ts::startRun` chỉ proxy, không `insert`). Nên
+    lượt chạy này **không tạo ra phương án nào để duyệt**, và một dòng hứa cổng phê duyệt ở
+    đây là để người vận hành ngồi đợi một cổng không tồn tại.
 
-    - `quality_ok` sai — quality gate đã chặn (vượt trần ngân sách, không có phương án). Đồ thị
-      dừng vì **không đạt**, không phải vì đang đợi ai.
-    - `planning_status == "not_required"` — không có hotspot chính sách nên không có gì để điều.
-      Quy trình chốt là dừng ngay sau Dự báo, không đi tới cổng duyệt (`OpsHeader.tsx`).
-    - `decision` rỗng — không dựng được payload.
+    Trạng thái "đang chờ duyệt" thuộc về **phương án trong CSDL**, thứ chỉ client biết. Nó
+    được dựng ở đó, từ `isProposalReviewable(plan)`.
 
-    Một dòng "⏸ chờ bạn duyệt" ở bất kỳ trường hợp nào trong ba là để người vận hành ngồi đợi
-    một cổng sẽ không bao giờ mở.
+    Ba trường hợp trả `None` vì lượt chạy dừng do **không đạt** hoặc **không cần**:
+    `quality_ok` sai (quality gate chặn), `planning_status == "not_required"` (không có hotspot
+    chính sách nên quy trình dừng ngay sau Dự báo), và `decision` rỗng.
     """
     if state.get("quality_ok") is not True:
         return None
@@ -140,7 +141,10 @@ def _awaiting_approval_text(state: PipelineState) -> str | None:
     if not decision or decision.get("planning_status") == "not_required":
         return None
     plan_id = state.get("recommended_plan_id") or "phương án"
-    return f"⏸ chờ người vận hành duyệt {plan_id} — hệ thống không tự quyết"
+    return (
+        f"phân tích đạt PROPOSED, khuyến nghị {plan_id} — lượt chạy này không ghi phương án "
+        "nào vào CSDL"
+    )
 
 
 def _execute(run_id: str, request: DecisionRequest, entry: RunEntry) -> None:
@@ -195,12 +199,11 @@ def _execute(run_id: str, request: DecisionRequest, entry: RunEntry) -> None:
             run_id, {"run_id": run_id, "status": "FAILED", "error": {"code": "INTERNAL_ERROR", "message": str(error)}}
         )
         return
-    # Phát TRƯỚC `run_finished`: dòng chờ là chuyện xảy ra trong lượt chạy, không phải sau nó.
-    # Chỉ ở đường thành công — "đang chờ bạn" mà thật ra đã hỏng là nói dối đúng lúc người vận
-    # hành cần biết sự thật nhất.
-    awaiting = _awaiting_approval_text(state)
-    if awaiting is not None:
-        log.append("awaiting_approval", "graph", awaiting, source="system", code="AWAITING_APPROVAL")
+    # Phát TRƯỚC `run_finished`: đây là chuyện xảy ra trong lượt chạy, không phải sau nó.
+    # Chỉ ở đường thành công.
+    proposed = _proposed_text(state)
+    if proposed is not None:
+        log.append("narration", "graph", proposed, source="system", code="GRAPH_PROPOSED")
     log.append("run_finished", "graph", "hoàn tất — quyết định sẵn sàng để duyệt", source="system", ok=True)
     _remember(run_id, {"run_id": run_id, "status": "DONE", **_render(state)})
 

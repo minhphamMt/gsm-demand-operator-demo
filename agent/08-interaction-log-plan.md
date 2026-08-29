@@ -404,6 +404,20 @@ handler giờ nói ra lý do bị chặn.
 Chỗ của nút cũ không để lại nút xám — nó nói ra câu cần gõ. Một nút vô hiệu hoá là lời mời bấm
 vào thứ không làm gì.
 
+**Sửa 29/08 — dòng chờ duyệt đặt sai chỗ.** Chạy thật ở chế độ `api` phơi ra: nhật ký hiện
+`⏸ chờ người vận hành duyệt PLAN_B` nhưng **không có nút duyệt nào**, và cũng không có phương
+án nào để mở.
+
+Nguyên nhân là lỗi thiết kế ở chính Chặng 6: `awaiting_approval` được phát từ AI service, mà
+`POST /runs` **không ghi phương án nào vào CSDL** (`ai.service.ts::startRun` chỉ proxy). AI
+service vì thế **không thể biết** có thứ gì để duyệt hay không — chỉ `plans` mới biết. Đặt dòng
+chờ ở đó là hứa một cổng có thể không tồn tại.
+
+Sửa: AI service nói đúng điều nó biết — *"phân tích đạt PROPOSED… lượt chạy này không ghi phương
+án nào vào CSDL"* — còn dòng chờ dựng ở client từ `isProposalReviewable(plan)`, tức từ chính
+thứ có nút bấm đi kèm. Nó mang `origin: 'gate'` riêng: nhét vào `action` thì `seq` thắng và nó
+bị ghim trước mọi thao tác bất kể thời điểm.
+
 ### Chặng 4 — Bước thực thi sau khi duyệt · NÊN CÓ
 
 - Ánh xạ `AuditEntry` → dòng log qua `auditLabels.ts` đã có.
