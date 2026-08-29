@@ -7,6 +7,7 @@ import {
   LoaderCircle,
   Pause,
   Search,
+  Terminal,
   X,
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -630,6 +631,35 @@ export function OperatorConsoleDashboard() {
   // một đường tạo run, không phải hai.
   const pipelineInput = { horizonMinutes: displayedHorizon, snapshotId: Number(activeSnapshot.replayStep) };
   const startPipelineRun = () => pipeline.start(pipelineInput);
+  // Việc gõ vào nhật ký làm được. Cả ba đều gọi ĐÚNG handler mà nút vẫn gọi — một đường cho
+  // mỗi việc. Không có mục nào chạm hai cổng §11.1: duyệt phương án và phát hành campaign
+  // vẫn chỉ mở bằng nút, qua hộp thoại xác nhận của chúng.
+  //
+  // Mỗi handler phải NÓI RA khi nó không chạy được. `runForecastFor` và `optimize` đều mở đầu
+  // bằng một guard `return` im lặng — với một cái nút thì im lặng còn chấp nhận được vì nút đã
+  // bị ẩn hoặc vô hiệu hoá từ trước, nhưng gõ chữ thì không: người dùng vừa được trả lời "đang
+  // chạy dự báo" mà rồi không có gì xảy ra. Đó là dạng nói dối tệ nhất một nhật ký có thể mắc.
+  const blockedReason = (): string | undefined => {
+    if (hasExecution) return "đang có lệnh điều xe hoặc campaign chạy dở — phải dừng hoặc chờ nó xong đã";
+    if (!isLiveEdge) return "đang xem một mốc replay cũ, không phải mốc hiện tại";
+    if (!dataComplete) return `snapshot thiếu dữ liệu ở ${missingZoneCount} zone`;
+    if (snapshotStale) return "snapshot đã cũ so với mốc hiện tại, hãy làm mới trước";
+    return undefined;
+  };
+  const guarded = (action: "forecast" | "optimize", run: () => void, extra?: () => string | undefined) => () => {
+    const reason = blockedReason() ?? extra?.();
+    if (reason) {
+      operatorLog.noteFailed(action, new Error(reason));
+      return;
+    }
+    run();
+  };
+  const chatHandlers = {
+    start_run: startPipelineRun,
+    start_forecast: guarded("forecast", runForecast),
+    start_optimize: guarded("optimize", optimize, () =>
+      forecastReady ? undefined : "chưa có dự báo cho mốc này — gõ \"chạy dự báo\" trước đã"),
+  };
 
   return (
     // `data-stage` nói cho CSS biết panel `connect` đang mở. Dùng thuộc tính thay vì `:has()`
@@ -893,7 +923,7 @@ export function OperatorConsoleDashboard() {
       <AgentInteractionLog
           isBusy={observer.isBusy}
           isRunning={pipeline.run?.status === "RUNNING"}
-          onAsk={(text) => observer.ask(text, { ...pipelineInput, onStartRun: startPipelineRun })}
+          onAsk={(text) => observer.ask(text, { ...pipelineInput, handlers: chatHandlers })}
           rows={mergeLogRows(pipeline.events, [
             ...observer.rows,
             ...operatorLog.rows,
@@ -1891,6 +1921,33 @@ function ActiveExecutionRail({
   );
 }
 
+/** Một bước quy trình giờ ra lệnh bằng chữ, không bằng nút.
+ *
+ * Nó **không** phải một nút bị vô hiệu hoá: chỗ này không còn hành động nào để bấm, nên nó
+ * chỉ nói ra câu cần gõ. Để lại một nút xám ở đây sẽ mời người dùng bấm vào thứ không làm gì.
+ */
+function ChatStep({ say, hint, busy, error }: { say: string; hint: string; busy?: string | undefined; error?: string | undefined }) {
+  return (
+    <div className="nf-rail-actions">
+      <div aria-live="polite" className="nf-chat-step" role="status">
+        {busy ? (
+          <>
+            <LoaderCircle className="is-spinning" size={15} />
+            <b>{busy}</b>
+          </>
+        ) : (
+          <>
+            <Terminal size={15} />
+            <span>Gõ <code>{say}</code> vào nhật ký agent ở góc dưới phải.</span>
+          </>
+        )}
+      </div>
+      <small>{hint}</small>
+      {error && <p className="nf-optimization-error" role="alert">{error}</p>}
+    </div>
+  );
+}
+
 export function RailActions({
   activeDispatch = undefined,
   campaign,
@@ -1990,23 +2047,11 @@ export function RailActions({
     );
   if (!forecastReady)
     return (
-      <div className="nf-rail-actions">
-        <button
-          className="btn btn-primary btn-block"
-          disabled={isGenerating || isScanning}
-          onClick={onGenerate}
-          type="button"
-        >
-          {isScanning
-            ? "Đang nạp snapshot…"
-            : isGenerating
-              ? "Đang chạy model…"
-              : "Chạy dự báo cung–cầu"}
-        </button>
-        <small>
-          Chạy model cho mốc đang chọn; kết quả dự báo sẽ tự mở trên bản đồ.
-        </small>
-      </div>
+      <ChatStep
+        busy={isScanning ? "Đang nạp snapshot…" : isGenerating ? "Đang chạy model…" : undefined}
+        hint="Chạy model cho mốc đang chọn; kết quả dự báo sẽ tự mở trên bản đồ."
+        say="chạy dự báo"
+      />
     );
   if (hasActiveExecution && !plan)
     return (
@@ -2036,18 +2081,12 @@ export function RailActions({
     );
   if (!plan)
     return (
-      <div className="nf-rail-actions">
-        <button
-          className="btn btn-primary btn-block"
-          disabled={isOptimizing}
-          onClick={onOptimize}
-          type="button"
-        >
-          {isOptimizing ? "Model đang tính phương án…" : "Tính phương án điều chuyển"}
-        </button>
-        <small>Model ghép nguồn dư với vùng thiếu theo ETA và các ràng buộc vận hành.</small>
-        {optimizationError && <p className="nf-optimization-error" role="alert">Không thể tính phương án: {optimizationError}</p>}
-      </div>
+      <ChatStep
+        busy={isOptimizing ? "Model đang tính phương án…" : undefined}
+        error={optimizationError ? `Không thể tính phương án: ${optimizationError}` : undefined}
+        hint="Model ghép nguồn dư với vùng thiếu theo ETA và các ràng buộc vận hành."
+        say="tính phương án"
+      />
     );
   if (stage === "no_solution")
     return (

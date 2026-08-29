@@ -54,7 +54,18 @@ MAX_TRACKED_SESSIONS = 32
 
 # Directive client được phép thi hành. Client có allowlist riêng của nó nữa — hai khoá, một
 # não. Danh sách này KHÔNG bao giờ được chứa hành động chạm tiền hay chạm cổng phê duyệt.
+# Ba directive, và cả ba đều vô hại theo cùng một nghĩa: chúng chỉ khởi động thứ mà một cú
+# bấm nút vẫn khởi động được, đi đúng đường cũ với đúng những lớp canh cũ. KHÔNG bao giờ
+# được thêm vào đây một hành động chạm cổng phê duyệt hay chạm tiền (§11.1).
 ACTION_START_RUN = "start_run"
+ACTION_START_FORECAST = "start_forecast"
+ACTION_START_OPTIMIZE = "start_optimize"
+
+_DIRECTIVE_BY_INTENT = {
+    "run_analysis": ACTION_START_RUN,
+    "start_forecast": ACTION_START_FORECAST,
+    "start_optimize": ACTION_START_OPTIMIZE,
+}
 
 _sessions_lock = threading.Lock()
 _sessions: OrderedDict[str, RunLog] = OrderedDict()
@@ -205,9 +216,12 @@ async def ask(request: ObserveRequest) -> dict[str, Any]:
         )
         return {"session_id": request.session_id, "action": None}
 
-    if intent.kind == "run_analysis":
+    directive = _DIRECTIVE_BY_INTENT.get(intent.kind)
+    if directive is not None:
+        # Route không tự chạy thứ gì: nó phát directive, client gọi đúng handler mà nút vẫn
+        # gọi. Một đường cho mỗi việc, không phải hai.
         log.append("narration", AGENT_OBSERVER, intent.message, source="deterministic")
-        return {"session_id": request.session_id, "action": ACTION_START_RUN}
+        return {"session_id": request.session_id, "action": directive}
 
     moc = f" ở mốc +{intent.horizon} phút" if intent.horizon else ""
     log.append("agent_started", AGENT_OBSERVER, f"đọc câu hỏi của điều phối viên{moc}", source="system")

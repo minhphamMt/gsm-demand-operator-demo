@@ -18,7 +18,10 @@ vi.mock('@/features/operator-data', () => ({
 
 const { useObserverSession } = await import('@/features/operator-pipeline/hooks/useObserverSession')
 
-const askOptions = (onStartRun = vi.fn()) => ({ horizonMinutes: 15 as const, onStartRun })
+const askOptions = (handlers: Record<string, () => void> = {}) => ({
+  horizonMinutes: 15 as const,
+  handlers: { start_run: vi.fn(), ...handlers },
+})
 
 const line = (seq: number, kind: string, text = `dòng ${seq}`) => ({
   seq, at: `2026-08-28T17:02:${String(seq).padStart(2, '0')}+07:00`,
@@ -73,37 +76,46 @@ describe('useObserverSession', () => {
     expect(result.current.rows).toHaveLength(0)
   })
 
-  it('thi hành đúng directive start_run', async () => {
-    const onStartRun = vi.fn()
-    serverReplies('start_run')
+  it.each([
+    ['start_run', 'chạy phân tích'],
+    ['start_forecast', 'chạy dự báo'],
+    ['start_optimize', 'tính phương án'],
+  ])('thi hành đúng directive %s', async (action, cau) => {
+    const handler = vi.fn()
+    serverReplies(action)
     const { result } = renderHook(() => useObserverSession())
 
-    await act(async () => { result.current.ask('chạy phân tích', askOptions(onStartRun)) })
+    await act(async () => { result.current.ask(cau, askOptions({ [action]: handler })) })
 
-    expect(onStartRun).toHaveBeenCalledTimes(1)
+    expect(handler).toHaveBeenCalledTimes(1)
   })
 
   it.each(['approve_plan', 'issue_offers', 'execute_relocation', 'START_RUN', 'anything'])(
-    'bỏ qua directive lạ %s — allowlist của client là khoá thứ hai',
+    'bỏ qua directive lạ %s — map handler của client CHÍNH LÀ allowlist',
     async (action) => {
-      const onStartRun = vi.fn()
+      const chay = vi.fn()
+      const chayDuBao = vi.fn()
       serverReplies(action)
       const { result } = renderHook(() => useObserverSession())
 
-      await act(async () => { result.current.ask('làm gì đó đi', askOptions(onStartRun)) })
+      await act(async () => {
+        result.current.ask('làm gì đó đi', askOptions({ start_run: chay, start_forecast: chayDuBao }))
+      })
 
-      expect(onStartRun).not.toHaveBeenCalled()
+      // Directive không có handler thì không có gì chạy — không cần danh sách thứ hai để lệch.
+      expect(chay).not.toHaveBeenCalled()
+      expect(chayDuBao).not.toHaveBeenCalled()
     },
   )
 
   it('không directive thì không chạy gì cả', async () => {
-    const onStartRun = vi.fn()
+    const chay = vi.fn()
     serverReplies(null)
     const { result } = renderHook(() => useObserverSession())
 
-    await act(async () => { result.current.ask('thời tiết thế nào', askOptions(onStartRun)) })
+    await act(async () => { result.current.ask('thời tiết thế nào', askOptions({ start_run: chay })) })
 
-    expect(onStartRun).not.toHaveBeenCalled()
+    expect(chay).not.toHaveBeenCalled()
   })
 
   it('gộp câu trả lời của server vào cùng dòng chảy', async () => {

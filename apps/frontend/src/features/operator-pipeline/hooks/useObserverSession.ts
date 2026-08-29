@@ -20,15 +20,17 @@ const pollIntervalMs = 2_000
 // (tiến trình AI chết giữa chừng): không có nó thì popup poll mãi mãi.
 const maxPollsPerAsk = 30
 
-// Hành động client được phép thi hành. Danh sách này KHÔNG bao giờ được chứa việc chạm cổng
-// phê duyệt hay chạm tiền — hai thứ đó chỉ đi qua nút bấm (§11.1).
-const ALLOWED_ACTIONS = new Set(['start_run'])
-
 export type AskOptions = {
   horizonMinutes: ForecastHorizon
   snapshotId?: number | undefined
-  /** Chạy khi server trả về directive `start_run` **và** directive đó qua được allowlist. */
-  onStartRun: () => void
+  /** Việc client sẵn lòng làm, khoá theo tên directive.
+   *
+   * **Chính map này LÀ allowlist.** Server chỉ sinh ra ba directive, và ở đây kiểm lần nữa:
+   * directive không có handler thì không có gì chạy — không cần một danh sách thứ hai để rồi
+   * hai bên lệch nhau. Map này KHÔNG bao giờ được chứa việc chạm cổng phê duyệt hay chạm
+   * tiền; hai thứ đó chỉ đi qua nút bấm (§11.1).
+   */
+  handlers: Readonly<Record<string, () => void>>
 }
 
 export type ObserverSession = {
@@ -78,7 +80,7 @@ export function useObserverSession(): ObserverSession {
     return () => window.clearInterval(timer)
   }, [pollsLeft, absorb])
 
-  const ask = useCallback((text: string, { horizonMinutes, snapshotId, onStartRun }: AskOptions) => {
+  const ask = useCallback((text: string, { horizonMinutes, snapshotId, handlers }: AskOptions) => {
     const trimmed = text.trim()
     if (!trimmed) return
     // Hiện câu vừa gõ ngay lập tức. Server cố ý KHÔNG echo lại, nên không có bản thứ hai.
@@ -97,7 +99,8 @@ export function useObserverSession(): ObserverSession {
       { sessionId: sessionId.current, text: trimmed, horizonMinutes, snapshotId },
       {
         onSuccess: ({ action }) => {
-          if (action && ALLOWED_ACTIONS.has(action)) onStartRun()
+          const run = action ? handlers[action] : undefined
+          if (run) run()
           void fetchSession.current.mutateAsync({ sessionId: sessionId.current }).then(absorb).catch(() => undefined)
         },
         onError: (cause) => {

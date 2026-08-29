@@ -101,6 +101,22 @@ def test_directive_chi_co_the_la_start_run(zones: list[dict[str, object]]) -> No
     assert cong["action"] is None
 
 
+@pytest.mark.parametrize(
+    ("cau", "directive"),
+    [
+        ("chạy phân tích giúp tôi", "start_run"),
+        ("chạy dự báo", "start_forecast"),
+        ("tính phương án điều chuyển", "start_optimize"),
+    ],
+)
+def test_ba_directive_va_khong_cai_nao_cham_cong(zones: list[dict[str, object]], cau: str, directive: str) -> None:
+    """Cả ba chỉ khởi động thứ một cú bấm nút vẫn khởi động được, đi đúng đường cũ."""
+    with TestClient(app) as client:
+        body = client.post("/api/v1/observe", json=_payload(zones, cau)).json()
+
+    assert body["action"] == directive
+
+
 def test_route_khong_tu_chay_pipeline_ma_chi_bao_client(zones: list[dict[str, object]]) -> None:
     """Một đường tạo run, không phải hai: route chỉ phát directive, client gọi POST /runs."""
     with TestClient(app) as client:

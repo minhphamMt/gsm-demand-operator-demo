@@ -462,3 +462,8 @@
    ========================================================================= */
 .nf-pipeline-stage{min-height:0;flex:1}
 .nf-ops[data-stage="on"] .nf-ops-workspace{display:none}
+
+/* Bước quy trình đã chuyển sang gõ lệnh. Không phải nút xám — không có gì để bấm ở đây. */
+.nf-chat-step{display:flex;align-items:center;gap:9px;padding:11px 13px;border:1px dashed var(--nf-ops-line);border-radius:9px;background:var(--nf-ops-surface-2);color:var(--nf-ops-ink);font-size:11px;line-height:1.5}
+.nf-chat-step>svg{color:var(--nf-ops-teal-bright);flex:none}
+.nf-chat-step code{padding:2px 7px;border-radius:5px;background:rgba(53,183,165,.16);color:var(--nf-ops-teal-bright);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:700}

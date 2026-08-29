@@ -405,7 +405,20 @@ function mockAnswer(text: string): { action: string | null; events: MockLine[] }
       }],
     }
   }
-  if (has('chạy phân tích', 'chay phan tich', 'phân tích', 'phan tich', 'chạy lại', 'chay lai', 'phương án mới')) {
+  // Ba hành động, kiểm nhóm hẹp trước nhóm rộng: cả ba đều chứa chữ "chạy".
+  if (has('chạy dự báo', 'chay du bao', 'chạy lại dự báo', 'cập nhật dự báo', 'chạy model')) {
+    return {
+      action: 'start_forecast',
+      events: [{ kind: 'narration', actor: observer, source: 'deterministic', text: 'Chạy dự báo cung–cầu cho mốc đang chọn.' }],
+    }
+  }
+  if (has('tính phương án', 'tinh phuong an', 'tạo phương án', 'tao phuong an', 'tối ưu', 'toi uu')) {
+    return {
+      action: 'start_optimize',
+      events: [{ kind: 'narration', actor: observer, source: 'deterministic', text: 'Tính phương án điều chuyển từ dự báo hiện có.' }],
+    }
+  }
+  if (has('chạy phân tích', 'chay phan tich', 'phân tích', 'phan tich', 'chạy lại', 'chay lai')) {
     return {
       action: 'start_run',
       events: [{ kind: 'narration', actor: observer, source: 'deterministic', text: 'Bắt đầu một lượt phân tích mới.' }],

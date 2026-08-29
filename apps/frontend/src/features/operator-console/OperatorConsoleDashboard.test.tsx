@@ -12,6 +12,15 @@ import { mockOperatorAdapter } from '@/features/operator-data/api/mockOperatorAd
 import { createAgentPlans } from '@/features/operator-data/model/mockProposalEngine'
 import type { Zone } from '@/features/operator-data'
 
+/** Ra lệnh bằng cách gõ vào nhật ký agent — hai bước quy trình không còn nút bấm nào.
+ *
+ * Đi trọn đường thật: ô nhập → `askAgent` của mock adapter → directive → handler mà nút cũ gọi.
+ * Nên test vẫn khẳng định đúng thứ nó vẫn khẳng định, cộng thêm một tầng nữa.
+ */
+async function raLenh(cau: string) {
+  await userEvent.type(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' }), `${cau}{Enter}`)
+}
+
 function renderDashboard({ withActiveExecution = false }: { withActiveExecution?: boolean } = {}) {
   if (!withActiveExecution) {
     const listCampaigns = mockOperatorAdapter.listCampaigns
@@ -74,7 +83,7 @@ describe('operator console safety states', () => {
 
     await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
     expect(generate).not.toHaveBeenCalled()
-    await userEvent.click(screen.getByRole('button', { name: 'Chạy dự báo cung–cầu' }))
+    await raLenh('chạy dự báo')
     await waitFor(() => expect(generate).toHaveBeenCalledWith(expect.any(Number), 15))
 
     queryClient.clear()
@@ -89,7 +98,7 @@ describe('operator console safety states', () => {
     const nhatKy = screen.getByRole('log')
     expect(nhatKy).not.toHaveTextContent('NGƯỜI VẬN HÀNH')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Chạy dự báo cung–cầu' }))
+    await raLenh('chạy dự báo')
 
     await waitFor(() => expect(nhatKy).toHaveTextContent('[NGƯỜI VẬN HÀNH] > đã chạy dự báo horizon 15 phút'))
     queryClient.clear()
@@ -100,11 +109,27 @@ describe('operator console safety states', () => {
     const queryClient = renderDashboard()
 
     await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
-    await userEvent.click(screen.getByRole('button', { name: 'Chạy dự báo cung–cầu' }))
+    await raLenh('chạy dự báo')
 
     const nhatKy = screen.getByRole('log')
     await waitFor(() => expect(nhatKy).toHaveTextContent('chạy dự báo không thành — Snapshot đã cũ'))
     expect(nhatKy).not.toHaveTextContent('đã chạy dự báo horizon')
+    queryClient.clear()
+  }, 20_000)
+
+  it('nói rõ vì sao không chạy được, thay vì nhận lệnh rồi im', async () => {
+    // `runForecastFor` mở đầu bằng một guard `return` im lặng. Với một cái nút thì im lặng còn
+    // chấp nhận được — nút đã bị ẩn từ trước. Gõ chữ thì không: người vừa được trả lời "đang
+    // chạy dự báo" mà rồi không có gì xảy ra.
+    const generate = vi.spyOn(mockOperatorAdapter, 'generateAiDecision')
+    const queryClient = renderDashboard({ withActiveExecution: true })
+    await screen.findByRole('region', { name: 'Phương án đang chạy' }, { timeout: 15_000 })
+
+    await raLenh('chạy dự báo')
+
+    const nhatKy = screen.getByRole('log')
+    await waitFor(() => expect(nhatKy).toHaveTextContent('chạy dự báo không thành — đang có lệnh điều xe'))
+    expect(generate).not.toHaveBeenCalled()
     queryClient.clear()
   }, 20_000)
 
@@ -161,9 +186,10 @@ describe('operator console safety states', () => {
     const view = render(dashboard())
 
     await waitFor(() => expect(replay).toHaveBeenCalled())
-    await userEvent.click(await screen.findByRole('button', { name: 'Chạy dự báo cung–cầu' }))
+    await raLenh('chạy dự báo')
     await waitFor(() => expect(generate).toHaveBeenCalled())
-    expect(await screen.findByRole('button', { name: 'Tính phương án điều chuyển' })).toBeInTheDocument()
+    // Bước kế cũng đã chuyển sang gõ lệnh, nên chỗ này nói ra câu cần gõ chứ không còn nút.
+    expect(await screen.findByText('tính phương án')).toBeInTheDocument()
     const replayCallsDuringPlanning = replay.mock.calls.length
 
     replayAnchor = nextAnchor
@@ -173,7 +199,7 @@ describe('operator console safety states', () => {
     })
 
     expect(replay).toHaveBeenCalledTimes(replayCallsDuringPlanning)
-    expect(screen.getByRole('button', { name: 'Tính phương án điều chuyển' })).toBeInTheDocument()
+    expect(screen.getByText('tính phương án')).toBeInTheDocument()
     queryClient.clear()
   })
 

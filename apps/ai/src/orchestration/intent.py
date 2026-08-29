@@ -26,7 +26,15 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Literal
 
-IntentKind = Literal["run_analysis", "observe", "gate_blocked", "horizon_unsupported", "unknown"]
+IntentKind = Literal[
+    "run_analysis",
+    "start_forecast",
+    "start_optimize",
+    "observe",
+    "gate_blocked",
+    "horizon_unsupported",
+    "unknown",
+]
 
 # Tool quan sát mà một ý định có thể dẫn tới. Đúng bằng allowlist của `AGENT_OBSERVER` —
 # danh sách này không được phép rộng hơn allowlist đó.
@@ -82,14 +90,41 @@ _GATE_KEYWORDS: tuple[str, ...] = (
     "dieu xe that",
 )
 
+# Ba nhóm hành động, và **thứ tự kiểm giữa chúng quan trọng**. Cả ba đều chứa chữ "chạy",
+# nên nhóm hẹp hơn phải đứng trước nhóm rộng hơn: "chạy dự báo" không được rơi vào
+# "chay lai" của nhóm phân tích.
+#
+# Ba việc này khác nhau ở chỗ chúng ĐỂ LẠI GÌ, không phải ở chỗ chúng chạy cái gì:
+#   · dự báo   — ghi một forecast run vào DB, chưa có phương án nào
+#   · tối ưu   — ghi một proposal vào DB, đây mới là thứ đem đi duyệt
+#   · phân tích — lượt chạy đồ thị đa-agent, KHÔNG ghi gì; nó cho xem agent suy luận
+#
+# Trước bản này, "tạo phương án" nằm ở nhóm phân tích — gõ câu đó chạy một lượt agent rồi
+# không sinh ra phương án nào. Người dùng tưởng đã tạo, mà chưa.
+_FORECAST_KEYWORDS: tuple[str, ...] = (
+    "chay du bao",
+    "chay lai du bao",
+    "du bao lai",
+    "chay model du bao",
+    "chay model",
+    "cap nhat du bao",
+)
+
+_OPTIMIZE_KEYWORDS: tuple[str, ...] = (
+    "tinh phuong an",
+    "tao phuong an",
+    "sinh phuong an",
+    "lap phuong an",
+    "toi uu",
+    "optimize",
+    "dieu chuyen xe",
+)
+
 _RUN_KEYWORDS: tuple[str, ...] = (
     "chay phan tich",
     "phan tich lai",
     "chay lai",
     "phan tich",
-    "tao phuong an",
-    "sinh phuong an",
-    "lap phuong an",
     "chay pipeline",
     "chay agent",
 )
@@ -159,6 +194,12 @@ def classify(text: str) -> Intent:
     horizon = parse_horizon(text)
     if horizon is not None and horizon not in SUPPORTED_HORIZONS:
         return Intent(kind="horizon_unsupported", message=horizon_refusal(horizon), horizon=horizon)
+
+    if any(keyword in normalised for keyword in _FORECAST_KEYWORDS):
+        return Intent(kind="start_forecast", message="Chạy dự báo cung–cầu cho mốc đang chọn.", horizon=horizon)
+
+    if any(keyword in normalised for keyword in _OPTIMIZE_KEYWORDS):
+        return Intent(kind="start_optimize", message="Tính phương án điều chuyển từ dự báo hiện có.", horizon=horizon)
 
     if any(keyword in normalised for keyword in _RUN_KEYWORDS):
         return Intent(kind="run_analysis", message="Bắt đầu một lượt phân tích mới.", horizon=horizon)

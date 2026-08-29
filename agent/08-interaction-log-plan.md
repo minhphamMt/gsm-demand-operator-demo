@@ -373,6 +373,37 @@ người đọc cần phân biệt. Hai cổng §11.1 còn mang mã riêng (`GAT
 `GATE_CAMPAIGN_CONFIRMED`) và được tô khác, vì đọc lại nhật ký về sau thì thứ phải tìm thấy trước
 tiên là "ai đã quyết định gì", không phải agent đã gọi tool nào.
 
+### Chặng 8 — Bỏ nút quy trình, ra lệnh bằng chữ · BẮT BUỘC
+
+> **Thêm 29/08 theo yêu cầu của PM.** Bỏ hai nút quy trình, chuyển sang gõ vào nhật ký.
+
+Kiểm trước khi bỏ thì thấy **chat chưa thay được nút nào cả**. Theo mô tả trong
+`ai.controller.ts`: nút dự báo *"run and **persist** a trained forecast"*, nút tối ưu *"run the
+optimizer and **persist its proposal**"*, còn `POST /runs` mà chat gọi chỉ *"start a multi-agent
+pipeline run and return its polling id"* — **không ghi gì vào DB**. Bỏ nút mà không thêm gì thì
+chế độ `api` mất hẳn đường tạo phương án, và dòng chờ duyệt ở Chặng 6 không còn gì đứng sau.
+
+Nên đây là **thêm việc, không phải xoá việc**: hai directive mới `start_forecast` và
+`start_optimize`, gọi đúng handler mà nút vẫn gọi. Ba điều đáng ghi:
+
+1. **Ba hành động khác nhau ở chỗ chúng ĐỂ LẠI GÌ**, không ở chỗ chúng chạy cái gì: dự báo ghi
+   một forecast run · tối ưu ghi một proposal · phân tích không ghi gì. Cả ba đều chứa chữ
+   "chạy" nên nhóm hẹp phải kiểm trước nhóm rộng — `"chạy lại dự báo"` mà rơi vào `chay lai`
+   của nhóm phân tích là chạy một lượt agent không ghi forecast nào.
+2. **Sửa luôn một lỗi sẵn có.** `"tạo phương án"` trước đây nằm ở nhóm phân tích: gõ câu đó
+   chạy một lượt agent rồi **không sinh ra phương án nào**. Người dùng tưởng đã tạo mà chưa.
+3. **Handler map CHÍNH LÀ allowlist của client.** Bỏ danh sách hằng riêng: directive không có
+   handler thì không có gì chạy, nên không có hai chỗ để lệch nhau. Map này không bao giờ được
+   chứa việc chạm cổng §11.1 — duyệt và phát hành campaign vẫn chỉ mở bằng nút.
+
+**Chạy thật bắt được một lỗi test không bắt:** `runForecastFor` và `optimize` đều mở đầu bằng
+guard `return` im lặng. Với một cái nút thì im lặng còn chấp nhận được — nút đã bị ẩn từ trước.
+Gõ chữ thì không: người vừa được trả lời *"đang chạy dự báo"* mà rồi không có gì xảy ra. Mỗi
+handler giờ nói ra lý do bị chặn.
+
+Chỗ của nút cũ không để lại nút xám — nó nói ra câu cần gõ. Một nút vô hiệu hoá là lời mời bấm
+vào thứ không làm gì.
+
 ### Chặng 4 — Bước thực thi sau khi duyệt · NÊN CÓ
 
 - Ánh xạ `AuditEntry` → dòng log qua `auditLabels.ts` đã có.

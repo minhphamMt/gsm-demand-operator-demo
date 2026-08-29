@@ -54,10 +54,20 @@ def test_cong_phe_duyet_thang_khi_cau_lan_ca_hai_nhom_tu_khoa() -> None:
 
 @pytest.mark.parametrize(
     "cau",
-    ["chạy phân tích", "chay phan tich di", "phân tích lại giúp tôi", "tạo phương án mới", "chạy lại"],
+    ["chạy phân tích", "chay phan tich di", "phân tích lại giúp tôi", "chạy lại"],
 )
 def test_nhan_ra_lenh_chay_phan_tich(cau: str) -> None:
     assert classify(cau).kind == "run_analysis"
+
+
+def test_tao_phuong_an_khong_con_la_lenh_phan_tich() -> None:
+    """Sửa một hành vi sai, không nới lỏng một test.
+
+    "tạo phương án" từng rơi vào nhóm phân tích — gõ câu đó chạy một lượt agent rồi **không
+    sinh ra phương án nào**, vì `POST /runs` không ghi gì vào DB. Người dùng tưởng đã tạo mà
+    chưa. Giờ nó dẫn tới `start_optimize`, tức đúng cái endpoint ghi proposal.
+    """
+    assert classify("tạo phương án mới").kind == "start_optimize"
 
 
 @pytest.mark.parametrize(
@@ -184,3 +194,58 @@ def test_moc_ho_tro_khop_hop_dong_forecast() -> None:
     from src.contracts.forecast import HorizonMin
 
     assert set(SUPPORTED_HORIZONS) == set(HorizonMin.__args__)
+
+
+# --- Ba hành động khác nhau ở chỗ chúng ĐỂ LẠI GÌ ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("cau", "kind"),
+    [
+        # Dự báo: ghi một forecast run, chưa có phương án nào.
+        ("chạy dự báo", "start_forecast"),
+        ("chay du bao 15 phut", "start_forecast"),
+        ("chạy lại dự báo", "start_forecast"),
+        ("cập nhật dự báo đi", "start_forecast"),
+        # Tối ưu: ghi một proposal — đây mới là thứ đem đi duyệt.
+        ("tính phương án điều chuyển", "start_optimize"),
+        ("tạo phương án", "start_optimize"),
+        ("tối ưu đi", "start_optimize"),
+        # Phân tích: lượt chạy đồ thị đa-agent, KHÔNG ghi gì.
+        ("chạy phân tích", "run_analysis"),
+        ("chạy lại", "run_analysis"),
+        ("phân tích lại giúp tôi", "run_analysis"),
+    ],
+)
+def test_ba_hanh_dong_khong_lan_nhau(cau: str, kind: str) -> None:
+    assert classify(cau).kind == kind
+
+
+def test_chay_du_bao_khong_roi_vao_nhom_phan_tich() -> None:
+    """Cả ba nhóm đều chứa chữ "chạy"; nhóm hẹp phải được kiểm trước nhóm rộng.
+
+    `_RUN_KEYWORDS` có "chay lai", nên "chạy lại dự báo" sẽ rơi nhầm vào phân tích nếu đảo
+    thứ tự — và một lượt agent thì không ghi forecast nào vào DB.
+    """
+    assert classify("chạy lại dự báo").kind == "start_forecast"
+    assert classify("chạy lại").kind == "run_analysis"
+
+
+def test_hoi_ve_du_bao_khac_voi_chay_du_bao() -> None:
+    """ "dự báo thế nào" là câu HỎI, "chạy dự báo" là LỆNH. Lẫn hai cái là chạy model khi
+    người ta chỉ muốn xem số, hoặc chỉ đọc số khi người ta muốn chạy."""
+    hoi = classify("dự báo thế nào")
+    lenh = classify("chạy dự báo")
+
+    assert hoi.kind == "observe"
+    assert hoi.tool == "run_forecast"
+    assert lenh.kind == "start_forecast"
+    assert lenh.tool is None
+
+
+def test_khong_hanh_dong_nao_cham_cong_phe_duyet() -> None:
+    """Ba hành động chỉ khởi động thứ mà một cú bấm nút vẫn khởi động được."""
+    for cau in ("chạy dự báo", "tính phương án", "chạy phân tích"):
+        assert classify(cau).kind != "gate_blocked"
+    for cau in ("duyệt phương án", "phát hành campaign", "kích hoạt offer"):
+        assert classify(cau).kind == "gate_blocked"
