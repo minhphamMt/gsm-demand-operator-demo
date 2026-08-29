@@ -418,6 +418,30 @@ Sửa: AI service nói đúng điều nó biết — *"phân tích đạt PROPOS
 thứ có nút bấm đi kèm. Nó mang `origin: 'gate'` riêng: nhét vào `action` thì `seq` thắng và nó
 bị ghim trước mọi thao tác bất kể thời điểm.
 
+**Sửa 29/08 — nhật ký phải đọc như hội thoại, và phải có một đồng hồ.**
+
+Một ảnh chụp của PM phơi ra hai lỗi cùng lúc:
+
+```
+[04:16:02] > hello                                    ← UTC
+[11:16:03] [OBSERVER] > đọc câu hỏi của điều phối viên  ← nhiễu
+[11:16:14] [OBSERVER] > Xin chào! …             ~llm  ← câu trả lời thật
+[11:16:14] [OBSERVER] > trả lời xong                   ← nhiễu
+```
+
+1. **`agent_started`/`agent_finished` của phiên hỏi–đáp là hợp đồng cho máy, không phải lời nói
+   với người.** Hook đếm chúng để biết khi nào ngừng poll — cần trên dây, nhưng đọc ra thì chỉ
+   là tiếng ồn kẹp quanh câu trả lời. `conversationRows` lọc chúng ở nguồn `session`, và **giữ**
+   ở nguồn `run`: ở đó chúng đánh dấu từng chặng của đồ thị, tức đúng thứ người xem muốn thấy.
+2. **Ba nguồn, ba quy ước thời gian.** Dòng client dựng bằng `new Date().toISOString()` (UTC),
+   AI service dùng `now_iso()` (+07:00), Postgres trả `+00:00`. `eventClock` cắt thẳng ký tự
+   11–19 nên hiện lệch 7 tiếng ở hai trong ba nguồn — và `mergeLogRows` so **chuỗi** nên
+   `...T11:02+00:00` bị xếp trước `...T17:02+07:00` dù nó muộn hơn.
+
+   Sửa cả hai đầu: `eventClock` quy về `Asia/Ho_Chi_Minh` bằng `Intl` (vẫn ghim múi giờ, không
+   dùng múi của máy đang xem), và `mergeLogRows` so bằng `Date.parse` thay vì so chuỗi.
+   `operatorNowIso()` giữ lại vì **sắp xếp** cần mọi nguồn cùng một quy ước, không chỉ hiển thị.
+
 ### Chặng 4 — Bước thực thi sau khi duyệt · NÊN CÓ
 
 - Ánh xạ `AuditEntry` → dòng log qua `auditLabels.ts` đã có.

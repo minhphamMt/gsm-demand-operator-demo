@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useOperatorActions, type ForecastHorizon } from '@/features/operator-data'
 import type { LogRow } from '@/features/operator-console/model/logRows'
+import { operatorNowIso } from '@/features/operator-pipeline/model/pipelineRun'
 import { isRunEvent } from '@/features/operator-pipeline/model/pipelineRunGuard'
 
 const pollIntervalMs = 2_000
@@ -87,7 +88,7 @@ export function useObserverSession(): ObserverSession {
     setOperatorRows((current) => [...current, {
       origin: 'operator',
       seq: current.length + 1,
-      at: new Date().toISOString(),
+      at: operatorNowIso(),
       kind: 'operator_message',
       actor: 'operator',
       text: trimmed,
@@ -108,7 +109,7 @@ export function useObserverSession(): ObserverSession {
           setServerRows((current) => [...current, {
             origin: 'session',
             seq: (current.at(-1)?.seq ?? 0) + 1,
-            at: new Date().toISOString(),
+            at: operatorNowIso(),
             kind: 'warning',
             actor: 'observer',
             text: cause instanceof Error ? cause.message : 'Không gửi được câu hỏi.',

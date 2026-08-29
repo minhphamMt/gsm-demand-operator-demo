@@ -5,7 +5,7 @@ import { isPlanInputFresh } from '@/features/operator-data/model/proposalRules'
 import { createSeededOperatorState } from '@/features/operator-data/model/seedOperatorState'
 import { eligibleDriversFor, refreshStaleProposalQueue, withLiveEligibility } from '@/features/operator-data/model/proposalWorkflowState'
 import { createZones } from '@/features/operator-data/model/zoneGeometry'
-import type { PipelineRunRecord, RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
+import { operatorNowIso, type PipelineRunRecord, type RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 import type { AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DispatchBatch, DriverView, Offer, OperationsReport, OperationsReportFilters, OperatorDataAdapter, PersistentNotification, Proposal, ScenarioComparison, Snapshot } from '@/features/operator-data/model/types'
 
 const baseZones = createZones()
@@ -355,7 +355,7 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     mockSessions.set(sessionId, [...log, ...reply.events.map((event, index) => ({
       ...event,
       seq: log.length + index + 1,
-      at: new Date().toISOString(),
+      at: operatorNowIso(),
     }))])
     return { sessionId, action: reply.action }
   }),

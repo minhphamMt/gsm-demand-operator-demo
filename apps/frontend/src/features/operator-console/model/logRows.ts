@@ -43,7 +43,10 @@ export function mergeLogRows(
   // và trong cùng một nguồn, thứ tự đó chính là thứ tự `seq`.
   return rows.sort((left, right) => {
     if (left.origin === right.origin) return left.seq - right.seq
-    return left.at < right.at ? -1 : left.at > right.at ? 1 : 0
+    // So bằng `Date.parse`, KHÔNG so chuỗi: các nguồn mang offset khác nhau — AI service dùng
+    // `+07:00`, Postgres trả `+00:00`. So chuỗi thì `...T04:20+00:00` nhỏ hơn `...T11:20+07:00`
+    // dù hai cái là **cùng một khoảnh khắc**, và mọi dòng audit bị đẩy lên đầu nhật ký.
+    return (Date.parse(left.at) || 0) - (Date.parse(right.at) || 0)
   })
 }
 
@@ -90,4 +93,20 @@ export function awaitingApprovalRow(
     source: 'system',
     code: 'AWAITING_APPROVAL',
   }]
+}
+
+/** Bỏ những dòng chỉ tồn tại cho máy, giữ lại những dòng nói với người.
+ *
+ * `agent_started` và `agent_finished` của một phiên hỏi–đáp là **hợp đồng để client biết khi
+ * nào ngừng poll** — hook đếm hai loại đó. Chúng cần thiết trên dây, nhưng đọc ra thành
+ * "đọc câu hỏi của điều phối viên" rồi "trả lời xong" thì chỉ là tiếng ồn kẹp quanh câu trả
+ * lời thật, và làm một cuộc hội thoại đọc như một bản dump.
+ *
+ * Cùng hai loại đó ở nguồn `run` thì **giữ**: ở đó chúng đánh dấu từng chặng của đồ thị —
+ * Forecast, Dispatch, Optimization — tức đúng thứ người xem muốn thấy.
+ */
+export function conversationRows(rows: readonly LogRow[]): readonly LogRow[] {
+  return rows.filter(
+    (row) => !(row.origin === 'session' && (row.kind === 'agent_started' || row.kind === 'agent_finished')),
+  )
 }

@@ -11,6 +11,7 @@
 import { useCallback, useState } from 'react'
 
 import type { LogRow } from '@/features/operator-console/model/logRows'
+import { operatorNowIso } from '@/features/operator-pipeline/model/pipelineRun'
 import {
   failureDetail,
   operatorLogLine,
@@ -33,7 +34,7 @@ export function useOperatorActionLog(): OperatorActionLog {
     setRows((current) => [...current, {
       origin: 'action',
       seq: current.length + 1,
-      at: new Date().toISOString(),
+      at: operatorNowIso(),
       kind: ok ? 'operator_action' : 'warning',
       actor: 'operator',
       text: line.text,

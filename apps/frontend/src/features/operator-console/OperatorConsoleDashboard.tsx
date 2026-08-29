@@ -50,7 +50,7 @@ import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline"
 import { usePipelineRun } from "@/features/operator-pipeline/hooks/usePipelineRun";
 import { useObserverSession } from "@/features/operator-pipeline/hooks/useObserverSession";
 import { AgentInteractionLog } from "@/features/operator-console/components/AgentInteractionLog";
-import { awaitingApprovalRow, mergeLogRows } from "@/features/operator-console/model/logRows";
+import { awaitingApprovalRow, conversationRows, mergeLogRows } from "@/features/operator-console/model/logRows";
 import { auditLogRows } from "@/features/operator-console/model/auditLogRows";
 import { useOperatorActionLog } from "@/features/operator-console/hooks/useOperatorActionLog";
 import { AiImpactChart } from "./components/AiImpactChart";
@@ -924,7 +924,7 @@ export function OperatorConsoleDashboard() {
           isBusy={observer.isBusy}
           isRunning={pipeline.run?.status === "RUNNING"}
           onAsk={(text) => observer.ask(text, { ...pipelineInput, handlers: chatHandlers })}
-          rows={mergeLogRows(pipeline.events, [
+          rows={conversationRows(mergeLogRows(pipeline.events, [
             ...observer.rows,
             ...operatorLog.rows,
             // Bước sau duyệt và phản hồi tài xế, đọc từ audit đã bền hoá ở DB (MA-6.9).
@@ -932,7 +932,7 @@ export function OperatorConsoleDashboard() {
             // Dòng chờ duyệt dựng từ phương án THẬT trong CSDL, không từ lượt chạy đồ thị:
             // `POST /runs` không ghi phương án nào, nên nó không biết có gì để duyệt.
             ...awaitingApprovalRow(plan, canReviewPlan),
-          ])}
+          ]))}
       />
       {pipelineOpen && (
         <PipelineModal

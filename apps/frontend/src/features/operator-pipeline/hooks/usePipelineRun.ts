@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useOperatorActions, type ForecastHorizon } from '@/features/operator-data'
-import type { PipelineRunRecord, RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
+import { operatorNowIso, type PipelineRunRecord, type RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 import { isRunEvent } from '@/features/operator-pipeline/model/pipelineRunGuard'
 import { AppError } from '@/shared/api/client'
 
@@ -68,7 +68,7 @@ export function usePipelineRun(): PipelineRunState {
       // dòng nào từ server tới để đụng số.
       return [...current, {
         seq: (current.at(-1)?.seq ?? 0) + 1,
-        at: new Date().toISOString(),
+        at: operatorNowIso(),
         kind: 'warning',
         actor: 'graph',
         text: 'Máy chủ đã thu hồi lượt chạy này; nhật ký dừng ở đây.',

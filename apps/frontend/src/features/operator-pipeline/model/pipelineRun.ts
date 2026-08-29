@@ -62,15 +62,42 @@ export type RunEvent = {
   code?: string | null
 }
 
-/** Giờ hiển thị `HH:MM:SS` cắt thẳng từ chuỗi ISO có offset +07:00 của server.
+// Múi giờ vận hành, cố định. Mọi dòng nhật ký hiện theo nó, bất kể máy đang xem ở đâu — hai
+// người ở hai múi giờ phải đọc ra cùng một mốc cho cùng một sự kiện.
+const OPERATIONS_TIMEZONE = 'Asia/Ho_Chi_Minh'
+
+const clockFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: OPERATIONS_TIMEZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+})
+
+/** Mốc "bây giờ" theo giờ vận hành, cùng khuôn với `now_iso()` của AI service.
  *
- * Không `new Date()` rồi format lại: mốc đã ở giờ vận hành, dựng lại Date sẽ đổi nó sang
- * múi giờ của máy đang xem và làm hai người ở hai múi giờ đọc ra hai dòng thời gian khác nhau
- * cho cùng một sự kiện.
+ * Cần cho **sắp xếp**, không chỉ hiển thị: `mergeLogRows` so mốc giữa các nguồn, và một dòng
+ * client mang `Z` nằm cạnh dòng server mang `+07:00` là hai quy ước trong một dòng chảy.
+ *
+ * Việt Nam là UTC+7 cố định, không có giờ mùa hè, nên phép cộng này đủ và không cần thư viện.
+ */
+export function operatorNowIso(): string {
+  const shifted = new Date(Date.now() + 7 * 60 * 60 * 1000)
+  return `${shifted.toISOString().slice(0, 19)}+07:00`
+}
+
+/** Giờ hiển thị `HH:MM:SS` của một mốc ISO, quy về giờ vận hành.
+ *
+ * **Đổi múi giờ, không cắt chuỗi.** Bản trước cắt thẳng ký tự 11–19 vì giả định mốc luôn mang
+ * offset +07:00 — đúng với sự kiện của AI service, nhưng sai với bản ghi audit: Postgres trả
+ * `+00:00`, nên chúng hiện lệch đúng 7 tiếng ngay cạnh những dòng khác trong cùng nhật ký.
+ *
+ * Vẫn không dùng múi giờ của máy đang xem: `timeZone` được ghim, nên kết quả không phụ thuộc
+ * người mở màn hình đang ngồi đâu.
  */
 export function eventClock(at: string): string {
-  const time = at.slice(11, 19)
-  return /^\d{2}:\d{2}:\d{2}$/.test(time) ? time : '--:--:--'
+  const instant = Date.parse(at)
+  return Number.isNaN(instant) ? '--:--:--' : clockFormat.format(instant)
 }
 
 export type PipelinePlan = {

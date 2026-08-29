@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { awaitingApprovalRow, liveAwaitingSeq, mergeLogRows, rowKey, type LogRow } from '@/features/operator-console/model/logRows'
+import { awaitingApprovalRow, conversationRows, liveAwaitingSeq, mergeLogRows, rowKey, type LogRow } from '@/features/operator-console/model/logRows'
 import { GATE_CAMPAIGN_CODE, GATE_PLAN_CODE, GATE_PLAN_REJECTED_CODE } from '@/features/operator-console/model/operatorLog'
 import type { RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
@@ -43,6 +43,19 @@ describe('mergeLogRows', () => {
 
     expect(merged).toHaveLength(4)
     expect(new Set(merged.map(rowKey)).size).toBe(4)
+  })
+
+  it('sắp theo khoảnh khắc, không theo chuỗi — hai nguồn dùng hai offset khác nhau', () => {
+    // Dòng run ở 17:02:04+07:00 = 10:02:04 UTC. Dòng audit ở 11:02:05 UTC, tức MUỘN HƠN.
+    // So chuỗi thì "11:02:05+00:00" < "17:02:04+07:00" nên audit bị đẩy lên trước — sai.
+    // So khoảnh khắc thì đúng thứ tự. Đây là ca phân biệt được hai cách so.
+    const utcSau: LogRow = {
+      origin: 'audit', seq: 1, at: '2026-08-28T11:02:05+00:00', kind: 'audit_record',
+      actor: 'execution', text: 'audit', source: 'system',
+    }
+    const merged = mergeLogRows([runEvent(1, 4)], [utcSau])
+
+    expect(merged.map((row) => row.origin)).toEqual(['run', 'audit'])
   })
 
   it('không nguồn nào rỗng thì vỡ', () => {
@@ -139,5 +152,42 @@ describe('awaitingApprovalRow', () => {
 
   it('dòng dựng ra vẫn được liveAwaitingSeq nhận là đang treo', () => {
     expect(liveAwaitingSeq(awaitingApprovalRow(plan, true))).not.toBeNull()
+  })
+})
+
+describe('conversationRows', () => {
+  const row = (origin: LogRow['origin'], kind: string, text: string): LogRow => ({
+    origin, seq: 1, at: at(1), kind, actor: 'observer', text, source: 'system',
+  })
+
+  it('bỏ hai dòng kẹp quanh câu trả lời của phiên hỏi–đáp', () => {
+    // Chúng là hợp đồng để client biết khi nào ngừng poll, không phải lời nói với người.
+    const rows = [
+      row('operator', 'operator_message', 'hello'),
+      row('session', 'agent_started', 'đọc câu hỏi của điều phối viên'),
+      row('session', 'narration', 'Xin chào! Tôi có thể hỗ trợ gì?'),
+      row('session', 'agent_finished', 'trả lời xong'),
+    ]
+
+    expect(conversationRows(rows).map((r) => r.text)).toEqual(['hello', 'Xin chào! Tôi có thể hỗ trợ gì?'])
+  })
+
+  it('GIỮ hai loại đó ở nguồn run — ở đó chúng là các chặng của đồ thị', () => {
+    const rows = [
+      row('run', 'agent_started', 'đánh giá tình hình cung–cầu'),
+      row('run', 'agent_finished', 'đánh giá xong (DONE)'),
+    ]
+
+    expect(conversationRows(rows)).toHaveLength(2)
+  })
+
+  it('không đụng tới tool, narration hay cảnh báo của phiên', () => {
+    const rows = [
+      row('session', 'tool_started', 'gọi get_weather()'),
+      row('session', 'tool_finished', '23 zone mưa'),
+      row('session', 'warning', 'tầng LLM không dùng được'),
+    ]
+
+    expect(conversationRows(rows)).toHaveLength(3)
   })
 })
