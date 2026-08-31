@@ -24,7 +24,9 @@ const row = (seq: number, patch: Partial<LogRow> = {}): LogRow => ({
 
 function show(rows: readonly LogRow[], props: Partial<Parameters<typeof AgentInteractionLog>[0]> = {}) {
   const onAsk = vi.fn()
-  const view = render(<AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={rows} {...props} />)
+  const view = render(
+    <AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={rows} thinking={[]} {...props} />,
+  )
   return { onAsk, ...view }
 }
 
@@ -202,7 +204,7 @@ describe('AgentInteractionLog', () => {
     expect(screen.queryByRole('log')).not.toBeInTheDocument()
 
     rerender(
-      <AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2), row(3), row(4)]} />,
+      <AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2), row(3), row(4)]} thinking={[]} />,
     )
 
     expect(screen.getByRole('button')).toHaveTextContent('2 dòng mới')
@@ -211,11 +213,35 @@ describe('AgentInteractionLog', () => {
   it('mở lại từ thanh thu gọn và xoá số dòng chưa đọc', async () => {
     const { rerender, onAsk } = show([row(1)], { isRunning: true })
     await userEvent.click(screen.getByRole('button', { name: 'Thu gọn nhật ký' }))
-    rerender(<AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2)]} />)
+    rerender(<AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2)]} thinking={[]} />)
 
     await userEvent.click(screen.getByRole('button', { name: /Nhật ký agent/ }))
 
     expect(screen.getByRole('log')).toBeInTheDocument()
     expect(screen.queryByText(/dòng mới/)).not.toBeInTheDocument()
+  })
+
+  it('nêu tên agent đang chạy trong lúc chờ câu trả lời', () => {
+    // Khoảng lặng giữa lúc gõ xong và lúc câu trả lời hiện ra dài vài giây. Không có dòng này
+    // thì nó trông hệt như hệ thống đã chết, và người vận hành sẽ gõ lại câu vừa gõ.
+    show([row(1, { origin: 'operator', text: 'zone nào đang thiếu xe' })], {
+      thinking: [row(2, { origin: 'session', kind: 'agent_started', actor: 'observer' })],
+    })
+
+    const region = within(screen.getByRole('region', { name: 'Nhật ký agent' }))
+    expect(region.getByText(/đang suy nghĩ/)).toBeInTheDocument()
+    expect(region.getByText('[OBSERVER]')).toBeInTheDocument()
+  })
+
+  it('gọi đúng tên từng agent của đồ thị, không gộp thành một', () => {
+    show([], { thinking: [row(1, { kind: 'agent_started', actor: 'optimization' })] })
+
+    expect(screen.getByText('[OPTIMIZATION_AGENT]')).toBeInTheDocument()
+  })
+
+  it('không có dòng chờ nào khi không agent nào đang chạy', () => {
+    show([row(1)])
+
+    expect(screen.queryByText(/đang suy nghĩ/)).not.toBeInTheDocument()
   })
 })

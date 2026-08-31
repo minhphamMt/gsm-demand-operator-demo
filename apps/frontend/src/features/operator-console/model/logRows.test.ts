@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { awaitingApprovalRow, conversationRows, liveAwaitingSeq, mergeLogRows, rowKey, type LogRow } from '@/features/operator-console/model/logRows'
+import { awaitingApprovalRow, conversationRows, liveAwaitingSeq, mergeLogRows, rowKey, thinkingRows, type LogRow } from '@/features/operator-console/model/logRows'
 import { GATE_CAMPAIGN_CODE, GATE_PLAN_CODE, GATE_PLAN_REJECTED_CODE } from '@/features/operator-console/model/operatorLog'
 import type { RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
@@ -189,5 +189,59 @@ describe('conversationRows', () => {
     ]
 
     expect(conversationRows(rows)).toHaveLength(3)
+  })
+})
+
+describe('thinkingRows', () => {
+  const started = (origin: LogRow['origin'], actor: string, seq: number): LogRow => ({
+    origin, seq, at: at(seq), kind: 'agent_started', actor, text: 'bắt đầu', source: 'system',
+  })
+  const finished = (origin: LogRow['origin'], actor: string, seq: number): LogRow => ({
+    origin, seq, at: at(seq), kind: 'agent_finished', actor, text: 'xong', source: 'system',
+  })
+
+  it('nêu tên agent còn đang chạy dở', () => {
+    expect(thinkingRows([started('session', 'observer', 1)]).map((row) => row.actor)).toEqual(['observer'])
+  })
+
+  it('im ngay khi agent đó báo xong', () => {
+    expect(thinkingRows([started('session', 'observer', 1), finished('session', 'observer', 2)])).toEqual([])
+  })
+
+  it('một agent xong không tắt dòng chờ của agent khác', () => {
+    // Đồ thị chạy nhiều agent nối nhau. Nếu chỉ đếm tổng started/finished thì `agent_finished`
+    // của Dự báo sẽ tắt luôn dòng chờ của Tối ưu — hiện sai tên đúng lúc cần đúng tên nhất.
+    const rows = [
+      started('run', 'forecast', 1),
+      started('run', 'optimization', 2),
+      finished('run', 'forecast', 3),
+    ]
+
+    expect(thinkingRows(rows).map((row) => row.actor)).toEqual(['optimization'])
+  })
+
+  it('cùng tên agent ở hai nguồn khác nhau là hai lượt riêng', () => {
+    const rows = [started('run', 'observer', 1), started('session', 'observer', 1), finished('run', 'observer', 2)]
+
+    expect(thinkingRows(rows).map((row) => row.origin)).toEqual(['session'])
+  })
+
+  it('agent chạy lại lần nữa vẫn chỉ là một dòng chờ', () => {
+    const rows = [
+      started('session', 'observer', 1),
+      finished('session', 'observer', 2),
+      started('session', 'observer', 3),
+    ]
+
+    expect(thinkingRows(rows).map((row) => row.seq)).toEqual([3])
+  })
+
+  it('đọc được thứ mà `conversationRows` đã lọc mất', () => {
+    // Đây là lý do dòng chờ suy ra từ hàng CHƯA lọc: bộ lọc hội thoại bỏ đúng `agent_started`
+    // của phiên hỏi–đáp, nên lọc trước rồi mới suy thì luôn ra rỗng.
+    const rows = [started('session', 'observer', 1)]
+
+    expect(conversationRows(rows)).toEqual([])
+    expect(thinkingRows(rows)).toHaveLength(1)
   })
 })

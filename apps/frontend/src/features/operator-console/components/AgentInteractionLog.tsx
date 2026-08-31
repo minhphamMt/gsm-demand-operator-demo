@@ -17,6 +17,11 @@ import { eventClock } from '@/features/operator-pipeline/model/pipelineRun'
 
 export type AgentInteractionLogProps = {
   rows: readonly LogRow[]
+  /** Agent đang chạy dở, hiện thành dòng "đang suy nghĩ" tạm ở đáy nhật ký.
+   *
+   * Là prop chứ không tự suy ra từ `rows`: `rows` đã qua `conversationRows`, và bộ lọc đó bỏ
+   * đúng những `agent_started` cần để biết ai đang chạy. */
+  thinking: readonly LogRow[]
   isRunning: boolean
   isBusy: boolean
   onAsk: (text: string) => void
@@ -46,7 +51,7 @@ function toneOf(row: LogRow, liveAwaiting: number | null): string {
   return ''
 }
 
-export function AgentInteractionLog({ rows, isRunning, isBusy, onAsk }: AgentInteractionLogProps) {
+export function AgentInteractionLog({ rows, thinking, isRunning, isBusy, onAsk }: AgentInteractionLogProps) {
   const [isOpen, setIsOpen] = useState(true)
   const [seenCount, setSeenCount] = useState(0)
   const [isPinned, setIsPinned] = useState(true)
@@ -137,6 +142,18 @@ export function AgentInteractionLog({ rows, isRunning, isBusy, onAsk }: AgentInt
                 {row.source === 'llm' && <span className="nf-agent-log__llm" title="Dòng do LLM viết">~llm</span>}
               </>
             )}
+          </p>
+        ))}
+        {/* Dòng tạm, không có trong `rows` và không bao giờ đi vào nhật ký: nó biến mất ngay
+            khi `agent_finished` tới. Khoá theo actor để React không dựng lại phần tử mỗi
+            lượt poll — dựng lại sẽ khởi động lại animation và ba chấm nhấp nháy loạn nhịp. */}
+        {thinking.map((row) => (
+          <p className="nf-agent-log__line is-thinking" key={`thinking-${row.origin}-${row.actor}`}>
+            <span className="nf-agent-log__clock">[{eventClock(row.at)}]</span>
+            {' '}
+            <span className="nf-agent-log__actor">[{eventActorLabel(row)}]</span>
+            {' > '}
+            <span className="nf-agent-log__dots">đang suy nghĩ</span>
           </p>
         ))}
       </div>

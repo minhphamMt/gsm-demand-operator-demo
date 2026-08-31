@@ -519,6 +519,14 @@
 @media(prefers-reduced-motion:reduce){.nf-agent-log__line.is-waiting{animation:none}}
 /* Bản ghi từ DB: xác nhận một việc đã biết, nên mờ hơn dòng tức thì. */
 .nf-agent-log__line.is-audit{color:var(--nf-ops-muted)}
+/* Dòng "đang suy nghĩ" — mờ hơn dòng thật, vì nó là trạng thái chứ không phải tin.
+   Ba chấm chạy bằng `width` + `steps()` chứ không animate `content`: animate `content` chỉ
+   chạy trên Chromium/WebKit và im lặng không làm gì ở nơi khác, để lại một dòng đứng yên
+   trông y hệt treo máy — đúng thứ dòng này sinh ra để bác bỏ. */
+.nf-agent-log__line.is-thinking{color:var(--nf-ops-muted)}
+.nf-agent-log__dots::after{content:'...';display:inline-block;width:0;overflow:hidden;vertical-align:bottom;animation:nf-agent-log-dots 1.2s steps(4,end) infinite}
+@keyframes nf-agent-log-dots{to{width:1.2em}}
+@media(prefers-reduced-motion:reduce){.nf-agent-log__dots::after{width:1.2em;animation:none}}
 
 /* =========================================================================
    Panel "Sơ đồ luồng" (`.nf-pipeline-stage`).

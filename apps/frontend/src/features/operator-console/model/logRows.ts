@@ -105,6 +105,33 @@ export function awaitingApprovalRow(
  * Cùng hai loại đó ở nguồn `run` thì **giữ**: ở đó chúng đánh dấu từng chặng của đồ thị —
  * Forecast, Dispatch, Optimization — tức đúng thứ người xem muốn thấy.
  */
+/** Những agent đang chạy dở — mỗi `agent_started` chưa có `agent_finished` khớp.
+ *
+ * Giữa lúc gõ xong một câu và lúc câu trả lời hiện ra là một khoảng lặng dài vài giây: LLM
+ * đang nghĩ, tool đang đọc parquet, optimizer đang giải. Trước đây khoảng đó **không có gì**
+ * trên màn hình, nên nó không phân biệt được với "hệ thống chết" — người vận hành chỉ còn
+ * cách gõ lại câu vừa gõ.
+ *
+ * Ghép khoá theo `origin` **và** `actor`, không đếm tổng started/finished: đồ thị chạy nhiều
+ * agent nối nhau, đếm tổng chỉ biết "còn ai đó đang chạy" chứ không biết **ai** — mà cái tên
+ * mới là thứ đáng hiện. Dùng `Map` nên một agent chạy lại sẽ ghi đè lượt cũ thay vì mọc thêm
+ * một dòng chờ thứ hai.
+ *
+ * Đọc từ hàng **chưa lọc**: `conversationRows` bỏ đúng `agent_started` của phiên hỏi–đáp, nên
+ * lọc trước rồi mới suy ra ở đây thì luôn ra rỗng — đúng ở ca ít quan trọng nhất và sai ở ca
+ * người dùng phàn nàn.
+ */
+export function thinkingRows(rows: readonly LogRow[]): readonly LogRow[] {
+  const open = new Map<string, LogRow>()
+  for (const row of rows) {
+    if (row.kind !== 'agent_started' && row.kind !== 'agent_finished') continue
+    const key = `${row.origin}:${row.actor}`
+    if (row.kind === 'agent_started') open.set(key, row)
+    else open.delete(key)
+  }
+  return [...open.values()]
+}
+
 export function conversationRows(rows: readonly LogRow[]): readonly LogRow[] {
   return rows.filter(
     (row) => !(row.origin === 'session' && (row.kind === 'agent_started' || row.kind === 'agent_finished')),
