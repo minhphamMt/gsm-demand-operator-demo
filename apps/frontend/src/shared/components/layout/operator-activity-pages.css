@@ -471,3 +471,116 @@
     grid-row: 1;
   }
 }
+
+/* Dark activity surfaces for the report and audit workspaces. */
+.nf-workspace-page--dark:has(.nf-activity-page) .nf-workspace-heading {
+  background: #10181d;
+  border-bottom-color: #2a3941;
+}
+
+.nf-workspace-page--dark .nf-workspace-body:has(.nf-activity-page) {
+  background: #0c1216;
+}
+
+.nf-workspace-page--dark .nf-activity-kpi-grid > div,
+.nf-workspace-page--dark .nf-report-page .nf-workspace-panel,
+.nf-workspace-page--dark .nf-history-page .nf-workspace-panel,
+.nf-workspace-page--dark .nf-offer-card {
+  border-color: #2a3941;
+  background: #121a20;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .24);
+}
+
+.nf-workspace-page--dark .nf-activity-kpi-grid > div.is-good {
+  border-color: rgba(53, 183, 165, .48);
+  background: linear-gradient(135deg, rgba(53, 183, 165, .15), #121a20 72%);
+}
+
+.nf-workspace-page--dark .nf-activity-kpi-grid > div.is-warning {
+  border-color: rgba(238, 177, 81, .52);
+  background: rgba(238, 177, 81, .12);
+}
+
+.nf-workspace-page--dark .nf-offer-overview {
+  border-color: #2a3941;
+  background: linear-gradient(135deg, #172128, #121a20 72%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .24);
+}
+
+.nf-workspace-page--dark .nf-offer-card-header,
+.nf-workspace-page--dark .nf-history-card > div:first-child {
+  border-color: #2a3941;
+  background: #172128;
+}
+
+.nf-workspace-page--dark .nf-offer-row {
+  border-color: #2a3941;
+  background: #121a20;
+}
+
+.nf-workspace-page--dark .nf-offer-row:hover {
+  background: #172128;
+}
+
+.nf-workspace-page--dark .nf-offer-filters {
+  border-color: #2a3941;
+  background: #172128;
+}
+
+.nf-workspace-page--dark .nf-offer-filters button:hover,
+.nf-workspace-page--dark .nf-offer-filters button.is-active {
+  color: #f0f5f2;
+  background: #35b7a5;
+}
+
+.nf-workspace-page--dark .nf-offer-row-status,
+.nf-workspace-page--dark .nf-offer-row-status[data-status="Accepted"],
+.nf-workspace-page--dark .nf-offer-row-status[data-status="Declined"],
+.nf-workspace-page--dark .nf-offer-row-status[data-status="Expired"],
+.nf-workspace-page--dark .nf-offer-row-status[data-status="Cancelled"] {
+  background: #1d2930;
+}
+
+.nf-workspace-page--dark .nf-offer-row-status[data-status="Accepted"] {
+  color: #54d4c1 !important;
+}
+
+.nf-workspace-page--dark .nf-offer-row-status[data-status="Declined"],
+.nf-workspace-page--dark .nf-offer-row-status[data-status="Expired"],
+.nf-workspace-page--dark .nf-offer-row-status[data-status="Cancelled"] {
+  color: #ef7770 !important;
+}
+
+.nf-workspace-page--dark .nf-report-page .nf-report-visual-card,
+.nf-workspace-page--dark .nf-report-page .nf-report-compare-card,
+.nf-workspace-page--dark .nf-history-page .nf-history-card {
+  border-color: #2a3941;
+  background: #121a20;
+}
+
+.nf-workspace-page--dark .nf-report-page table th,
+.nf-workspace-page--dark .nf-history-page table th {
+  background: #172128;
+  color: #90a09e;
+}
+
+.nf-workspace-page--dark .nf-report-page table tbody tr:hover,
+.nf-workspace-page--dark .nf-history-page table tbody tr:hover {
+  background: rgba(53, 183, 165, .08);
+}
+
+.nf-workspace-page--dark .nf-history-overview {
+  background: #172128;
+}
+
+.nf-workspace-page--dark .nf-audit-saved {
+  color: #54d4c1;
+}
+
+.nf-workspace-page--dark .nf-audit-technical {
+  color: #90a09e;
+}
+
+.nf-workspace-page--dark .nf-report-page .border-l-4 {
+  border-left-color: #eeb151;
+}

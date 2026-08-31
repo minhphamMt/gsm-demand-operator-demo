@@ -488,9 +488,14 @@ phải pass trước khi merge vào `main`.
 
 - Backend: `.github/workflows/deploy-backend.yml` build image và deploy Cloud Run.
 - AI service: `.github/workflows/deploy-ai.yml` build image và deploy Cloud Run.
-- Frontend: cấu hình trong `apps/frontend/vercel.json`; cần kết nối project
-  Vercel với đúng repository và biến môi trường production.
+- Frontend: `.github/workflows/deploy-frontend.yml` chạy quality gate, build
+  prebuilt artifact và deploy lên Vercel.
 - Push thay đổi tương ứng vào `main` sẽ kích hoạt workflow theo path filter.
+
+Frontend cần có các GitHub Actions secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID` và
+`VERCEL_PROJECT_ID`. Các biến public như `VITE_API_BASE_URL`,
+`VITE_MAPBOX_ACCESS_TOKEN` và Supabase publishable key phải được khai báo trong
+Vercel ở môi trường Production; không đưa secret vào repository.
 
 Sau deploy, kiểm tra tối thiểu:
 

@@ -4,6 +4,8 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #0a192f;
   background: #f8fafc;
+  --nf-scroll-thumb: #b7c5c3;
+  --nf-scroll-thumb-hover: #7f9490;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -45,6 +47,51 @@ body {
   min-height: 100vh;
   margin: 0;
   background: #f8fafc;
+}
+
+/* One scrollbar language across every page and every nested panel. The
+   transparent track keeps the content edge clean; the inset pill remains
+   visible without looking like the browser default. Theme roots override the
+   two tokens below while the selectors themselves stay global. */
+*,
+*::before,
+*::after {
+  scrollbar-width:thin;
+  scrollbar-color:var(--nf-scroll-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width:9px;
+  height:9px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background:transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border:2px solid transparent;
+  border-radius:999px;
+  background:var(--nf-scroll-thumb);
+  background-clip:padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background:var(--nf-scroll-thumb-hover);
+  background-clip:padding-box;
+}
+
+.nf-ops,
+.nf-ops-header,
+.nf-workspace-page--dark {
+  --nf-scroll-thumb:#53656a;
+  --nf-scroll-thumb-hover:#35b7a5;
+}
+
+.nf-ops[data-theme="light"] {
+  --nf-scroll-thumb:#b7c5c3;
+  --nf-scroll-thumb-hover:#7f9490;
 }
 
 #root {

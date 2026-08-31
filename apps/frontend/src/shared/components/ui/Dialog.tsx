@@ -30,8 +30,8 @@ export function Dialog({ children, isOpen, onClose, title }: DialogProps) {
 
   if (!isOpen) return null
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-4" role="presentation" onMouseDown={onClose}>
-      <section ref={dialogRef} aria-modal="true" aria-labelledby={titleId} role="dialog" tabIndex={-1} className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-panel bg-white p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="nf-shared-dialog-backdrop fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-4" role="presentation" onMouseDown={onClose}>
+      <section ref={dialogRef} aria-modal="true" aria-labelledby={titleId} role="dialog" tabIndex={-1} className="nf-shared-dialog max-h-[90vh] w-full max-w-lg overflow-auto rounded-panel bg-white p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-3"><h2 id={titleId} className="text-lg font-semibold text-slate-950">{title}</h2><IconButton label="Đóng hộp thoại" onClick={onClose}>×</IconButton></div>
         <div className="mt-4">{children}</div>
       </section>

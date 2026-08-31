@@ -5,15 +5,15 @@
 .nf-zone-finder{position:absolute;z-index:5;top:14px;left:14px;width:228px;max-height:calc(100% - 98px);display:flex;flex-direction:column;padding:10px;border:1px solid rgba(255,255,255,.85);border-radius:9px;background:rgba(255,255,255,.96);box-shadow:var(--nf-shadow)}.nf-zone-finder>strong{font:700 10px/1 var(--font-display);letter-spacing:.08em}.nf-zone-finder>label{display:flex;align-items:center;gap:6px;margin:8px 0;border:1px solid var(--color-divider);border-radius:5px;padding:5px 7px}.nf-zone-finder input{width:100%;min-width:0;border:0;background:transparent;font-size:11px;outline:0}.nf-zone-finder>div{min-height:0;overflow:auto}.nf-zone-finder button{width:100%;display:flex;align-items:center;gap:5px;padding:7px 4px;border:0;border-bottom:1px solid var(--color-divider);background:transparent;text-align:left;cursor:pointer}.nf-zone-finder button:hover,.nf-zone-finder button.is-active{background:var(--nf-ok-100)}.nf-zone-finder button span{min-width:0;flex:1}.nf-zone-finder button b{display:block;overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.nf-zone-finder button small{display:block;margin-top:2px;color:var(--color-neutral-600);font-size:9px}.nf-zone-finder em{font-size:10px;font-style:normal;font-weight:800;white-space:nowrap}.nf-zone-finder .is-deficit{color:var(--color-accent-700)}.nf-zone-finder .is-surplus{color:var(--nf-ok-ink)}
 .nf-zone-card{position:absolute;z-index:7;left:256px;top:14px;width:260px;padding:12px;border:1px solid var(--color-divider);border-radius:8px;background:#fff;box-shadow:var(--nf-shadow-lg)}.nf-zone-card>button{position:absolute;right:7px;top:7px;border:0;background:transparent;cursor:pointer}.nf-zone-card>small{display:block;color:var(--color-neutral-600);font-size:8px;font-weight:800;letter-spacing:.1em}.nf-zone-card>strong{display:block;margin:4px 0 10px;font:700 17px/1 var(--font-display)}.nf-zone-card>div{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.nf-zone-card span{padding:6px;background:var(--color-neutral-100);font-size:9px}.nf-zone-card b{display:block;margin-top:3px;font-size:15px}.nf-zone-card b.bad{color:var(--color-accent-700)}.nf-zone-card b.good{color:var(--nf-ok-ink)}.nf-zone-card p{margin:8px 0 0;color:var(--color-neutral-700);font-size:10px}
 .nf-timeline{position:absolute;z-index:6;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid rgba(255,255,255,.9);border-radius:8px;background:rgba(255,255,255,.96);box-shadow:var(--nf-shadow)}.nf-timeline button{border:0;border-radius:4px;padding:5px 8px;background:transparent;font-size:10px;font-weight:700;cursor:pointer}.nf-timeline button:hover,.nf-timeline button.is-active{background:var(--nf-ok-ink);color:#fff}.nf-timeline span{width:34px;height:2px;background:var(--color-divider)}.nf-timeline em{margin-left:6px;color:var(--color-neutral-600);font-size:8px;font-style:normal;letter-spacing:.08em}
-.nf-rail-toggle{position:absolute;top:50%;z-index:20;width:22px;height:56px;transform:translateY(-50%);border:1px solid var(--color-divider);border-right:0;border-radius:8px 0 0 8px;background:#fff;box-shadow:var(--nf-shadow);font-size:15px;font-weight:800;cursor:pointer;transition:right .22s ease}.nf-command-rail{width:0;min-height:0;display:flex;flex:none;flex-direction:column;overflow:hidden;background:#fff;transition:width .22s ease}.nf-command-rail.is-open{width:404px}
+.nf-rail-toggle{position:absolute;top:50%;z-index:20;width:22px;height:56px;transform:translateY(-50%);border:1px solid var(--color-divider);border-right:0;border-radius:8px 0 0 8px;background:#fff;box-shadow:var(--nf-shadow);font-size:15px;font-weight:800;cursor:pointer;transition:right .22s ease}.nf-command-rail{width:0;min-height:0;display:flex;flex:none;flex-direction:column;overflow:hidden;background:#fff;transition:width .22s ease}.nf-command-rail.is-open{width:var(--nf-command-rail-width)}
 .nf-kpi-panel{flex:none;border-bottom:1px solid var(--color-divider)}.nf-rail-title{display:flex;justify-content:space-between;padding:12px 16px 7px}.nf-rail-title span{font:700 11px/1 var(--font-display);letter-spacing:.08em}.nf-rail-title small{color:var(--color-neutral-600);font-size:8px}.nf-phases{display:grid;grid-template-columns:repeat(4,1fr);border-block:1px solid var(--color-divider);background:var(--color-neutral-100)}.nf-phases b{padding:7px 3px;border-right:1px solid var(--color-divider);text-align:center;font-size:9px}.nf-phases b:nth-child(3){background:var(--nf-ok-100);color:var(--nf-ok-ink)}.nf-kpi-primary{padding:12px 16px 9px}.nf-kpi-primary small{display:block;color:var(--color-neutral-600);font-size:9px;font-weight:700;letter-spacing:.08em}.nf-kpi-primary strong{display:block;margin-top:3px;font:800 31px/1 var(--font-display);color:var(--color-accent-700)}.nf-kpi-primary strong em{font-size:13px;font-style:normal}.nf-kpi-primary span{font-size:10px;color:var(--color-neutral-700)}.nf-kpi-grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--color-divider)}.nf-kpi-grid>span{min-width:0;padding:8px 12px;border-right:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider)}.nf-kpi-grid small{display:block;overflow:hidden;color:var(--color-neutral-600);font-size:7px;font-weight:700;letter-spacing:.06em;white-space:nowrap}.nf-kpi-grid b{display:block;margin-top:3px;overflow:hidden;font-size:13px;text-overflow:ellipsis;white-space:nowrap}
 .nf-pipeline{min-height:0;flex:1;overflow:auto;padding:10px 16px}.nf-pipeline-heading{display:flex;align-items:center;gap:7px;margin-bottom:8px}.nf-pipeline-heading span{font:700 10px/1 var(--font-display);letter-spacing:.08em}.nf-pipeline-heading b{padding:3px 6px;border-radius:3px;background:var(--nf-warn-100);color:var(--nf-warn-ink);font-size:8px}.nf-pipeline-heading em{margin-left:auto;font-size:10px;font-style:normal;font-weight:800}.nf-pipeline-step{position:relative;display:flex;gap:8px;padding-bottom:9px}.nf-pipeline-step:before{content:'';position:absolute;left:9px;top:18px;bottom:0;width:1px;background:var(--color-divider)}.nf-pipeline-step:last-child:before{display:none}.nf-pipeline-step>i{position:relative;z-index:1;width:19px;height:19px;display:grid;place-items:center;flex:none;border:1px solid var(--color-divider);border-radius:50%;background:#fff;color:var(--color-neutral-500);font-style:normal}.nf-pipeline-step.is-done>i{border-color:var(--nf-ok);background:var(--nf-ok);color:#fff}.nf-pipeline-step.is-current>i{border-color:var(--nf-warn);background:var(--nf-warn-100);color:var(--nf-warn-ink)}.nf-pipeline-step>span{min-width:0;flex:1;position:relative;padding-right:72px}.nf-pipeline-step b{display:block;font-size:10px}.nf-pipeline-step small{position:absolute;right:0;top:0;color:var(--color-neutral-600);font-size:7px;font-weight:800}.nf-pipeline-step code{display:block;margin-top:2px;color:var(--color-neutral-600);font:8px/1.3 monospace}.nf-pipeline-step button{margin-top:3px;padding:0;border:0;background:transparent;color:var(--nf-ok-ink);font-size:9px;font-weight:800;cursor:pointer}
 .nf-rail-actions{flex:none;display:flex;flex-direction:column;gap:7px;padding:11px 16px;border-top:1px solid var(--color-divider)}.nf-rail-actions .btn-block{margin:0;padding:11px 13px;font-size:13px}.nf-rail-actions>div{display:flex;gap:7px}.nf-rail-actions>div .btn{flex:1;font-size:11px}.nf-rail-actions>small{color:var(--color-neutral-700);font-size:9px}.nf-rail-actions>.btn-secondary{justify-content:flex-start;font-size:11px}
 .nf-rail-actions .nf-no-action-result{align-items:flex-start;padding:10px;border:1px solid #99d5c7;border-radius:8px;background:#edf9f6;color:var(--nf-ok-ink)}.nf-no-action-result>svg{flex:none;margin-top:1px}.nf-no-action-result>span{display:flex;min-width:0;flex-direction:column;gap:3px}.nf-no-action-result b{font-size:12px}.nf-no-action-result small{color:var(--color-neutral-700);font-size:10px;line-height:1.4}.nf-no-action-result code{width:max-content;padding:2px 5px;border-radius:3px;background:rgba(17,116,105,.1);font-size:8px}.nf-optimization-error{margin:0;padding:7px 8px;border-left:3px solid var(--color-accent-500);background:var(--color-accent-50);color:var(--color-accent-700);font-size:10px;line-height:1.4}
 .nf-risk-advisory-note{margin:0 0 12px;padding:10px 12px;border:1px solid #efc36f;border-radius:7px;background:#fff8e8;color:#6f4b08;font-size:10px;line-height:1.5}.nf-risk-advisory-note b{display:block;margin-bottom:2px;font-size:11px}
 .nf-plan-drawer{position:absolute;z-index:12;top:0;right:0;width:min(540px,68%);height:100%;display:flex;flex-direction:column;border-left:1px solid var(--color-divider);background:#fff;box-shadow:-10px 0 30px rgba(20,48,46,.12)}.nf-plan-drawer>header{display:flex;gap:10px;padding:15px 18px 11px;border-bottom:1px solid var(--color-divider)}.nf-plan-drawer>header>div{flex:1}.nf-plan-drawer header small{display:block;color:var(--color-neutral-600);font-size:9px;font-weight:800;letter-spacing:.08em}.nf-plan-drawer header strong{display:block;margin-top:3px;font:800 21px/1.2 var(--font-display)}.nf-plan-drawer header p{margin:3px 0 0;color:var(--color-neutral-700);font-size:11px}.nf-plan-drawer header button{align-self:flex-start;border:0;background:transparent;cursor:pointer}.nf-plan-summary{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--nf-ok-100)}.nf-plan-summary>strong{font:800 28px/1 var(--font-display);color:var(--nf-ok-ink)}.nf-plan-summary span{font-size:10px}.nf-plan-metrics{display:grid;grid-template-columns:repeat(3,1fr);border-block:1px solid var(--color-divider)}.nf-plan-metrics span{padding:9px 14px;border-right:1px solid var(--color-divider)}.nf-plan-metrics small{display:block;color:var(--color-neutral-600);font-size:8px;font-weight:700;letter-spacing:.08em}.nf-plan-metrics b{display:block;margin-top:3px;font-size:14px}.nf-plan-scroll{flex:1;overflow:auto;padding:14px 18px}.nf-plan-scroll h3{margin:12px 0 7px;font:700 10px/1 var(--font-display);letter-spacing:.08em}.nf-plan-scroll h3:first-child{margin-top:0}.nf-plan-scroll .table{font-size:11px}.nf-plan-scroll .table th{font-size:8px}.nf-policy-tags{display:flex;flex-wrap:wrap;gap:5px}.nf-policy-tags span{padding:4px 6px;border:1px solid var(--color-divider);border-radius:4px;font-size:9px}.nf-policy-tags span.pass{background:var(--nf-ok-100);color:var(--nf-ok-ink)}.nf-policy-tags span.fail{background:var(--color-accent-100);color:var(--color-accent-700)}.nf-warning{padding:8px;border-left:3px solid var(--nf-warn);background:var(--nf-warn-100);font-size:10px}.nf-move{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--color-divider)}.nf-move>span{color:var(--color-neutral-600);font-size:8px;font-weight:800}.nf-move>div{min-width:0;flex:1}.nf-move b{display:block;font-size:11px}.nf-move small{display:block;margin-top:2px;color:var(--color-neutral-600);font-size:9px}.nf-move>strong{font-size:11px}
-.nf-dialog-summary{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--color-divider);border-radius:6px}.nf-dialog-summary span{padding:8px;font-size:10px}.nf-dialog-summary b{display:block;margin-top:2px;font-size:12px}.nf-dialog-error{margin:0;color:var(--color-accent-700);font-size:11px}.nf-console-loading{width:100%;height:100%;display:grid;place-items:center;gap:10px;padding:30px}
-@media(max-width:1300px){.nf-command-rail.is-open{width:360px}.nf-rail-toggle{right:360px!important}.nf-zone-finder{width:205px}.nf-zone-card{left:232px}.nf-scenario-bar .nf-model{display:none}}
+.nf-dialog-summary{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--color-divider);border-radius:6px}.nf-dialog-summary span{padding:8px;font-size:10px}.nf-dialog-summary b{display:block;margin-top:2px;font-size:12px}.nf-dialog-error{margin:0;color:var(--color-accent-700);font-size:11px}.nf-console-loading{width:100%;height:100%;display:grid;place-items:center;gap:10px;padding:30px}.nf-console-loading--dark{align-content:center;background:#0c1216;color:#eef7f5}.nf-console-loading--dark .animate-pulse{width:min(420px,72%);height:4px;background:#244148}
+@media(max-width:1300px){.nf-command-rail.is-open{width:var(--nf-command-rail-width)}.nf-rail-toggle{right:var(--nf-command-rail-width)!important}.nf-zone-finder{width:205px}.nf-zone-card{left:232px}.nf-scenario-bar .nf-model{display:none}}
 .nf-kpi-grid b em{color:var(--color-neutral-600);font-size:9px;font-style:normal;font-weight:700}
 
 /* Live adapter alignment with the feature/operator/frontend console. */
@@ -137,6 +137,7 @@
    styles/index.css: mọi trang khác (driver app, báo cáo, lịch sử) vẫn nền sáng.
    ========================================================================= */
 .nf-ops{
+  --nf-command-rail-width:var(--nf-insight-column-width);
   --nf-ops-bg:#0c1216;
   --nf-ops-surface:#121a20;
   --nf-ops-surface-2:#172128;
@@ -187,6 +188,9 @@
 .nf-ops[data-theme="light"] .nf-timeline-track button.is-past{background:#c7cfcd}
 .nf-ops[data-theme="light"] .btn-secondary:hover{background:#e6ebe9}
 .nf-ops[data-theme="light"] .nf-agent-log{box-shadow:0 18px 44px rgba(20,48,46,.18)}
+.nf-ops .nf-data-refresh-indicator{border-color:var(--nf-ops-line);background:var(--nf-ops-surface-2);color:var(--nf-ops-ink)}
+.nf-ops .nf-data-refresh-indicator.is-error{border-color:color-mix(in srgb,var(--nf-ops-amber) 55%,var(--nf-ops-line));background:color-mix(in srgb,var(--nf-ops-amber) 14%,var(--nf-ops-surface));color:var(--nf-ops-amber)}
+.nf-ops .nf-data-refresh-indicator button:hover{background:var(--nf-ops-hover-wash)}
 .nf-ops[data-theme="light"] [data-surface="pipeline"]{
   --nfp-bg:#ffffff;
   --nfp-raise:#f2f5f4;
@@ -206,55 +210,6 @@
   --nfp-grid:#dde5e3;
   --nfp-series:#2bb8ad;
 }
-
-/* Đầu trang: nhận diện · điều hướng · lối vào luồng agent · tài khoản.
-   Đây là đầu trang duy nhất của trang Điều hành — shell không dựng thanh sáng ở đây nữa, nên
-   nó phải gánh cả điều hướng, thông báo và đăng xuất. `z-index` cao hơn nhật ký agent (40) để
-   menu thông báo đổ xuống không bị bảng nào che. */
-.nf-ops-header{position:relative;z-index:45;height:56px;flex:none;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--nf-ops-line);background:#10181d}
-.nf-ops-brand{display:flex;align-items:center;gap:9px}
-.nf-ops-brand__mark{width:28px;height:28px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(135deg,var(--nf-ops-teal),#1c7f74);color:#04140f}
-.nf-ops-brand strong{display:block;font:800 13px/1 var(--font-display);letter-spacing:.02em;white-space:nowrap}
-.nf-ops-brand strong em{font-style:normal;color:var(--nf-ops-teal-bright)}
-
-.nf-ops-nav{display:flex;flex:none;gap:2px;padding-left:14px;border-left:1px solid var(--nf-ops-line)}
-.nf-ops-nav a{display:flex;align-items:center;padding:0 11px;height:30px;border-radius:7px;color:var(--nf-ops-muted);font:600 12px/1 var(--font-body);text-decoration:none;white-space:nowrap}
-.nf-ops-nav a:hover{background:var(--nf-ops-surface-2);color:var(--nf-ops-ink)}
-.nf-ops-nav a.is-active{background:var(--nf-ops-teal);color:#04140f;font-weight:800}
-
-.nf-ops-header__tools{display:flex;align-items:center;gap:10px;margin-left:auto}
-.nf-agent-summary{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--nf-ops-line);border-radius:8px;background:var(--nf-ops-surface-2);color:var(--nf-ops-ink);cursor:pointer;transition:border-color .15s ease,background .15s ease}
-.nf-agent-summary:hover{border-color:var(--nf-ops-teal);background:var(--nf-ops-surface-3)}
-.nf-agent-summary__icon{width:22px;height:22px;display:grid;place-items:center;flex:none;border-radius:6px;background:rgba(53,183,165,.15);color:var(--nf-ops-teal-bright)}
-.nf-agent-summary__copy{text-align:left}
-.nf-agent-summary__copy strong{display:block;font-size:10px;font-weight:800;white-space:nowrap}
-.nf-agent-summary__copy small{display:block;margin-top:2px;color:var(--nf-ops-muted);font-size:9px;white-space:nowrap}
-.nf-ops-clock{color:var(--nf-ops-muted);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.nf-ops-refresh{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--nf-ops-line);border-radius:7px;background:var(--nf-ops-surface-2);color:var(--nf-ops-muted);cursor:pointer}
-.nf-ops-refresh:hover:not(:disabled){border-color:var(--nf-ops-teal);color:var(--nf-ops-teal-bright)}
-.nf-ops-refresh:disabled{cursor:not-allowed;opacity:.5}
-
-.nf-ops-health{display:flex;align-items:center;gap:6px;color:var(--nf-ops-muted);font-size:10px;font-weight:700;white-space:nowrap}
-.nf-ops-health__dot{width:7px;height:7px;flex:none;border-radius:50%;background:var(--nf-ops-teal)}
-.nf-ops-account{display:flex;align-items:center;gap:6px;padding-left:10px;border-left:1px solid var(--nf-ops-line)}
-.nf-ops-account>span{width:30px;height:30px;display:grid;place-items:center;flex:none;border-radius:8px;background:var(--nf-ops-teal);color:#04140f;font-size:11px;font-weight:800}
-/* Chuông dùng chung IconButton (tiện ích Tailwind cho nền sáng) — kéo về đúng cỡ và màu của
-   thanh tối; viền vòng đếm bám nền thanh nên đổi theo token thay vì trắng cố định. */
-.nf-ops-account .nf-notification-anchor>button{width:30px;height:30px;border-radius:7px;color:var(--nf-ops-muted)}
-.nf-ops-account .nf-notification-anchor>button:hover{background:var(--nf-ops-surface-3);color:var(--nf-ops-ink)}
-.nf-ops-account .nf-notification-count{border-color:var(--nf-ops-surface)}
-
-/* Ở màn hẹp, hàng này nhường dần theo thứ tự "mất đi ít nhất": số liệu tham khảo → chữ phụ.
-   Điều hướng và cụm tài khoản không bao giờ bị bỏ — đó là lối duy nhất rời trang và đăng xuất. */
-.nf-ops-header__tools{flex:none}
-@media(max-width:1640px){.nf-ops-health{display:none}}
-@media(max-width:1420px){
-  .nf-agent-summary__copy small{display:none}
-  .nf-ops-nav{padding-left:10px}
-  .nf-ops-nav a{padding:0 9px;font-size:11px}
-}
-@media(max-width:1320px){.nf-agent-summary__copy,.nf-ops-clock{display:none}}
-.nf-ops-refresh .is-spinning{animation:nf-spin 1s linear infinite}
 
 /* Cột trái: chỉ số + biểu đồ cân bằng zone. */
 .nf-insight-column{width:296px;min-height:0;flex:none;display:flex;flex-direction:column;overflow:auto;border-right:1px solid var(--nf-ops-line);background:var(--nf-ops-surface)}
@@ -542,9 +497,1051 @@
    ẩn đi trong lúc đó — đó cũng là hình đã thấy trong ảnh chụp thiết kế.
    ========================================================================= */
 .nf-pipeline-stage{min-height:0;flex:1}
+.nf-ops .nf-pipeline-flyout {
+  position:fixed;
+  top:100px;
+  right:16px;
+  bottom:112px;
+  z-index:44;
+  width:min(468px,calc(100vw - 32px));
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  box-sizing:border-box;
+  overflow:hidden;
+  border:1px solid var(--nfp-line);
+  border-radius:12px;
+  background:var(--nfp-bg);
+  color:var(--nfp-ink);
+  box-shadow:0 18px 44px rgba(0,0,0,.5);
+  isolation:isolate;
+}
+
+.nf-ops[data-rail-open="true"] .nf-pipeline-flyout {
+  right:calc(var(--nf-command-rail-width) + 16px);
+  width:min(468px,calc(100vw - var(--nf-command-rail-width) - 32px));
+}
+
+.nf-ops .nf-pipeline-flyout > header,
+.nf-ops .nf-pipeline-stage > header,
+.nf-ops .nf-pipeline-stage > footer {
+  flex:none;
+}
+
+.nf-ops .nf-pipeline-flyout > div,
+.nf-ops .nf-pipeline-stage > div {
+  min-height:0;
+  flex:1 1 auto;
+  overflow-y:auto;
+  background:var(--nfp-bg);
+  color:var(--nfp-ink);
+  scrollbar-color:var(--nfp-line) transparent;
+}
+
+.nf-ops .nf-pipeline-stage {
+  position:fixed;
+  inset:100px 0 0;
+  z-index:44;
+  min-height:0;
+  display:flex;
+  flex:none;
+  flex-direction:column;
+  box-sizing:border-box;
+  overflow:hidden;
+  border-top:1px solid var(--nfp-line);
+  background:var(--nfp-bg);
+  color:var(--nfp-ink);
+  isolation:isolate;
+}
+
+@media (max-width:900px) {
+  .nf-ops .nf-pipeline-flyout,
+  .nf-ops[data-rail-open="true"] .nf-pipeline-flyout {
+    left:12px;
+    right:12px;
+    width:auto;
+  }
+}
 .nf-ops[data-stage="on"] .nf-ops-workspace{display:none}
 
-/* Bước quy trình đã chuyển sang gõ lệnh. Không phải nút xám — không có gì để bấm ở đây. */
+/* Bước quy trình có lệnh nhanh: vẫn đọc như một câu hướng dẫn nhưng thao tác được ngay. */
 .nf-chat-step{display:flex;align-items:center;gap:9px;padding:11px 13px;border:1px dashed var(--nf-ops-line);border-radius:9px;background:var(--nf-ops-surface-2);color:var(--nf-ops-ink);font-size:11px;line-height:1.5}
 .nf-chat-step>svg{color:var(--nf-ops-teal-bright);flex:none}
 .nf-chat-step code{padding:2px 7px;border-radius:5px;background:rgba(53,183,165,.16);color:var(--nf-ops-teal-bright);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:700}
+.nf-chat-step__command{display:inline;padding:2px 7px;border:0;border-radius:5px;background:rgba(53,183,165,.16);color:var(--nf-ops-teal-bright);font:700 11px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;cursor:pointer}
+.nf-chat-step__command:hover{background:rgba(53,183,165,.28);color:var(--nf-ops-teal-bright)}
+.nf-chat-step__command:focus-visible{outline:2px solid var(--nf-ops-teal-bright);outline-offset:2px}
+
+/* Detail drawers use the same local tokens as the dashboard. The previous
+   white surface was readable only in light mode while text still inherited
+   the dark dashboard ink, which made both themes lose contrast. */
+.nf-ops .nf-plan-drawer {
+  border-left-color: var(--nf-ops-line);
+  background: var(--nf-ops-surface);
+  color: var(--nf-ops-ink);
+  color-scheme: dark;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, .34);
+}
+
+.nf-ops[data-theme="light"] .nf-plan-drawer {
+  color-scheme: light;
+}
+
+.nf-ops .nf-plan-drawer > header,
+.nf-ops .nf-plan-metrics,
+.nf-ops .nf-plan-metrics span,
+.nf-ops .nf-plan-scroll .table th,
+.nf-ops .nf-plan-scroll .table td,
+.nf-ops .nf-move,
+.nf-ops .nf-execution-move {
+  border-color: var(--nf-ops-line);
+}
+
+.nf-ops .nf-plan-drawer > header strong,
+.nf-ops .nf-plan-drawer .nf-plan-metrics b,
+.nf-ops .nf-plan-drawer .nf-plan-scroll .table td,
+.nf-ops .nf-plan-drawer .nf-move b,
+.nf-ops .nf-plan-drawer .nf-move > strong,
+.nf-ops .nf-plan-drawer .nf-execution-move b {
+  color: var(--nf-ops-ink);
+}
+
+.nf-ops .nf-plan-drawer > header small,
+.nf-ops .nf-plan-drawer > header p,
+.nf-ops .nf-plan-drawer .nf-plan-metrics small,
+.nf-ops .nf-plan-drawer .nf-move > span,
+.nf-ops .nf-plan-drawer .nf-move small,
+.nf-ops .nf-plan-drawer .nf-move details p,
+.nf-ops .nf-plan-drawer .nf-execution-move small,
+.nf-ops .nf-plan-drawer .nf-assumptions dt {
+  color: var(--nf-ops-muted);
+}
+
+.nf-ops .nf-plan-drawer > header button {
+  color: var(--nf-ops-muted);
+}
+
+.nf-ops .nf-plan-drawer > header button:hover {
+  background: var(--nf-ops-surface-3);
+  color: var(--nf-ops-ink);
+}
+
+.nf-ops .nf-plan-summary {
+  background: color-mix(in srgb, var(--nf-ops-teal) 14%, var(--nf-ops-surface));
+  color: var(--nf-ops-ink);
+}
+
+.nf-ops .nf-plan-summary > strong,
+.nf-ops .nf-plan-drawer .nf-move > strong,
+.nf-ops .nf-plan-drawer .nf-execution-move > strong {
+  color: var(--nf-ops-teal-bright);
+}
+
+.nf-ops .nf-plan-scroll h3 {
+  color: var(--nf-ops-teal-bright);
+}
+
+.nf-ops .nf-plan-scroll .table th {
+  background: var(--nf-ops-surface-2);
+  color: var(--nf-ops-muted);
+}
+
+.nf-ops .nf-plan-scroll .table tbody tr:hover,
+.nf-ops .nf-hotspot-list button:hover {
+  background: var(--nf-ops-surface-3);
+}
+
+.nf-ops .nf-risk-advisory-note,
+.nf-ops .nf-risk-note {
+  border-color: color-mix(in srgb, var(--nf-ops-amber) 52%, var(--nf-ops-line));
+  background: color-mix(in srgb, var(--nf-ops-amber) 14%, var(--nf-ops-surface));
+  color: var(--nf-ops-amber);
+}
+
+.nf-ops .nf-activation-plan {
+  border-color: color-mix(in srgb, var(--nf-ops-teal) 38%, var(--nf-ops-line));
+  background: color-mix(in srgb, var(--nf-ops-teal) 9%, var(--nf-ops-surface));
+  color: var(--nf-ops-ink);
+}
+
+.nf-ops .nf-policy-tags span {
+  border-color: var(--nf-ops-line);
+}
+
+.nf-ops .nf-policy-tags span.pass {
+  background: rgba(53, 183, 165, .14);
+  color: var(--nf-ops-teal-bright);
+}
+
+.nf-ops .nf-policy-tags span.fail {
+  background: rgba(212, 82, 82, .14);
+  color: var(--nf-ops-red);
+}
+
+.nf-ops .nf-warning {
+  background: color-mix(in srgb, var(--nf-ops-amber) 14%, var(--nf-ops-surface));
+  color: var(--nf-ops-amber);
+  border-left-color: var(--nf-ops-amber);
+}
+
+.nf-ops .nf-assumptions dd {
+  color: var(--nf-ops-ink);
+}
+
+.nf-ops .nf-move details summary {
+  color: var(--nf-ops-teal-bright);
+}
+
+.nf-ops .nf-move-stepper button {
+  border-color: var(--nf-ops-line);
+  background: var(--nf-ops-surface-2);
+  color: var(--nf-ops-ink);
+}
+
+.nf-ops .nf-move-stepper button:hover:not(:disabled) {
+  border-color: var(--nf-ops-teal);
+  background: var(--nf-ops-surface-3);
+  color: var(--nf-ops-teal-bright);
+}
+
+.nf-ops .nf-plan-revision {
+  border-color: color-mix(in srgb, var(--nf-ops-teal) 38%, var(--nf-ops-line));
+  background: color-mix(in srgb, var(--nf-ops-teal) 9%, var(--nf-ops-surface));
+}
+
+.nf-ops .nf-plan-revision b {
+  color: var(--nf-ops-ink);
+}
+
+.nf-ops .nf-plan-revision small {
+  color: var(--nf-ops-muted);
+}
+
+.nf-ops .nf-plan-revision > p {
+  color: var(--nf-ops-red);
+}
+
+.nf-ops .nf-plan-drawer .btn-primary {
+  border-color: var(--nf-ops-teal);
+  background: var(--nf-ops-teal);
+  color: #04140f;
+}
+
+.nf-ops .nf-plan-drawer .btn-primary:hover {
+  border-color: var(--nf-ops-teal-bright);
+  background: var(--nf-ops-teal-bright);
+}
+
+.nf-ops .nf-forecast-summary {
+  border-bottom-color: var(--nf-ops-line);
+  background: var(--nf-ops-surface-2);
+}
+
+.nf-ops .nf-forecast-summary > div {
+  border-color: var(--nf-ops-line);
+  background: var(--nf-ops-surface);
+}
+
+.nf-ops .nf-forecast-summary small,
+.nf-ops .nf-forecast-summary span,
+.nf-ops .nf-risk-reconciliation small,
+.nf-ops .nf-risk-reconciliation > i,
+.nf-ops .nf-minor-risk-summary small {
+  color: var(--nf-ops-muted);
+}
+
+.nf-ops .nf-forecast-summary strong,
+.nf-ops .nf-forecast-summary > div.is-risk strong {
+  color: var(--nf-ops-red);
+}
+
+.nf-ops .nf-forecast-summary > div.is-surplus strong {
+  color: var(--nf-ops-teal-bright);
+}
+
+.nf-ops .nf-forecast-summary > div.is-risk {
+  border-color: color-mix(in srgb, var(--nf-ops-red) 50%, var(--nf-ops-line));
+  background: rgba(212, 82, 82, .14);
+}
+
+.nf-ops .nf-risk-reconciliation > span,
+.nf-ops .nf-minor-risk-summary {
+  border-color: var(--nf-ops-line);
+  background: var(--nf-ops-surface-2);
+}
+
+.nf-ops .nf-risk-reconciliation > span.is-total {
+  border-color: color-mix(in srgb, var(--nf-ops-red) 58%, var(--nf-ops-line));
+  background: rgba(212, 82, 82, .14);
+}
+
+.nf-ops .nf-risk-reconciliation b,
+.nf-ops .nf-minor-risk-summary > strong {
+  color: var(--nf-ops-red);
+}
+
+.nf-ops .nf-hotspot-list button {
+  background: var(--nf-ops-surface-2);
+  color: var(--nf-ops-ink);
+}
+
+.nf-ops .nf-hotspot-list button b small {
+  color: var(--nf-ops-muted);
+}
+
+.nf-ops .nf-hotspot-list button > i {
+  background: var(--nf-ops-surface-3);
+}
+
+.nf-ops .nf-hotspot-list button > i span {
+  background: var(--nf-ops-red);
+}
+
+.nf-ops .nf-hotspot-list button > strong {
+  color: var(--nf-ops-red);
+}
+
+.nf-ops .nf-execution-move > i {
+  background: rgba(53, 183, 165, .16);
+  color: var(--nf-ops-teal-bright);
+}
+
+.nf-ops .nf-execution-move > strong {
+  color: var(--nf-ops-teal-bright);
+}
+
+.nf-ops .nf-plan-drawer .nf-scroll {
+  scrollbar-color: var(--nf-ops-surface-3) transparent;
+}
+
+.nf-ops .nf-plan-drawer .nf-scroll::-webkit-scrollbar-thumb {
+  background: var(--nf-scroll-thumb, var(--nf-ops-surface-3));
+  background-clip: padding-box;
+}
+
+/* Keep the command rail readable when the agent log is collapsed.
+   The log is an auxiliary control, so it docks on the map side while the rail
+   is open instead of covering the KPI and system-progress sections. */
+.nf-ops[data-rail-open="true"] .nf-agent-log {
+  right: calc(var(--nf-command-rail-width) + 16px);
+}
+
+@media (max-width: 1300px) {
+  .nf-ops {
+    --nf-command-rail-width:var(--nf-insight-column-width);
+  }
+}
+
+/* Short viewports need both the operating snapshot and the process header in
+   the first frame. Tighten spacing without hiding data; the pipeline remains
+   independently scrollable for the full 12-step audit trail. */
+@media (max-height: 800px) {
+  .nf-network-health .nf-rail-title,
+  .nf-kpi-panel .nf-rail-title {
+    padding:8px 12px 4px;
+  }
+
+  .nf-gauge-row {
+    gap:4px;
+    padding:2px 12px 7px;
+  }
+
+  .nf-gauge svg {
+    width:44px;
+    height:44px;
+  }
+
+  .nf-gauge strong {
+    margin-top:3px;
+    font-size:8px;
+  }
+
+  .nf-gauge small {
+    margin-top:1px;
+    font-size:7px;
+  }
+
+  .nf-risk-distribution {
+    padding:0 12px 8px;
+  }
+
+  .nf-risk-legend {
+    margin-top:5px;
+  }
+
+  .nf-phases b {
+    padding:5px 3px;
+  }
+
+  .nf-kpi-primary {
+    padding:8px 12px 6px;
+  }
+
+  .nf-kpi-primary strong {
+    font-size:27px;
+  }
+
+  .nf-kpi-grid>span {
+    padding:6px 10px;
+  }
+
+  .nf-kpi-grid b {
+    font-size:12px;
+  }
+
+  .nf-pipeline {
+    flex-basis:100px;
+    padding:7px 12px;
+  }
+
+  .nf-pipeline-heading {
+    margin-bottom:6px;
+  }
+
+  .nf-pipeline-step {
+    padding-bottom:7px;
+  }
+
+  .nf-rail-actions {
+    gap:5px;
+    padding:7px 12px;
+  }
+
+  .nf-chat-step {
+    gap:7px;
+    padding:7px 9px;
+    font-size:10px;
+  }
+
+  .nf-rail-actions>small {
+    font-size:8px;
+    line-height:1.25;
+  }
+}
+
+@media (max-width: 900px) {
+  .nf-ops[data-rail-open="true"] .nf-agent-log {
+    right:16px;
+  }
+}
+
+/* The rail is a live status surface: show the first unfinished step by
+   default and keep the complete 12-step audit trail behind a native details
+   disclosure. */
+.nf-pipeline-current {
+  margin-bottom:8px;
+  border:1px solid var(--nf-ops-line);
+  border-radius:8px;
+  background:var(--nf-ops-surface-2);
+}
+
+.nf-pipeline-current .nf-pipeline-step {
+  padding:8px;
+  border-bottom:0;
+}
+
+.nf-pipeline-current .nf-pipeline-step:before {
+  display:none;
+}
+
+.nf-pipeline-current .nf-pipeline-step>span {
+  padding-right:64px;
+}
+
+.nf-pipeline-current .nf-pipeline-step p {
+  display:-webkit-box;
+  overflow:hidden;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+}
+
+.nf-pipeline-history {
+  border-top:1px solid var(--nf-ops-line);
+}
+
+.nf-pipeline-history>summary {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:7px 2px 2px;
+  color:var(--nf-ops-teal-bright);
+  cursor:pointer;
+  font-size:9px;
+  font-weight:800;
+  list-style:none;
+}
+
+.nf-pipeline-history>summary::-webkit-details-marker {
+  display:none;
+}
+
+.nf-pipeline-history>summary:after {
+  content:'+';
+  color:var(--nf-ops-muted);
+  font-size:14px;
+  line-height:1;
+}
+
+.nf-pipeline-history[open]>summary:after {
+  content:'−';
+}
+
+.nf-pipeline-history>summary small {
+  margin-left:auto;
+  color:var(--nf-ops-muted);
+  font-size:8px;
+  font-weight:600;
+}
+
+.nf-pipeline-history__list {
+  margin-top:5px;
+}
+
+@media (max-height: 800px) {
+  .nf-pipeline-current {
+    margin-bottom:5px;
+  }
+
+  .nf-pipeline-current .nf-pipeline-step {
+    padding:7px;
+  }
+
+  .nf-pipeline-current .nf-pipeline-step code {
+    display:none;
+  }
+
+  .nf-pipeline-current .nf-pipeline-step p {
+    -webkit-line-clamp:1;
+  }
+
+  .nf-pipeline-history>summary {
+    padding-top:5px;
+  }
+}
+
+/* Compact rail summary: the first frame should show the decision signal and
+   the current agent step together. Full step details remain available from
+   the disclosure below, instead of forcing the live rail to scroll. */
+.nf-kpi-panel .nf-rail-title {
+  padding:9px 14px 5px;
+}
+
+.nf-kpi-panel .nf-phases b {
+  padding:5px 2px;
+  font-size:8px;
+}
+
+.nf-kpi-panel .nf-kpi-primary {
+  display:grid;
+  grid-template-columns:max-content minmax(0, 1fr);
+  align-items:center;
+  column-gap:10px;
+  padding:8px 14px 7px;
+}
+
+.nf-kpi-panel .nf-kpi-primary small {
+  grid-column:1 / -1;
+}
+
+.nf-kpi-panel .nf-kpi-primary strong {
+  margin-top:2px;
+  font-size:28px;
+  line-height:.95;
+}
+
+.nf-kpi-panel .nf-kpi-primary span {
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  line-height:1.25;
+}
+
+.nf-kpi-panel .nf-kpi-grid > span {
+  padding:6px 8px;
+}
+
+.nf-kpi-panel .nf-kpi-grid {
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+}
+
+.nf-kpi-panel .nf-kpi-grid small {
+  font-size:6px;
+  letter-spacing:.02em;
+}
+
+.nf-kpi-panel .nf-kpi-grid b {
+  margin-top:2px;
+  font-size:11px;
+}
+
+.nf-pipeline {
+  padding:8px 12px;
+}
+
+.nf-pipeline-heading {
+  margin-bottom:5px;
+}
+
+.nf-pipeline-current {
+  margin-bottom:5px;
+  border-radius:7px;
+}
+
+.nf-pipeline-current .nf-pipeline-step {
+  gap:7px;
+  padding:6px;
+}
+
+.nf-pipeline-current .nf-pipeline-step > i {
+  width:18px;
+  height:18px;
+}
+
+.nf-pipeline-current .nf-pipeline-step code {
+  display:none;
+}
+
+.nf-pipeline-current .nf-pipeline-step p {
+  margin-top:2px;
+  -webkit-line-clamp:1;
+}
+
+.nf-pipeline-current .nf-pipeline-progress {
+  height:2px;
+  margin-top:4px;
+}
+
+.nf-pipeline-history > summary {
+  padding-top:5px;
+  font-size:8.5px;
+}
+
+.nf-pipeline-history > summary small {
+  font-size:7px;
+}
+
+@media (max-height: 800px) {
+  .nf-kpi-panel .nf-kpi-primary {
+    padding-block:6px;
+  }
+
+  .nf-kpi-panel .nf-kpi-primary strong {
+    font-size:26px;
+  }
+
+  .nf-kpi-panel .nf-kpi-grid > span {
+    padding-block:5px;
+  }
+
+  .nf-pipeline {
+    padding-block:6px;
+  }
+}
+
+/* Map HUD: keep the location context visible without turning the map corner
+   into a second panel. The legend still exposes every threshold, while the
+   explanatory notes stay on one compact line and retain their full copy in
+   the native tooltip. */
+.nf-live-map-heading {
+  width:min(248px, calc(100% - 24px));
+  padding:7px 9px;
+  border-radius:8px;
+}
+
+.nf-live-map-heading p {
+  gap:5px;
+  font-size:10px;
+  line-height:1.2;
+}
+
+.nf-live-map-heading small {
+  margin-top:2px;
+  overflow:hidden;
+  font-size:8px;
+  line-height:1.25;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.nf-live-map-legend {
+  top:108px;
+  width:min(248px, calc(100% - 24px));
+  gap:3px 6px;
+  padding:7px 8px;
+  border-radius:8px;
+}
+
+.nf-live-map-legend > strong {
+  font-size:8px;
+  line-height:1.1;
+}
+
+.nf-live-map-legend span {
+  min-width:0;
+  gap:4px;
+  overflow:hidden;
+  padding:3px 4px;
+  border-radius:4px;
+  background:var(--nf-ops-surface-3);
+  font-size:8px;
+  line-height:1.15;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.nf-live-map-legend i {
+  width:10px;
+  height:10px;
+  flex:none;
+}
+
+.nf-live-map-legend > p {
+  min-width:0;
+  gap:4px;
+  overflow:hidden;
+  margin:1px 0 0;
+  font-size:7px;
+  line-height:1.2;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.nf-live-map-legend > p b {
+  flex:none;
+}
+
+.nf-legend-area {
+  width:14px;
+  height:9px;
+}
+
+.nf-legend-rain {
+  font-size:11px;
+  line-height:1;
+}
+
+@media (max-width: 600px) {
+  .nf-live-map-heading,
+  .nf-live-map-legend {
+    left:8px;
+    width:calc(100% - 16px);
+  }
+
+  .nf-live-map-heading {
+    top:50px;
+  }
+
+  .nf-live-map-legend {
+    top:100px;
+  }
+}
+
+/* Action dialogs belong to the dashboard surface. The shared dialog rules
+   intentionally use the light global tokens, so scope the operator override
+   here to prevent a white modal with pale dark-theme text. */
+.nf-ops .dialog-backdrop {
+  background:rgb(3 8 11 / 72%);
+}
+
+.nf-ops[data-theme="light"] .dialog-backdrop {
+  background:rgb(20 48 46 / 28%);
+}
+
+.nf-ops .dialog {
+  border:1px solid var(--nf-ops-line);
+  background:var(--nf-ops-surface);
+  color:var(--nf-ops-ink);
+  box-shadow:0 20px 48px rgb(0 0 0 / 46%);
+}
+
+.nf-ops[data-theme="light"] .dialog {
+  box-shadow:0 16px 38px rgb(20 48 46 / 20%);
+}
+
+.nf-ops .dialog-title {
+  color:var(--nf-ops-ink);
+}
+
+.nf-ops .dialog-body {
+  color:var(--nf-ops-muted);
+  opacity:1;
+}
+
+.nf-ops .dialog .field {
+  color:var(--nf-ops-muted);
+}
+
+.nf-ops .dialog .input {
+  border-color:var(--nf-ops-line);
+  background:var(--nf-ops-surface-2);
+  color:var(--nf-ops-ink);
+}
+
+.nf-ops .dialog .input::placeholder {
+  color:var(--nf-ops-muted);
+}
+
+.nf-ops .dialog .input:focus-visible {
+  border-color:var(--nf-ops-teal);
+}
+
+.nf-ops .nf-dialog-summary {
+  border-color:var(--nf-ops-line);
+  background:var(--nf-ops-surface-2);
+  color:var(--nf-ops-muted);
+}
+
+.nf-ops .nf-dialog-summary span {
+  color:var(--nf-ops-muted);
+}
+
+.nf-ops .nf-dialog-summary small {
+  color:var(--nf-ops-muted);
+}
+
+.nf-ops .nf-dialog-summary b {
+  color:var(--nf-ops-ink);
+}
+
+.nf-ops .nf-dialog-error {
+  color:var(--nf-ops-red);
+}
+
+/* Shared dialogs (including the stop-operation confirmation) need the same
+   theme surface as the dashboard action dialog. */
+.nf-ops .nf-shared-dialog-backdrop {
+  background:rgb(3 8 11 / 72%);
+}
+
+.nf-ops[data-theme="light"] .nf-shared-dialog-backdrop {
+  background:rgb(20 48 46 / 28%);
+}
+
+.nf-ops .nf-shared-dialog {
+  border:1px solid var(--nf-ops-line);
+  background:var(--nf-ops-surface);
+  color:var(--nf-ops-ink);
+  color-scheme:dark;
+  box-shadow:0 20px 48px rgb(0 0 0 / 46%);
+}
+
+.nf-ops[data-theme="light"] .nf-shared-dialog {
+  color-scheme:light;
+  box-shadow:0 16px 38px rgb(20 48 46 / 20%);
+}
+
+.nf-ops .nf-shared-dialog .text-slate-950,
+.nf-ops .nf-shared-dialog .text-slate-900,
+.nf-ops .nf-shared-dialog .text-slate-800,
+.nf-ops .nf-shared-dialog .text-slate-700 {
+  color:var(--nf-ops-ink);
+}
+
+.nf-ops .nf-shared-dialog .text-slate-600,
+.nf-ops .nf-shared-dialog .text-slate-500,
+.nf-ops .nf-shared-dialog .text-slate-400 {
+  color:var(--nf-ops-muted);
+}
+
+.nf-ops .nf-shared-dialog input,
+.nf-ops .nf-shared-dialog select,
+.nf-ops .nf-shared-dialog textarea {
+  border-color:var(--nf-ops-line);
+  background:var(--nf-ops-surface-2);
+  color:var(--nf-ops-ink);
+  color-scheme:dark;
+}
+
+.nf-ops[data-theme="light"] .nf-shared-dialog input,
+.nf-ops[data-theme="light"] .nf-shared-dialog select,
+.nf-ops[data-theme="light"] .nf-shared-dialog textarea {
+  color-scheme:light;
+}
+
+.nf-ops .nf-shared-dialog input::placeholder,
+.nf-ops .nf-shared-dialog textarea::placeholder {
+  color:var(--nf-ops-muted);
+}
+
+.nf-ops .nf-shared-dialog .border-slate-100,
+.nf-ops .nf-shared-dialog .border-slate-200,
+.nf-ops .nf-shared-dialog .border-slate-300 {
+  border-color:var(--nf-ops-line);
+}
+
+.nf-ops .nf-shared-dialog .bg-white {
+  background:var(--nf-ops-surface-2);
+}
+
+.nf-ops .nf-shared-dialog .bg-slate-50,
+.nf-ops .nf-shared-dialog .bg-slate-100 {
+  background:var(--nf-ops-surface-2);
+}
+
+.nf-ops .nf-shared-dialog > div:first-child > button:hover {
+  background:var(--nf-ops-surface-3);
+  color:var(--nf-ops-ink);
+}
+
+.nf-ops .nf-stop-dialog__description {
+  color:var(--nf-ops-muted);
+}
+
+.nf-ops .nf-stop-dialog__label {
+  color:var(--nf-ops-ink);
+}
+
+.nf-ops .nf-stop-dialog__textarea:focus {
+  border-color:var(--nf-ops-teal);
+  outline:2px solid color-mix(in srgb, var(--nf-ops-teal) 22%, transparent);
+}
+
+.nf-ops .nf-stop-dialog__error {
+  color:var(--nf-ops-red);
+}
+
+.nf-ops .nf-stop-dialog__keep {
+  color:var(--nf-ops-muted);
+}
+
+.nf-ops .nf-stop-dialog__keep:hover {
+  background:var(--nf-ops-surface-3);
+  color:var(--nf-ops-ink);
+}
+
+.nf-ops .nf-stop-dialog__confirm:not(:disabled) {
+  border-color:var(--nf-ops-red);
+  background:var(--nf-ops-red);
+  color:#fff;
+}
+
+.nf-ops .nf-stop-dialog__confirm:not(:disabled):hover {
+  filter:brightness(1.08);
+}
+
+/* The insight column gets the same collapse affordance as the command rail,
+   while the map flexes into the space it releases. */
+.nf-ops {
+  --nf-insight-column-width:296px;
+}
+
+.nf-ops .nf-insight-column {
+  width:var(--nf-insight-column-width);
+  transition:width .22s ease;
+}
+
+.nf-ops .nf-insight-column.is-collapsed {
+  width:0;
+  border-right:0;
+}
+
+.nf-insight-toggle {
+  position:absolute;
+  top:50%;
+  z-index:20;
+  width:22px;
+  height:56px;
+  transform:translateY(-50%);
+  border:1px solid var(--nf-ops-line);
+  border-left:0;
+  border-radius:0 8px 8px 0;
+  background:var(--nf-ops-surface-2);
+  box-shadow:0 6px 18px rgba(0,0,0,.32);
+  color:var(--nf-ops-ink);
+  font-size:15px;
+  font-weight:800;
+  cursor:pointer;
+  transition:left .22s ease, background .18s ease;
+}
+
+.nf-insight-toggle:hover {
+  background:var(--nf-ops-surface-3);
+  color:var(--nf-ops-teal-bright);
+}
+
+@media(max-width:1500px) {
+  .nf-ops {
+    --nf-insight-column-width:250px;
+  }
+}
+
+@media(max-width:1180px) {
+  .nf-ops .nf-insight-toggle {
+    display:none;
+  }
+}
+
+/* Compact map zone finder: keep the controls visible while leaving more map
+   available; the zone list remains independently scrollable. */
+.nf-ops .nf-zone-finder {
+  width:232px;
+  max-height:min(336px, calc(100% - 132px));
+  border-radius:8px;
+}
+
+.nf-ops .nf-zone-finder > header {
+  min-height:34px;
+  gap:6px;
+  padding:6px 8px;
+}
+
+.nf-ops .nf-zone-finder > header strong {
+  font-size:9px;
+}
+
+.nf-ops .nf-zone-finder > header button {
+  width:21px;
+  height:21px;
+  font-size:10px;
+}
+
+.nf-ops .nf-zone-finder-basis {
+  margin:0;
+  overflow:hidden;
+  padding:3px 8px 4px;
+  font-size:8px;
+  line-height:1.25;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.nf-ops .nf-zone-finder > label {
+  padding:5px 8px;
+}
+
+.nf-ops .nf-zone-finder > label input {
+  min-height:27px;
+  padding:4px 6px;
+  font-size:10px;
+}
+
+.nf-ops .nf-zone-finder button {
+  gap:4px;
+  padding:6px 8px;
+}
+
+.nf-ops .nf-zone-finder button b {
+  font-size:10px;
+}
+
+.nf-ops .nf-zone-finder button > small {
+  width:32px;
+  font-size:8px;
+}
+
+.nf-ops .nf-zone-finder em {
+  min-width:48px;
+  padding:3px 5px;
+  font-size:9px;
+}
+
+@media(max-width:600px) {
+  .nf-ops .nf-zone-finder {
+    right:8px;
+    left:auto;
+    width:min(232px, calc(100% - 16px));
+    max-height:min(328px, calc(100% - 118px));
+  }
+}

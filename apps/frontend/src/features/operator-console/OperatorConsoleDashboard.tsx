@@ -49,6 +49,7 @@ import { projectZonesAtMinute } from "@/features/operator-dashboard/model/foreca
 import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline";
 import { usePipelineRun } from "@/features/operator-pipeline/hooks/usePipelineRun";
 import { useObserverSession } from "@/features/operator-pipeline/hooks/useObserverSession";
+import { buildAgentCards, runningAgentCount } from "@/features/operator-pipeline/model/agentCards";
 import { AgentInteractionLog } from "@/features/operator-console/components/AgentInteractionLog";
 import { awaitingApprovalRow, conversationRows, mergeLogRows, thinkingRows } from "@/features/operator-console/model/logRows";
 import { auditLogRows } from "@/features/operator-console/model/auditLogRows";
@@ -59,7 +60,7 @@ import { DemandTrendChart } from "./components/DemandTrendChart";
 import { NetworkHealthPanel } from "./components/NetworkHealthPanel";
 import { OpsHeader } from "./components/OpsHeader";
 import { ZoneBalanceChart } from "./components/ZoneBalanceChart";
-import { Skeleton } from "@/shared/components/ui/FeedbackStates";
+import { DataRefreshState, Skeleton } from "@/shared/components/ui/FeedbackStates";
 import { AppError } from "@/shared/api/client";
 import { routes } from "@/shared/config/routes";
 import { formatNumber } from "@/shared/lib/format";
@@ -117,8 +118,8 @@ export function OperatorConsoleDashboard({
   userEmail,
 }: {
   notifications?: ReactNode;
-  onSignOut?: () => void;
-  userEmail?: string | null;
+  onSignOut?: (() => void) | undefined;
+  userEmail?: string | null | undefined;
 } = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -127,7 +128,10 @@ export function OperatorConsoleDashboard({
   const [replaySnapshot, setReplaySnapshot] = useState<Snapshot>();
   const [selectedZoneId, setSelectedZoneId] = useState<string>();
   const [search, setSearch] = useState("");
-  const [finderOpen, setFinderOpen] = useState(true);
+  // Keep the map controls lightweight on first entry. The two side panels remain
+  // visible; the zone list is opened only when the operator needs to inspect it.
+  const [finderOpen, setFinderOpen] = useState(false);
+  const [insightOpen, setInsightOpen] = useState(true);
   const [layer, setLayer] = useState<MapLayer>("gap");
   const [mapView, setMapView] = useState<MapView>("city");
   const [mapSource, setMapSource] = useState<MapSource>("observed");
@@ -148,6 +152,8 @@ export function OperatorConsoleDashboard({
   const [rejectNote, setRejectNote] = useState("");
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const [pipelineTab, setPipelineTab] = useState<PipelineTabId>("agents");
+  const [quickAgentCommand, setQuickAgentCommand] = useState<{ id: number; text: string }>();
+  const quickAgentCommandIdRef = useRef(0);
 
   useEffect(() => {
     try {
@@ -258,6 +264,15 @@ export function OperatorConsoleDashboard({
   // còn đang tải. Đó cũng là lý do horizon và snapshot đi vào ở `start()` chứ không ở đây —
   // lúc này chúng chưa được tính.
   const pipeline = usePipelineRun();
+  const agentCards = buildAgentCards(pipeline.run);
+  const agentSummary = pipeline.run
+    ? {
+      done: agentCards.filter((card) => card.status === "DONE").length,
+      running: runningAgentCount(agentCards),
+      total: agentCards.length,
+      warning: agentCards.filter((card) => card.status === "WARNING" || card.status === "FAILED").length,
+    }
+    : undefined;
   // Phiên hỏi–đáp cũng phải nằm trên ba guard clause vì nó là hook. Tham số của từng câu hỏi
   // đi vào ở `ask()`, nên hook không cần biết gì tại thời điểm này.
   const observer = useObserverSession();
@@ -265,23 +280,20 @@ export function OperatorConsoleDashboard({
   // quyết định — mắt xích "người duyệt" của mạch ở §1.
   const operatorLog = useOperatorActionLog();
 
-  if (plans.isPending || campaigns.isPending || dispatches.isPending)
-    return (
-      <div className="nf-console-loading">
-        <Skeleton />
-      </div>
-    );
-
   const execution = activeExecutionPlan(plans.data, campaigns.data, dispatches.data);
   const hasExecution = Boolean(execution);
 
   if (snapshot.isPending)
     return (
-      <div className="nf-console-loading">
+      <div className="nf-console-loading nf-console-loading--dark" role="status">
+        <span>Đang nạp dữ liệu vận hành…</span>
         <Skeleton />
       </div>
     );
-  if (snapshot.isError || !snapshot.data)
+  // Keep the last usable snapshot on screen when a background refresh fails.
+  // A transient API/network error must not turn an otherwise usable console
+  // into a blank-looking full-screen error state.
+  if (snapshot.isError && !snapshot.data)
     return (
       <div className="nf-console-loading">
         <strong>Không thể nạp snapshot vận hành.</strong>
@@ -671,6 +683,10 @@ export function OperatorConsoleDashboard({
   // một đường tạo run, không phải hai.
   const pipelineInput = { horizonMinutes: displayedHorizon, snapshotId: Number(activeSnapshot.replayStep) };
   const startPipelineRun = () => pipeline.start(pipelineInput);
+  const runQuickAgentCommand = (text: string) => {
+    quickAgentCommandIdRef.current += 1;
+    setQuickAgentCommand({ id: quickAgentCommandIdRef.current, text });
+  };
   // Việc gõ vào nhật ký làm được. Cả ba đều gọi ĐÚNG handler mà nút vẫn gọi — một đường cho
   // mỗi việc. Không có mục nào chạm hai cổng §11.1: duyệt phương án và phát hành campaign
   // vẫn chỉ mở bằng nút, qua hộp thoại xác nhận của chúng.
@@ -739,18 +755,24 @@ export function OperatorConsoleDashboard({
   return (
     // `data-stage` nói cho CSS biết panel `connect` đang mở. Dùng thuộc tính thay vì `:has()`
     // để không phụ thuộc mức hỗ trợ selector của trình duyệt cho một thứ ảnh hưởng cả layout.
-    <div className="nf-ops" data-stage={pipelineOpen && pipelineTab === "connect" ? "on" : undefined} data-theme={opsTheme}>
-      <SnapshotStaleAlert
-        autoRefresh
-        generatedAt={displaySourceAt}
-        isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
-        onRefresh={() => {
-          void snapshot.refetch();
-          if (replayAnchorAt) changeReplaySource(replayAnchorAt, true);
-          else setReplaySnapshot(undefined);
-        }}
+    <div className="nf-ops" data-rail-open={railOpen ? "true" : "false"} data-stage={pipelineOpen && pipelineTab === "connect" ? "on" : undefined} data-theme={opsTheme}>
+      {isLiveEdge && !replayTargetAt && <SnapshotStaleAlert
+          autoRefresh
+          generatedAt={displaySourceAt}
+          isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
+          onRefresh={() => {
+            void snapshot.refetch();
+            if (replayAnchorAt) changeReplaySource(replayAnchorAt, true);
+            else setReplaySnapshot(undefined);
+          }}
+        />}
+      <DataRefreshState
+        hasError={snapshot.isRefetchError}
+        isFetching={snapshot.isFetching}
+        onRetry={() => void snapshot.refetch()}
       />
       <OpsHeader
+        agentSummary={agentSummary}
         health={capabilities.data?.health}
         isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
         notifications={notifications}
@@ -779,7 +801,7 @@ export function OperatorConsoleDashboard({
         zoneCount={zones.length}
       />
       <div className="nf-ops-workspace">
-        <aside aria-label="Biểu đồ vận hành" className="nf-insight-column">
+        <aside aria-label="Biểu đồ vận hành" className={`nf-insight-column${insightOpen ? "" : " is-collapsed"}`}>
           <DemandTrendChart steps={dayWindow.data ?? []} />
           <AiImpactChart plan={planReady ? plan : undefined} />
           <section className="nf-insight-chart">
@@ -790,6 +812,16 @@ export function OperatorConsoleDashboard({
             <ZoneBalanceChart onSelect={setSelectedZoneId} zones={zones} />
           </section>
         </aside>
+        <button
+          aria-expanded={insightOpen}
+          aria-label={insightOpen ? "Thu gọn bảng phân tích" : "Mở bảng phân tích"}
+          className="nf-insight-toggle"
+          onClick={() => setInsightOpen((value) => !value)}
+          style={{ left: insightOpen ? "var(--nf-insight-column-width)" : 0 }}
+          type="button"
+        >
+          {insightOpen ? "‹" : "›"}
+        </button>
         <section className="nf-map-stage" aria-label="Bản đồ vận hành">
           {!hasExecution && forecastRun
             ? <ForecastRunStatus forecast={activeSnapshot.ai} horizon={forecastMinutes} isExact={forecastReady} />
@@ -914,7 +946,7 @@ export function OperatorConsoleDashboard({
           aria-label={railOpen ? "Thu gọn bảng chỉ huy" : "Mở bảng chỉ huy"}
           className="nf-rail-toggle"
           onClick={() => setRailOpen((value) => !value)}
-          style={{ right: railOpen ? 404 : 0 }}
+          style={{ right: railOpen ? "var(--nf-command-rail-width)" : 0 }}
           type="button"
         >
           {railOpen ? "›" : "‹"}
@@ -987,6 +1019,7 @@ export function OperatorConsoleDashboard({
                 onOpenExecution={() => navigate(routes.operator.execution)}
                 onOpenPlan={() => setDrawerOpen(true)}
                 onReject={() => openDialog("reject")}
+                onQuickCommand={runQuickAgentCommand}
                 plan={planReady ? plan : undefined}
                 reviewNow={proposalNow}
                 stage={activeStage}
@@ -1002,6 +1035,7 @@ export function OperatorConsoleDashboard({
           isBusy={observer.isBusy}
           isRunning={pipeline.run?.status === "RUNNING"}
           onAsk={(text) => observer.ask(text, { ...pipelineInput, handlers: chatHandlers })}
+          quickCommand={quickAgentCommand}
           rows={conversationRows(mergedLogRows)}
           thinking={thinkingRows(mergedLogRows)}
       />
@@ -1549,6 +1583,15 @@ function KpiPanel({
 
 type PipelineState = "done" | "running" | "waiting" | "queued" | "attention" | "stale" | "skipped" | "idle";
 
+function PipelineStepIcon({ state }: { state: PipelineState }) {
+  if (state === "done") return <Check size={11} />;
+  if (state === "waiting" || state === "queued") return <Pause size={10} />;
+  if (state === "attention" || state === "stale") return "!";
+  if (state === "skipped") return "–";
+  if (state === "running") return "▶";
+  return <Circle size={8} />;
+}
+
 function Pipeline({
   campaign,
   dispatch,
@@ -1592,7 +1635,9 @@ function Pipeline({
       state: (isScanning ? "running" : "done") as PipelineState,
       command: "snapshot.load(zone_registry)",
       result: isScanning
-        ? "Đang đọc mốc dữ liệu ghi nhận"
+        ? replayTargetAt
+          ? `${formatTimeLabel(replayTargetAt)} · đang đọc 30 zone`
+          : "Đang đọc mốc dữ liệu ghi nhận"
         : "30/30 zone hợp lệ từ nguồn dữ liệu dự án",
     },
     {
@@ -1746,9 +1791,39 @@ function Pipeline({
           ? "HOÀN TẤT"
         : hasPlan
           ? "CHỜ BẠN"
-          : forecastReady
+            : forecastReady
             ? "THEO DÕI"
             : "SẴN SÀNG";
+  const currentStepIndex = steps.findIndex((step) => !["done", "skipped"].includes(step.state));
+  const activeStepIndex = currentStepIndex === -1 ? steps.length - 1 : currentStepIndex;
+  const currentStep = steps[activeStepIndex];
+  if (!currentStep) return null;
+  const renderStep = (step: typeof steps[number], index: number) => (
+    <div className={`nf-pipeline-step is-${step.state}`} key={step.label}>
+      <i><PipelineStepIcon state={step.state} /></i>
+      <span>
+        <b>{step.label}</b>
+        <small>{pipelineStatusLabel(step.state)}</small>
+        <code>{step.command}</code>
+        <p>{step.result}</p>
+        {step.state === "running" && (
+          <span className="nf-pipeline-progress">
+            <i />
+          </span>
+        )}
+        {index === 4 && hasPlan && (
+          <button onClick={onOpenPlan} type="button">
+            Xem phương án →
+          </button>
+        )}
+        {index === 6 && (dispatch || campaign) && (
+          <button onClick={onOpenExecution} type="button">
+            Mở trang vận hành →
+          </button>
+        )}
+      </span>
+    </div>
+  );
   return (
     <div className="nf-pipeline nf-scroll">
       <div className="nf-pipeline-heading">
@@ -1757,72 +1832,20 @@ function Pipeline({
         <b className={busy ? "is-processing" : forecastStale ? "is-stale" : ""}>
           {agentLabel}
         </b>
-        <em>{completed}/12</em>
+        <em>BƯỚC {activeStepIndex + 1}/{steps.length}</em>
       </div>
-      {busy && (
-        <div className="nf-agent-processing" role="status" aria-live="polite">
-          <LoaderCircle size={20} />
-          <span>
-            <b>{isScanning
-              ? "Đang xử lý mốc replay"
-              : isForecasting
-                ? "Đang chạy dự báo"
-                : isOptimizing
-                  ? "Đang tối ưu phương án"
-                  : "Đang phát và theo dõi lệnh"}</b>
-            <small>
-              {isScanning && replayTargetAt
-                ? `${formatTimeLabel(replayTargetAt)} · đang đọc dữ liệu 30 zone, không chạy model`
-                : isOptimizing
-                  ? "Model đang ghép nguồn–đích theo ràng buộc thật"
-                  : stage === "executing"
-                    ? "Đang chuyển trạng thái từng lệnh điều chuyển"
-                    : "Model đang tính toán cung–cầu cho bản đồ"}
-            </small>
-          </span>
-          <i />
+      <div aria-live="polite" className="nf-pipeline-current">
+        {renderStep(currentStep, activeStepIndex)}
+      </div>
+      <details className="nf-pipeline-history">
+        <summary>
+          <span>Xem toàn bộ tiến trình</span>
+          <small>{completed}/{steps.length} bước đã xong</small>
+        </summary>
+        <div className="nf-pipeline-history__list">
+          {steps.map(renderStep)}
         </div>
-      )}
-      {steps.map((step, index) => (
-        <div className={`nf-pipeline-step is-${step.state}`} key={step.label}>
-          <i>
-            {step.state === "done" ? (
-              <Check size={11} />
-            ) : step.state === "waiting" || step.state === "queued" ? (
-              <Pause size={10} />
-            ) : step.state === "attention" || step.state === "stale" ? (
-              "!"
-            ) : step.state === "skipped" ? (
-              "–"
-            ) : step.state === "running" ? (
-              "▶"
-            ) : (
-              <Circle size={8} />
-            )}
-          </i>
-          <span>
-            <b>{step.label}</b>
-            <small>{pipelineStatusLabel(step.state)}</small>
-            <code>{step.command}</code>
-            <p>{step.result}</p>
-            {step.state === "running" && (
-              <span className="nf-pipeline-progress">
-                <i />
-              </span>
-            )}
-            {index === 4 && hasPlan && (
-              <button onClick={onOpenPlan} type="button">
-                Xem phương án →
-              </button>
-            )}
-            {index === 6 && (dispatch || campaign) && (
-              <button onClick={onOpenExecution} type="button">
-                Mở trang vận hành →
-              </button>
-            )}
-          </span>
-        </div>
-      ))}
+      </details>
     </div>
   );
 }
@@ -1998,7 +2021,13 @@ function ActiveExecutionRail({
  * Nó **không** phải một nút bị vô hiệu hoá: chỗ này không còn hành động nào để bấm, nên nó
  * chỉ nói ra câu cần gõ. Để lại một nút xám ở đây sẽ mời người dùng bấm vào thứ không làm gì.
  */
-function ChatStep({ say, hint, busy, error }: { say: string; hint: string; busy?: string | undefined; error?: string | undefined }) {
+function ChatStep({ say, hint, busy, error, onQuickCommand }: {
+  say: string
+  hint: string
+  busy?: string | undefined
+  error?: string | undefined
+  onQuickCommand?: ((text: string) => void) | undefined
+}) {
   return (
     <div className="nf-rail-actions">
       <div aria-live="polite" className="nf-chat-step" role="status">
@@ -2010,7 +2039,12 @@ function ChatStep({ say, hint, busy, error }: { say: string; hint: string; busy?
         ) : (
           <>
             <Terminal size={15} />
-            <span>Gõ <code>{say}</code> vào nhật ký agent ở góc dưới phải.</span>
+            <span>Gõ <button
+              aria-label={`Chạy lệnh nhanh: ${say}`}
+              className="nf-chat-step__command"
+              onClick={() => onQuickCommand?.(say)}
+              type="button"
+            >{say}</button> vào ô Nhật ký agent.</span>
           </>
         )}
       </div>
@@ -2045,6 +2079,7 @@ export function RailActions({
   onOpenPlan,
   onOptimize,
   onPrepareActivation,
+  onQuickCommand,
   onReject,
   plan,
   reviewNow = new Date(),
@@ -2075,6 +2110,7 @@ export function RailActions({
   onOpenPlan: () => void;
   onOptimize: () => void;
   onPrepareActivation: () => void;
+  onQuickCommand?: ((text: string) => void) | undefined;
   onReject: () => void;
   plan: Proposal | undefined;
   reviewNow?: Date;
@@ -2122,6 +2158,7 @@ export function RailActions({
       <ChatStep
         busy={isScanning ? "Đang nạp snapshot…" : isGenerating ? "Đang chạy model…" : undefined}
         hint="Chạy model cho mốc đang chọn; kết quả dự báo sẽ tự mở trên bản đồ."
+        onQuickCommand={onQuickCommand}
         say="chạy dự báo"
       />
     );
@@ -2157,6 +2194,7 @@ export function RailActions({
         busy={isOptimizing ? "Model đang tính phương án…" : undefined}
         error={optimizationError ? `Không thể tính phương án: ${optimizationError}` : undefined}
         hint="Model ghép nguồn dư với vùng thiếu theo ETA và các ràng buộc vận hành."
+        onQuickCommand={onQuickCommand}
         say="tính phương án"
       />
     );

@@ -4,7 +4,7 @@
 // ô nhập cũng không phải cửa thứ hai vào cổng phê duyệt. Nó chỉ gọi `onAsk`; mọi ranh giới
 // nằm ở server (chặn trước LLM) và ở allowlist directive của hook.
 
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -27,18 +27,26 @@ function show(rows: readonly LogRow[], props: Partial<Parameters<typeof AgentInt
   const view = render(
     <AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={rows} thinking={[]} {...props} />,
   )
+  // Existing cases exercise the expanded log. Open it explicitly so those assertions
+  // remain focused on log content rather than the initial-visibility contract.
+  fireEvent.click(screen.getByRole('button', { name: /Nhật ký agent/ }))
   return { onAsk, ...view }
 }
 
 describe('AgentInteractionLog', () => {
   afterEach(cleanup)
 
-  it('luôn hiện dù chưa chạy lượt nào — nó là chỗ ra lệnh, không chỉ chỗ xem kết quả', () => {
-    show([])
+  it('mặc định thu gọn dù chưa chạy lượt nào, nhưng vẫn có thanh mở nhật ký', () => {
+    const onAsk = vi.fn()
+    render(<AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={[]} thinking={[]} />)
 
-    expect(screen.getByRole('log')).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toBeInTheDocument()
+    expect(screen.queryByRole('log')).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Nhật ký agent/ })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Nhật ký agent/ }))
     expect(screen.getByRole('log')).toHaveTextContent('Gõ chạy phân tích để agent bắt đầu')
+    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toBeInTheDocument()
   })
 
   it('dựng đúng khuôn [giờ] [ACTOR] > nội dung', () => {
@@ -152,6 +160,26 @@ describe('AgentInteractionLog', () => {
     await userEvent.type(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' }), 'zone nào thiếu xe{Enter}')
 
     expect(onAsk).toHaveBeenCalledWith('zone nào thiếu xe')
+    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toHaveValue('')
+  })
+
+  it('mở nhật ký và gửi ngay lệnh nhanh từ bảng điều hành', async () => {
+    const { onAsk, rerender } = show([])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Thu gọn nhật ký' }))
+    rerender(
+      <AgentInteractionLog
+        isBusy={false}
+        isRunning={false}
+        onAsk={onAsk}
+        quickCommand={{ id: 1, text: 'chạy dự báo' }}
+        rows={[]}
+        thinking={[]}
+      />,
+    )
+
+    await waitFor(() => expect(onAsk).toHaveBeenCalledWith('chạy dự báo'))
+    expect(screen.getByRole('log')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toHaveValue('')
   })
 

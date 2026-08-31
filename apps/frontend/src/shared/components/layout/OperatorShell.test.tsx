@@ -33,8 +33,7 @@ describe('OperatorShell server clock', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     queryClient.setQueryData(['operator', 'capabilities'], capabilities)
 
-    // Trang Điều hành đã nhường đầu trang cho OpsHeader, nên đồng hồ của shell chỉ còn ở các
-    // trang khác — kiểm ở đúng chỗ nó thật sự hiển thị.
+    // Các workspace dark dùng header chung với trang Điều hành.
     const { container } = render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={['/operator/history']}>
@@ -42,7 +41,7 @@ describe('OperatorShell server clock', () => {
         </MemoryRouter>
       </QueryClientProvider>,
     )
-    const clock = () => container.querySelector('.nf-console-clock strong')
+    const clock = () => container.querySelector('.nf-ops-clock')
 
     expect(clock()).toHaveTextContent('10:00')
 
@@ -51,7 +50,7 @@ describe('OperatorShell server clock', () => {
     expect(clock()).toHaveTextContent('10:01')
   })
 
-  it('drops its own header on the dashboard route so OpsHeader is the only one', () => {
+  it('uses the shared header on the dashboard and dark workspace routes', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     queryClient.setQueryData(['operator', 'capabilities'], capabilities)
     const renderAt = (path: string) => render(
@@ -64,7 +63,9 @@ describe('OperatorShell server clock', () => {
 
     expect(renderAt('/operator').querySelector('.nf-console-header')).toBeNull()
     cleanup()
-    expect(renderAt('/operator/history').querySelector('.nf-console-header')).not.toBeNull()
+    const darkWorkspace = renderAt('/operator/history')
+    expect(darkWorkspace.querySelector('.nf-console-header')).toBeNull()
+    expect(darkWorkspace.querySelector('.nf-ops-header')).not.toBeNull()
   })
 
   it('keeps the operating navigation active on the offer detail route', () => {

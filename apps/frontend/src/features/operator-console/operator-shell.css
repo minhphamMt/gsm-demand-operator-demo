@@ -9,3 +9,8 @@
 .nf-console-main{flex:1;min-height:0;display:flex}.nf-console-page{flex:1;min-height:0;overflow:auto;padding:16px;background:var(--color-bg)}
 .nf-console-page--flush{overflow:hidden;padding:0}
 @media(max-width:1250px){.nf-console-clock,.nf-console-source{display:none}}
+
+/* The shared header owns the dark chrome; keep the flush workspace surface dark too. */
+.nf-console:has(.nf-workspace-page--dark) .nf-console-page--flush {
+  background: #0c1216;
+}

@@ -53,11 +53,15 @@ export async function requestJson(path: string, init: RequestInit = {}): Promise
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), 12_000)
   try {
-    const token = await accessToken()
     const headers = new Headers(init.headers)
     headers.set('Accept', 'application/json')
     if (init.body) headers.set('Content-Type', 'application/json')
-    if (token) headers.set('Authorization', `Bearer ${token}`)
+    // Auth bootstrap already has the session token. Reusing it avoids asking
+    // Supabase for the session again while its auth lock is still held.
+    if (!headers.has('Authorization')) {
+      const token = await accessToken()
+      if (token) headers.set('Authorization', `Bearer ${token}`)
+    }
 
     const response = await fetch(`${env.apiBaseUrl}${path}`, {
       ...init,

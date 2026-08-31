@@ -13,3 +13,307 @@
 .nf-workspace-page h2{font-size:15px}.nf-workspace-page table th{background:var(--color-neutral-100);color:var(--color-neutral-700)}.nf-workspace-page table tbody tr:hover{background:var(--nf-ok-100)}
 .nf-forecast-evaluation{padding:12px;border:1px solid color-mix(in srgb,var(--nf-info) 32%,var(--color-divider));border-radius:var(--radius-md);background:color-mix(in srgb,var(--nf-info) 6%,var(--color-surface))}.nf-forecast-evaluation>header,.nf-forecast-evaluation.is-pending{display:flex;align-items:flex-start;gap:8px}.nf-forecast-evaluation header>svg,.nf-forecast-evaluation.is-pending>svg{flex:none;margin-top:1px;color:var(--nf-info)}.nf-forecast-evaluation strong{display:block;font-size:12px}.nf-forecast-evaluation small{display:block;margin-top:2px;color:var(--color-neutral-600);font-size:10px}.nf-forecast-evaluation.is-pending{color:var(--color-neutral-800)}.nf-evaluation-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px}.nf-evaluation-metrics>div{padding:8px;border:1px solid var(--color-divider);border-radius:var(--radius-sm);background:var(--color-surface)}.nf-evaluation-metrics strong{margin-top:4px;font:800 14px/1 var(--font-display)}.nf-forecast-evaluation>p{margin:9px 0 0;color:var(--color-neutral-700);font-size:10px}
 @media(max-width:1450px){.nf-workspace-command-grid{grid-template-columns:1fr}.nf-workspace-heading-status{min-width:180px}.nf-scenario-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.nf-evaluation-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Operations dark theme: the execution, comparison and audit workspaces share
+   the same surface and status language as the live operations dashboard. */
+.nf-workspace-page--dark {
+  --color-bg: #0c1216;
+  --color-surface: #121a20;
+  --color-text: #f0f5f2;
+  --color-divider: #2a3941;
+  --color-neutral-100: #172128;
+  --color-neutral-200: #1d2930;
+  --color-neutral-300: #2a3941;
+  --color-neutral-400: #53656a;
+  --color-neutral-500: #71817f;
+  --color-neutral-600: #90a09e;
+  --color-neutral-700: #b1bfbb;
+  --color-neutral-800: #d2ddda;
+  --color-neutral-900: #f0f5f2;
+  --color-accent: #d45252;
+  --color-accent-100: rgba(212, 82, 82, .15);
+  --color-accent-600: #d45252;
+  --color-accent-700: #ef7770;
+  --color-accent-800: #ffaaa0;
+  --nf-ok: #35b7a5;
+  --nf-ok-ink: #54d4c1;
+  --nf-ok-100: rgba(53, 183, 165, .14);
+  --nf-flow: #35b7a5;
+  --nf-warn: #eeb151;
+  --nf-warn-ink: #eeb151;
+  --nf-warn-100: rgba(238, 177, 81, .15);
+  --nf-alert-300: #ef7770;
+  --nf-alert-700: #d45252;
+  --nf-alert-800: #ffaaa0;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .28);
+  --shadow-md: 0 5px 16px rgba(0, 0, 0, .24);
+  --shadow-lg: 0 16px 38px rgba(0, 0, 0, .38);
+  color-scheme: dark;
+  background: radial-gradient(circle at 82% -12%, rgba(53, 183, 165, .08), transparent 34%), var(--color-bg);
+  color: var(--color-text);
+}
+
+.nf-workspace-page--dark .nf-workspace-heading {
+  background: #10181d;
+  border-bottom-color: var(--color-divider);
+}
+
+.nf-workspace-page--dark .nf-workspace-heading-icon {
+  border-color: rgba(53, 183, 165, .38);
+  background: var(--nf-ok-100);
+  color: var(--nf-ok-ink);
+}
+
+.nf-workspace-page--dark .nf-workspace-heading-copy p,
+.nf-workspace-page--dark .nf-workspace-heading-status strong,
+.nf-workspace-page--dark .nf-disclosure > summary,
+.nf-workspace-page--dark .nf-filter-more > summary,
+.nf-workspace-page--dark .nf-technical-details > summary {
+  color: var(--nf-ok-ink);
+}
+
+.nf-workspace-page--dark .nf-workspace-heading-copy h1,
+.nf-workspace-page--dark .nf-workspace-heading-copy span,
+.nf-workspace-page--dark .nf-workspace-heading-status small {
+  color: var(--color-text);
+}
+
+.nf-workspace-page--dark .nf-workspace-heading-copy span,
+.nf-workspace-page--dark .nf-workspace-heading-status small {
+  color: var(--color-neutral-600);
+}
+
+.nf-workspace-page--dark .nf-workspace-panel,
+.nf-workspace-page--dark .nf-workspace-overview,
+.nf-workspace-page--dark .nf-quick-facts,
+.nf-workspace-page--dark .nf-disclosure {
+  border-color: var(--color-divider);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text);
+}
+
+.nf-workspace-page--dark .nf-workspace-body {
+  background: var(--color-bg);
+}
+
+.nf-workspace-page--dark a {
+  color: var(--nf-ok-ink);
+}
+
+.nf-workspace-page--dark .btn-secondary {
+  border-color: var(--color-divider);
+  background: var(--color-neutral-100);
+  color: var(--color-text);
+}
+
+.nf-workspace-page--dark .btn-secondary:hover {
+  background: var(--color-neutral-200);
+}
+
+.nf-workspace-page--dark .btn-ghost {
+  color: var(--nf-ok-ink);
+}
+
+.nf-workspace-page--dark input,
+.nf-workspace-page--dark select,
+.nf-workspace-page--dark textarea {
+  border-color: var(--color-divider);
+  background: var(--color-neutral-100);
+  color: var(--color-text);
+  color-scheme: dark;
+}
+
+.nf-workspace-page--dark input::placeholder,
+.nf-workspace-page--dark textarea::placeholder {
+  color: var(--color-neutral-500);
+}
+
+.nf-workspace-page--dark input:disabled,
+.nf-workspace-page--dark select:disabled,
+.nf-workspace-page--dark textarea:disabled {
+  background: var(--color-neutral-200);
+}
+
+.nf-workspace-page--dark option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.nf-workspace-page--dark .text-slate-950,
+.nf-workspace-page--dark .text-slate-900,
+.nf-workspace-page--dark .text-slate-800,
+.nf-workspace-page--dark .text-slate-700 {
+  color: var(--color-text) !important;
+}
+
+.nf-workspace-page--dark .text-slate-600,
+.nf-workspace-page--dark .text-slate-500,
+.nf-workspace-page--dark .text-slate-400 {
+  color: var(--color-neutral-600) !important;
+}
+
+.nf-workspace-page--dark .text-emerald-700,
+.nf-workspace-page--dark .text-sky-700 {
+  color: var(--nf-ok-ink) !important;
+}
+
+.nf-workspace-page--dark .text-amber-700,
+.nf-workspace-page--dark .text-amber-800 {
+  color: var(--nf-warn-ink) !important;
+}
+
+.nf-workspace-page--dark .text-rose-700,
+.nf-workspace-page--dark .text-rose-800 {
+  color: var(--color-accent-700) !important;
+}
+
+.nf-workspace-page--dark .btn-primary {
+  border-color: #35b7a5;
+  background: #54d4c1;
+  color: #08100f !important;
+}
+
+.nf-workspace-page--dark .btn-primary:hover {
+  background: #35b7a5;
+}
+
+.nf-workspace-page--dark .border-slate-100,
+.nf-workspace-page--dark .border-slate-200,
+.nf-workspace-page--dark .border-slate-300 {
+  border-color: var(--color-divider) !important;
+}
+
+.nf-workspace-page--dark .bg-white {
+  background: var(--color-surface) !important;
+}
+
+.nf-workspace-page--dark .bg-slate-50,
+.nf-workspace-page--dark .bg-slate-100 {
+  background: var(--color-neutral-100) !important;
+}
+
+.nf-workspace-page--dark .bg-rose-50 {
+  background: var(--color-accent-100) !important;
+}
+
+.nf-workspace-page--dark .bg-amber-50 {
+  background: var(--nf-warn-100) !important;
+}
+
+.nf-workspace-page--dark .bg-sky-50 {
+  background: rgba(127, 169, 245, .14) !important;
+}
+
+.nf-workspace-page--dark table {
+  color: var(--color-text);
+}
+
+.nf-workspace-page--dark table thead {
+  border-color: var(--color-divider);
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-600);
+}
+
+.nf-workspace-page--dark table th,
+.nf-workspace-page--dark table td {
+  border-color: var(--color-divider);
+}
+
+.nf-workspace-page--dark table tbody tr:hover {
+  background: rgba(53, 183, 165, .08);
+}
+
+.nf-workspace-page--dark .nf-workspace-page table tbody tr:hover {
+  background: rgba(53, 183, 165, .08);
+}
+
+.nf-workspace-page--dark .nf-scroll {
+  scrollbar-color: var(--nf-scroll-thumb, var(--color-neutral-400)) transparent;
+}
+
+/* Shared confirmation dialogs should follow the workspace surface instead of
+   retaining the light-only utility colors from the generic dialog component. */
+.nf-workspace-page--dark .nf-shared-dialog-backdrop {
+  background:rgb(3 8 11 / 72%);
+}
+
+.nf-workspace-page--dark .nf-shared-dialog {
+  border:1px solid var(--color-divider);
+  background:var(--color-surface);
+  color:var(--color-text);
+  color-scheme:dark;
+  box-shadow:0 20px 48px rgb(0 0 0 / 46%);
+}
+
+.nf-workspace-page--dark .nf-shared-dialog .text-slate-950,
+.nf-workspace-page--dark .nf-shared-dialog .text-slate-900,
+.nf-workspace-page--dark .nf-shared-dialog .text-slate-800 {
+  color:var(--color-text) !important;
+}
+
+.nf-workspace-page--dark .nf-shared-dialog .text-slate-600,
+.nf-workspace-page--dark .nf-shared-dialog .text-slate-500,
+.nf-workspace-page--dark .nf-shared-dialog .text-slate-400 {
+  color:var(--color-neutral-600) !important;
+}
+
+.nf-workspace-page--dark .nf-shared-dialog input,
+.nf-workspace-page--dark .nf-shared-dialog select,
+.nf-workspace-page--dark .nf-shared-dialog textarea {
+  border-color:var(--color-divider);
+  background:var(--color-neutral-100);
+  color:var(--color-text);
+  color-scheme:dark;
+}
+
+.nf-workspace-page--dark .nf-shared-dialog input::placeholder,
+.nf-workspace-page--dark .nf-shared-dialog textarea::placeholder {
+  color:var(--color-neutral-500);
+}
+
+.nf-workspace-page--dark .nf-shared-dialog .border-slate-100,
+.nf-workspace-page--dark .nf-shared-dialog .border-slate-200,
+.nf-workspace-page--dark .nf-shared-dialog .border-slate-300 {
+  border-color:var(--color-divider) !important;
+}
+
+.nf-workspace-page--dark .nf-shared-dialog .bg-white {
+  background:var(--color-neutral-100) !important;
+}
+
+.nf-workspace-page--dark .nf-shared-dialog > div:first-child > button:hover {
+  background:var(--color-neutral-200);
+  color:var(--color-text);
+}
+
+.nf-workspace-page--dark .nf-stop-dialog__description {
+  color:var(--color-neutral-600);
+}
+
+.nf-workspace-page--dark .nf-stop-dialog__label {
+  color:var(--color-text);
+}
+
+.nf-workspace-page--dark .nf-stop-dialog__textarea:focus {
+  border-color:var(--nf-ok);
+  outline:2px solid color-mix(in srgb, var(--nf-ok) 22%, transparent);
+}
+
+.nf-workspace-page--dark .nf-stop-dialog__error {
+  color:var(--color-accent-700);
+}
+
+.nf-workspace-page--dark .nf-stop-dialog__keep {
+  color:var(--color-neutral-600);
+}
+
+.nf-workspace-page--dark .nf-stop-dialog__keep:hover {
+  background:var(--color-neutral-200);
+  color:var(--color-text);
+}
+
+.nf-workspace-page--dark .nf-stop-dialog__confirm:not(:disabled) {
+  background:var(--color-accent-600);
+  color:#fff;
+}

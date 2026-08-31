@@ -18,9 +18,12 @@ type OperatorWorkspacePageProps = {
 export function OperatorWorkspacePage({ children, description, eyebrow, icon, statusLabel, subNavigation, title }: OperatorWorkspacePageProps) {
   const location = useLocation()
   const showExecutionNavigation = location.pathname.startsWith(routes.operator.execution)
+  const useOperationsDarkTheme = showExecutionNavigation
+    || location.pathname.startsWith(routes.operator.reports)
+    || location.pathname.startsWith(routes.operator.history)
 
   return (
-    <div className="nf-workspace-page">
+    <div className={`nf-workspace-page${useOperationsDarkTheme ? ' nf-workspace-page--dark' : ''}`}>
       <header className="nf-workspace-heading">
         <span aria-hidden="true" className="nf-workspace-heading-icon">{icon}</span>
         <div className="nf-workspace-heading-copy">

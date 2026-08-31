@@ -661,3 +661,208 @@
     flex-direction: column;
   }
 }
+
+/* Execution workspace dark treatment. */
+.nf-workspace-page--dark:has(.nf-operation-shell) .nf-workspace-heading {
+  background: #10181d;
+  border-bottom-color: #2a3941;
+}
+
+.nf-workspace-page--dark .nf-operation-context {
+  border-color: #2a3941;
+  background: radial-gradient(circle at 92% -20%, rgba(53, 183, 165, .16), transparent 42%), #121a20;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .24);
+}
+
+.nf-workspace-page--dark .nf-operation-context-copy strong,
+.nf-workspace-page--dark .nf-operation-overview strong,
+.nf-workspace-page--dark .nf-operation-toolbar strong,
+.nf-workspace-page--dark .nf-operation-panel h2,
+.nf-workspace-page--dark .nf-operation-move div strong,
+.nf-workspace-page--dark .nf-operation-reconcile b {
+  color: #f0f5f2;
+}
+
+.nf-workspace-page--dark .nf-operation-context-copy span,
+.nf-workspace-page--dark .nf-operation-context-meta span,
+.nf-workspace-page--dark .nf-operation-overview span,
+.nf-workspace-page--dark .nf-operation-toolbar span,
+.nf-workspace-page--dark .nf-operation-move div span,
+.nf-workspace-page--dark .nf-operation-reconcile span,
+.nf-workspace-page--dark .nf-operation-empty {
+  color: #90a09e;
+}
+
+.nf-workspace-page--dark .nf-operation-context-meta {
+  border-left-color: #2a3941;
+}
+
+.nf-workspace-page--dark .nf-operation-alert {
+  border-color: rgba(53, 183, 165, .42);
+  background: rgba(53, 183, 165, .12);
+  color: #54d4c1;
+  box-shadow: none;
+}
+
+.nf-workspace-page--dark .nf-operation-alert.is-warning {
+  border-color: rgba(238, 177, 81, .52);
+  background: rgba(238, 177, 81, .13);
+  color: #eeb151;
+}
+
+.nf-workspace-page--dark .nf-operation-overview > div {
+  border-color: #2a3941;
+  background: #121a20;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, .2);
+}
+
+.nf-workspace-page--dark .nf-operation-overview > div.is-status {
+  border-color: rgba(53, 183, 165, .48);
+  background: linear-gradient(135deg, rgba(53, 183, 165, .16), #121a20 78%);
+}
+
+.nf-workspace-page--dark .nf-operation-overview > div.is-queued {
+  border-color: rgba(238, 177, 81, .52);
+  background: rgba(238, 177, 81, .12);
+}
+
+.nf-workspace-page--dark .nf-operation-overview > div.is-overdue {
+  border-color: rgba(212, 82, 82, .56);
+  background: rgba(212, 82, 82, .13);
+}
+
+.nf-workspace-page--dark .nf-operation-overview strong.is-live,
+.nf-workspace-page--dark .nf-operation-overview > div.is-status strong {
+  color: #54d4c1;
+}
+
+.nf-workspace-page--dark .nf-operation-overview > div.is-overdue strong,
+.nf-workspace-page--dark .nf-operation-overview > div.is-overdue strong.is-live {
+  color: #ef7770;
+}
+
+.nf-workspace-page--dark .nf-operation-progress {
+  border-color: #2a3941;
+  background: #172128;
+}
+
+.nf-workspace-page--dark .nf-operation-progress > span {
+  background: linear-gradient(90deg, #247d75, #35b7a5);
+}
+
+.nf-workspace-page--dark .nf-operation-progress.is-overdue {
+  border-color: rgba(212, 82, 82, .5);
+  background: rgba(212, 82, 82, .13);
+}
+
+.nf-workspace-page--dark .nf-operation-progress.is-overdue > span {
+  background: linear-gradient(90deg, #91413f, #d45252);
+}
+
+.nf-workspace-page--dark .nf-operation-progress > b {
+  color: #f0f5f2;
+}
+
+.nf-workspace-page--dark .nf-operation-progress.is-overdue > b {
+  color: #ffaaa0;
+}
+
+.nf-workspace-page--dark .nf-operation-toolbar,
+.nf-workspace-page--dark .nf-operation-panel {
+  border-color: #2a3941;
+  background: #121a20;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .24);
+}
+
+.nf-workspace-page--dark .nf-operation-panel > header {
+  border-bottom-color: #2a3941;
+  background: #172128;
+}
+
+.nf-workspace-page--dark .nf-operation-panel header > span,
+.nf-workspace-page--dark .nf-operation-move > b {
+  background: #1d2930;
+  color: #b1bfbb;
+}
+
+.nf-workspace-page--dark .nf-operation-move {
+  border-color: #2a3941;
+  background: #121a20;
+}
+
+.nf-workspace-page--dark .nf-operation-move:hover {
+  background: #172128;
+}
+
+.nf-workspace-page--dark .nf-operation-move > i {
+  background: rgba(53, 183, 165, .16);
+  color: #54d4c1;
+}
+
+.nf-workspace-page--dark .nf-operation-move.is-failed > i {
+  background: rgba(212, 82, 82, .16);
+  color: #ef7770;
+}
+
+.nf-workspace-page--dark .nf-operation-move.is-planned > i,
+.nf-workspace-page--dark .nf-operation-move.is-sent > i,
+.nf-workspace-page--dark .nf-operation-move.is-en_route > i {
+  background: rgba(238, 177, 81, .16);
+  color: #eeb151;
+}
+
+.nf-workspace-page--dark .nf-operation-move.is-failed > b {
+  background: rgba(212, 82, 82, .16);
+  color: #ef7770;
+}
+
+.nf-workspace-page--dark .nf-operation-move.is-available > b {
+  background: rgba(53, 183, 165, .16);
+  color: #54d4c1;
+}
+
+.nf-workspace-page--dark .nf-operation-stage-track > span {
+  background: #1d2930;
+  color: #71817f !important;
+}
+
+.nf-workspace-page--dark .nf-operation-stage-track > span.is-done {
+  background: rgba(53, 183, 165, .16);
+  color: #54d4c1 !important;
+}
+
+.nf-workspace-page--dark .nf-operation-stage-track > span.is-current {
+  background: rgba(238, 177, 81, .16);
+  color: #eeb151 !important;
+}
+
+.nf-workspace-page--dark .nf-operation-driver-list > span {
+  border-color: #2a3941;
+  background: #172128;
+  color: #b1bfbb !important;
+}
+
+.nf-workspace-page--dark .nf-operation-driver-list > span > b {
+  color: #f0f5f2;
+}
+
+.nf-workspace-page--dark .nf-operation-driver-list > span > mark.is-available {
+  background: rgba(53, 183, 165, .16);
+  color: #54d4c1;
+}
+
+.nf-workspace-page--dark .nf-operation-driver-list > span > mark.is-pending,
+.nf-workspace-page--dark .nf-operation-driver-list > span > mark.is-en_route {
+  background: rgba(238, 177, 81, .16);
+  color: #eeb151;
+}
+
+.nf-workspace-page--dark .nf-operation-driver-list > span > mark.is-declined,
+.nf-workspace-page--dark .nf-operation-driver-list > span > mark.is-cancelled {
+  background: rgba(212, 82, 82, .16);
+  color: #ef7770;
+}
+
+.nf-workspace-page--dark .nf-operation-reconcile span {
+  border-color: #2a3941;
+}

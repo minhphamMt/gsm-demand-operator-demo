@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/shared/config/env', () => ({
@@ -44,6 +45,18 @@ describe('AuthProvider session expiry', () => {
     window.sessionStorage.clear()
   })
 
+  it('bootstraps the session only once under React StrictMode', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: 'operator-1', email: 'operator@test.local', role: 'OPERATOR' }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const queryClient = new QueryClient()
+
+    render(<StrictMode><QueryClientProvider client={queryClient}><AuthProvider><AuthStatus /></AuthProvider></QueryClientProvider></StrictMode>)
+
+    expect(await screen.findByText('authenticated')).toBeInTheDocument()
+    expect(getSession).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   it('clears authenticated state when the API announces a 401', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ id: 'operator-1', email: 'operator@test.local', role: 'OPERATOR' }), { status: 200 })))
     const queryClient = new QueryClient()
@@ -56,7 +69,7 @@ describe('AuthProvider session expiry', () => {
     expect(signOut).toHaveBeenCalled()
   })
 
-  it('defers identity resolution triggered by an auth-state callback', async () => {
+  it('does not duplicate identity resolution triggered by an auth-state callback', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ id: 'operator-1', email: 'operator@test.local', role: 'OPERATOR' }), { status: 200 })))
     const queryClient = new QueryClient()
     render(<QueryClientProvider client={queryClient}><AuthProvider><AuthStatus /></AuthProvider></QueryClientProvider>)
@@ -66,7 +79,7 @@ describe('AuthProvider session expiry', () => {
     authStateCallback?.('SIGNED_IN', testSession)
 
     expect(getSession).toHaveBeenCalledTimes(callsBeforeEvent)
-    await waitFor(() => expect(getSession).toHaveBeenCalledTimes(callsBeforeEvent + 1))
+    await waitFor(() => expect(getSession).toHaveBeenCalledTimes(callsBeforeEvent))
   })
 
   it('keeps a verified session identity when the identity API is temporarily unavailable', async () => {

@@ -402,12 +402,10 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
       <div ref={containerRef} className="h-full min-h-[480px] w-full lg:min-h-0" aria-label="Bản đồ vận hành 30 AI zone Hà Nội" />
       <div className="nf-live-map-heading">
         <p>
-          <LocateFixed size={14} />
-          Hà Nội · {resolvedTimeLabel}
+          <LocateFixed size={13} />
+          <span>Hà Nội · {resolvedTimeLabel}</span>
         </p>
-        <small>
-          {view === 'core' ? `Vùng lõi · ${visibleZoneCount}/${zones.length} zone` : `Toàn thành phố · ${zones.length} zone`} · {rainingZones} zone đang mưa · trung bình {meanRain.toFixed(2)} mm/h
-        </small>
+        <small>{view === 'core' ? `Vùng lõi · ${visibleZoneCount}/${zones.length} zone` : `Toàn thành phố · ${zones.length} zone`} · {rainingZones} mưa · TB {meanRain.toFixed(2)} mm/h</small>
       </div>
       <MapLegend forecastMinutes={forecastMinutes} layer={layer} />
       {mapStatus === 'idle' && <div className="pointer-events-none absolute inset-0 grid place-items-center bg-sky-50/80 text-sm text-muted">Đang tải bản đồ…</div>}
@@ -482,12 +480,12 @@ function MapLegend({ forecastMinutes, layer }: { forecastMinutes: number; layer:
           {label}
         </span>
       ))}
-      <p>
+      <p title="Vùng mờ: khu vực đại diện AI, không phải ranh giới hành chính">
         <b className="nf-legend-area" />
-        Vùng mờ: khu vực đại diện AI, không phải ranh giới hành chính
+        AI zone · không phải ranh giới HC
       </p>
-      <p>
-        <b className="nf-legend-rain">☁</b>Icon mưa: zone ≥ 0,5 mm/h
+      <p title="Icon mưa: zone có lượng mưa từ 0,5 mm/h">
+        <b className="nf-legend-rain">☁</b>Mưa ≥ 0,5 mm/h
       </p>
     </div>
   )

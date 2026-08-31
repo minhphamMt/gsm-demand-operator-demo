@@ -167,6 +167,8 @@ button { font: inherit; color: inherit; }
 .nf-flow-live { animation: nf-dash 0.9s linear infinite; }
 @keyframes nf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .nf-live { animation: nf-pulse 1.4s ease-in-out infinite; }
-.nf-scroll { scrollbar-width: thin; scrollbar-color: var(--color-neutral-400) transparent; }
-.nf-scroll::-webkit-scrollbar { width: 10px; }
-.nf-scroll::-webkit-scrollbar-thumb { background: var(--color-neutral-400); }
+.nf-scroll { scrollbar-width: thin; scrollbar-color: var(--nf-scroll-thumb, var(--color-neutral-400)) transparent; }
+.nf-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+.nf-scroll::-webkit-scrollbar-track { background: transparent; }
+.nf-scroll::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: var(--nf-scroll-thumb, var(--color-neutral-400)); background-clip: padding-box; }
+.nf-scroll::-webkit-scrollbar-thumb:hover { background: var(--nf-scroll-thumb-hover, var(--color-neutral-500)); background-clip: padding-box; }

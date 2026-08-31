@@ -1,12 +1,12 @@
-// Nhật ký agent — popup nổi góc dưới phải, và là chỗ người vận hành ra lệnh (MA-6.7, Chặng 7).
+// Nhật ký agent — thanh thu gọn nổi góc dưới phải, và là chỗ người vận hành ra lệnh (MA-6.7, Chặng 7).
 //
 // **Ô nhập không phải là cửa thứ hai vào cổng phê duyệt.** Nó gửi câu chữ tới agent quan sát,
 // và agent đó có allowlist chỉ-đọc; lệnh "duyệt đi" bị chặn ở server trước cả khi LLM kịp nói
 // gì, rồi bị chặn lần nữa bởi allowlist directive của client. Hai cổng §11.1 vẫn chỉ mở bằng
 // nút bấm, và đó là điều kiện để tính năng này tồn tại chứ không phải một hạn chế tạm thời.
 //
-// Popup **luôn hiện**, kể cả khi chưa chạy lượt nào: nó là chỗ ra lệnh, không chỉ là chỗ xem
-// kết quả. Không có nút đóng — chỉ mở ↔ thu gọn, nên không có trạng thái nào mất đường quay lại.
+// Thanh thu gọn luôn hiện để giữ đường vào nhật ký, nhưng nội dung chỉ mở khi người vận hành
+// cần xem hoặc nhập lệnh. Không có nút đóng — chỉ mở ↔ thu gọn.
 
 import { ChevronDown, ChevronUp, CornerDownLeft, Terminal } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -25,6 +25,8 @@ export type AgentInteractionLogProps = {
   isRunning: boolean
   isBusy: boolean
   onAsk: (text: string) => void
+  /** Lệnh nhanh từ bảng điều hành: mở nhật ký, điền câu lệnh và gửi ngay. */
+  quickCommand?: { id: number; text: string } | undefined
 }
 
 // Ngưỡng coi là "đang ở đáy". Không dùng 0: trình duyệt làm tròn scrollTop theo phân số pixel
@@ -51,12 +53,14 @@ function toneOf(row: LogRow, liveAwaiting: number | null): string {
   return ''
 }
 
-export function AgentInteractionLog({ rows, thinking, isRunning, isBusy, onAsk }: AgentInteractionLogProps) {
-  const [isOpen, setIsOpen] = useState(true)
+export function AgentInteractionLog({ rows, thinking, isRunning, isBusy, onAsk, quickCommand }: AgentInteractionLogProps) {
+  const [isOpen, setIsOpen] = useState(false)
   const [seenCount, setSeenCount] = useState(0)
   const [isPinned, setIsPinned] = useState(true)
   const [draft, setDraft] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
+  const askRef = useRef(onAsk)
+  askRef.current = onAsk
 
   const unread = Math.max(0, rows.length - seenCount)
   const liveAwaiting = liveAwaitingSeq(rows)
@@ -69,6 +73,17 @@ export function AgentInteractionLog({ rows, thinking, isRunning, isBusy, onAsk }
     if (node) node.scrollTop = node.scrollHeight
     setSeenCount(rows.length)
   }, [isOpen, isPinned, rows.length])
+
+  // Lệnh nhanh đi từ rail qua đây để vẫn dùng đúng một cổng chat và cùng một
+  // allowlist directive. Gửi ngay sau khi mở để người dùng không phải gõ lại.
+  useEffect(() => {
+    if (!quickCommand?.text.trim()) return
+    setIsOpen(true)
+    setIsPinned(true)
+    setDraft(quickCommand.text)
+    askRef.current(quickCommand.text)
+    setDraft('')
+  }, [quickCommand?.id, quickCommand?.text])
 
   const jumpToLatest = () => {
     const node = listRef.current

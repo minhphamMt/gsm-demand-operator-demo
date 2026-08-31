@@ -40,9 +40,21 @@ type DemoSessionResponse = {
   refresh_token: string
 }
 
+type AuthSession = {
+  access_token?: string
+  user?: { id?: string }
+}
+
+type IdentityRequest = {
+  userId: string | undefined
+  promise: Promise<void>
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient()
   const requestVersion = useRef(0)
+  const identityRequest = useRef<IdentityRequest | undefined>(undefined)
+  const bootstrapRequest = useRef<Promise<void> | undefined>(undefined)
   const activeIdentity = useRef<AuthIdentity | undefined>(env.isLiveData
     ? undefined
     : { id: 'mock-operator', email: 'operator@local.test', role: 'OPERATOR' })
@@ -63,28 +75,44 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setState({ status: 'authenticated', identity, error: null })
   }, [queryClient])
 
-  const resolveIdentity = useCallback(async (session: { user?: { id?: string } } | null) => {
-    const version = ++requestVersion.current
+  const resolveIdentity = useCallback((session: AuthSession | null) => {
     if (!session) {
+      requestVersion.current += 1
+      identityRequest.current = undefined
       clearCachedIdentity()
       setAnonymous(null)
-      return
+      return Promise.resolve()
     }
     const userId = session.user?.id
-    try {
-      const identity = parseAuthIdentity(await requestJson('/auth/me'))
-      writeCachedIdentity(identity, userId)
-      if (version === requestVersion.current) setAuthenticated(identity)
-    } catch (cause) {
-      if (version === requestVersion.current) {
-        const cachedIdentity = isRetryableIdentityFailure(cause) ? readCachedIdentity(userId) : undefined
-        if (cachedIdentity) setAuthenticated(cachedIdentity)
-        else {
-          clearCachedIdentity()
-          setAnonymous(cause instanceof Error ? cause : new Error('Authentication failed'))
+    if (userId && activeIdentity.current?.id === userId) return Promise.resolve()
+    const pendingIdentityRequest = identityRequest.current
+    if (pendingIdentityRequest && pendingIdentityRequest.userId === userId) return pendingIdentityRequest.promise
+
+    const version = ++requestVersion.current
+    const promise = (async () => {
+      try {
+        const identity = parseAuthIdentity(await requestJson('/auth/me', session.access_token
+          ? { headers: { Authorization: `Bearer ${session.access_token}` } }
+          : undefined))
+        writeCachedIdentity(identity, userId)
+        if (version === requestVersion.current) setAuthenticated(identity)
+      } catch (cause) {
+        if (version === requestVersion.current) {
+          const cachedIdentity = isRetryableIdentityFailure(cause) ? readCachedIdentity(userId) : undefined
+          if (cachedIdentity) setAuthenticated(cachedIdentity)
+          else {
+            clearCachedIdentity()
+            setAnonymous(cause instanceof Error ? cause : new Error('Authentication failed'))
+          }
         }
       }
-    }
+    })()
+    identityRequest.current = { userId, promise }
+    void promise.then(
+      () => { if (identityRequest.current?.promise === promise) identityRequest.current = undefined },
+      () => { if (identityRequest.current?.promise === promise) identityRequest.current = undefined },
+    )
+    return promise
   }, [setAnonymous, setAuthenticated])
 
   useEffect(() => {
@@ -118,7 +146,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (import.meta.env.DEV) console.warn('Demo auto-login unavailable', cause)
       }
     }
-    void bootstrap()
+    // React StrictMode re-runs effects in development. Share the bootstrap
+    // promise so refresh cannot start competing Supabase auth flows.
+    bootstrapRequest.current ??= bootstrap()
+    void bootstrapRequest.current
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       // Supabase invokes this callback while its auth lock is still held. Defer
       // getSession-backed identity resolution until the lock has been released.
