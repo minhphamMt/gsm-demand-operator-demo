@@ -40,7 +40,7 @@ export function ZoneBalanceChart({ onSelect, zones }: {
               color: "var(--nf-ops-ink)",
               fontSize: 11,
             }}
-            cursor={{ fill: "rgba(255,255,255,.04)" }}
+            cursor={{ fill: "var(--nf-ops-hover-wash)" }}
             formatter={(value) => {
               const gap = Number(value);
               return [`${gap > 0 ? "thiếu" : "dư"} ${Math.abs(gap)} xe`, "Chênh lệch"];

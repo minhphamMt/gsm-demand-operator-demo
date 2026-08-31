@@ -1,4 +1,4 @@
-import { Bot, Check, ChevronRight, RefreshCw, ShieldCheck, Zap } from "lucide-react";
+import { Bot, Check, ChevronRight, Moon, RefreshCw, ShieldCheck, Sun, Zap } from "lucide-react";
 
 import type { OperatorWorkflowStage } from "../model/operatorWorkflow";
 
@@ -42,17 +42,21 @@ export function OpsHeader({
   agentSummary,
   isRefreshing,
   onOpenAgentFlow,
+  onToggleTheme,
   regimeLabel,
   serverTimeLabel,
   stage,
+  theme,
   zoneCount,
 }: {
   agentSummary?: AgentRunSummary | undefined;
   isRefreshing: boolean;
   onOpenAgentFlow: () => void;
+  onToggleTheme: () => void;
   regimeLabel: string;
   serverTimeLabel?: string | undefined;
   stage: OperatorWorkflowStage;
+  theme: "dark" | "light";
   zoneCount: number;
 }) {
   const activeIndex = ribbonIndexByStage[stage] ?? 0;
@@ -98,6 +102,16 @@ export function OpsHeader({
         </button>
         {serverTimeLabel && <time className="nf-ops-clock">{serverTimeLabel}</time>}
         {isRefreshing && <RefreshCw aria-label="Đang làm mới dữ liệu" className="nf-ops-refreshing" size={13} />}
+        <button
+          aria-label={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
+          aria-pressed={theme === "light"}
+          className="nf-ops-refresh"
+          onClick={onToggleTheme}
+          title={theme === "dark" ? "Giao diện sáng" : "Giao diện tối"}
+          type="button"
+        >
+          {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+        </button>
       </div>
     </header>
   );

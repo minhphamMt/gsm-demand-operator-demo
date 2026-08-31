@@ -8,7 +8,7 @@ import { networkGauges, riskDistribution, type NetworkGauge, type RiskBucket } f
 
 const gaugeTone: Record<NetworkGauge["id"], string> = {
   fulfillment: "var(--nf-ops-teal)",
-  balanced: "var(--nf-ops-blue, #7fa9f5)",
+  balanced: "var(--nf-ops-blue)",
   coverage: "var(--nf-ops-amber)",
 };
 

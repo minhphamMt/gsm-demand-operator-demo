@@ -97,10 +97,23 @@ type MapSource = "observed" | "forecast";
 type DialogKind = "approve" | "release" | "dispatch" | "reject" | null;
 type ActiveStopTarget = { id: string; kind: "campaign" | "dispatch" };
 type ActiveExecution = NonNullable<ReturnType<typeof activeExecutionPlan>>;
+type OpsTheme = "dark" | "light";
+
+const OPS_THEME_STORAGE_KEY = "novafour-ops-theme";
+
+// Đọc theme đã lưu ngay lúc khởi tạo state để tránh nháy màu tối rồi mới chuyển sáng.
+function readStoredOpsTheme(): OpsTheme {
+  try {
+    return localStorage.getItem(OPS_THEME_STORAGE_KEY) === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+}
 
 export function OperatorConsoleDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [opsTheme, setOpsTheme] = useState<OpsTheme>(readStoredOpsTheme);
   const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(5);
   const [replaySnapshot, setReplaySnapshot] = useState<Snapshot>();
   const [selectedZoneId, setSelectedZoneId] = useState<string>();
@@ -126,6 +139,15 @@ export function OperatorConsoleDashboard() {
   const [rejectNote, setRejectNote] = useState("");
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const [pipelineTab, setPipelineTab] = useState<PipelineTabId>("agents");
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(OPS_THEME_STORAGE_KEY, opsTheme);
+    } catch {
+      // localStorage có thể bị chặn (chế độ ẩn danh) — chấp nhận không nhớ lựa chọn.
+    }
+  }, [opsTheme]);
+
   const snapshot = useQuery(snapshotQuery("baseline", "rain-peak", 0, planningSourceAt === undefined));
   const capabilities = useQuery(capabilitiesQuery());
   const replayAnchorAt = useCurrentReplayAnchor(
@@ -664,7 +686,7 @@ export function OperatorConsoleDashboard() {
   return (
     // `data-stage` nói cho CSS biết panel `connect` đang mở. Dùng thuộc tính thay vì `:has()`
     // để không phụ thuộc mức hỗ trợ selector của trình duyệt cho một thứ ảnh hưởng cả layout.
-    <div className="nf-ops" data-stage={pipelineOpen && pipelineTab === "connect" ? "on" : undefined}>
+    <div className="nf-ops" data-stage={pipelineOpen && pipelineTab === "connect" ? "on" : undefined} data-theme={opsTheme}>
       <SnapshotStaleAlert
         autoRefresh
         generatedAt={displaySourceAt}
@@ -678,9 +700,11 @@ export function OperatorConsoleDashboard() {
       <OpsHeader
         isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
         onOpenAgentFlow={() => { setPipelineTab("agents"); setPipelineOpen(true); }}
+        onToggleTheme={() => setOpsTheme((current) => (current === "dark" ? "light" : "dark"))}
         regimeLabel={scenarioPresentation(activeSnapshot.regime, displaySourceAt).weather}
         serverTimeLabel={serverNow ? formatTimeLabel(serverNow) : undefined}
         stage={activeStage}
+        theme={opsTheme}
         zoneCount={zones.length}
       />
       <ScenarioBar
@@ -721,7 +745,7 @@ export function OperatorConsoleDashboard() {
               forecastMinutes={displayedMapSource === "forecast" ? displayedHorizon : 0}
               flowState={operatorMapFlowState(dispatchStage, activeStage)}
               layer={layer}
-              mapStyle="mapbox://styles/mapbox/dark-v11"
+              mapStyle={opsTheme === "light" ? "mapbox://styles/mapbox/light-v11" : "mapbox://styles/mapbox/dark-v11"}
               moves={planReady && plan ? plan.moves : []}
               onZoneSelect={setSelectedZoneId}
               selectedZoneId={selectedZoneId}

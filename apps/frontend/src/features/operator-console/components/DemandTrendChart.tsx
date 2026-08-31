@@ -55,7 +55,7 @@ export function DemandTrendChart({ steps }: { steps: readonly ReplayTimelineStep
               cursor={{ stroke: "var(--nf-ops-teal)", strokeDasharray: "3 3" }}
               formatter={(value, name) => [`${Number(value).toLocaleString("vi-VN")} ${name === "demand" ? "cuốc" : "xe"}`, name === "demand" ? "Cầu" : "Cung"]}
             />
-            <Area dataKey="supply" dot={false} fill="none" isAnimationActive={false} stroke="var(--nf-ops-blue, #7fa9f5)" strokeDasharray="4 3" strokeWidth={1.6} type="monotone" />
+            <Area dataKey="supply" dot={false} fill="none" isAnimationActive={false} stroke="var(--nf-ops-blue)" strokeDasharray="4 3" strokeWidth={1.6} type="monotone" />
             <Area dataKey="demand" dot={false} fill="url(#nf-demand-fill)" isAnimationActive={false} stroke="var(--nf-ops-teal)" strokeWidth={2} type="monotone" />
           </AreaChart>
         </ResponsiveContainer>

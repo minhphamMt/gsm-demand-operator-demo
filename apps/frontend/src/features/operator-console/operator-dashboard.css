@@ -148,8 +148,63 @@
   --nf-ops-teal-bright:#54d4c1;
   --nf-ops-amber:#eeb151;
   --nf-ops-red:#d45252;
+  --nf-ops-blue:#7fa9f5;
+  /* Lớp phủ mờ khi rê chuột — sáng dần trên nền tối, tối dần trên nền sáng. */
+  --nf-ops-hover-wash:rgba(255,255,255,.04);
   background:radial-gradient(circle at 78% -12%,rgba(53,183,165,.08),transparent 31%),var(--nf-ops-bg);
   color:var(--nf-ops-ink);
+}
+
+/* Light mode: cùng bộ token, đổi giá trị. Toggle ở OpsHeader gắn `data-theme` lên .nf-ops;
+   mọi nơi khác đọc token qua var() nên tự đổi theo — chỉ các màu literal (không phải var)
+   bên dưới mới cần dòng ghi đè riêng. */
+.nf-ops[data-theme="light"]{
+  --nf-ops-bg:#f7f8f6;
+  --nf-ops-surface:#ffffff;
+  --nf-ops-surface-2:#f2f5f4;
+  --nf-ops-surface-3:#e6ebe9;
+  --nf-ops-line:#d8e0de;
+  --nf-ops-ink:#14302e;
+  --nf-ops-muted:#5c6d6a;
+  --nf-ops-teal:#2bb8ad;
+  --nf-ops-teal-bright:#0c6e69;
+  --nf-ops-amber:#a8710a;
+  --nf-ops-red:#a83426;
+  --nf-ops-blue:#3b6fd6;
+  --nf-ops-hover-wash:rgba(20,48,46,.05);
+}
+.nf-ops[data-theme="light"] .nf-ops-header{background:#ffffff}
+.nf-ops[data-theme="light"] .nf-map-controls>div,
+.nf-ops[data-theme="light"] .nf-map-controls>.seg{background:rgba(255,255,255,.94);box-shadow:0 6px 18px rgba(20,48,46,.14)}
+.nf-ops[data-theme="light"] .nf-zone-finder,
+.nf-ops[data-theme="light"] .nf-zone-card,
+.nf-ops[data-theme="light"] .nf-execution-log-panel,
+.nf-ops[data-theme="light"] .nf-live-map-heading,
+.nf-ops[data-theme="light"] .nf-live-map-legend,
+.nf-ops[data-theme="light"] .nf-timeline,
+.nf-ops[data-theme="light"] .nf-forecast-run{background:rgba(255,255,255,.96);box-shadow:0 8px 24px rgba(20,48,46,.16)}
+.nf-ops[data-theme="light"] .nf-zone-finder .is-deficit{background:rgba(212,82,82,.12);color:#a83426}
+.nf-ops[data-theme="light"] .nf-timeline-track button.is-past{background:#c7cfcd}
+.nf-ops[data-theme="light"] .btn-secondary:hover{background:#e6ebe9}
+.nf-ops[data-theme="light"] .nf-agent-log{box-shadow:0 18px 44px rgba(20,48,46,.18)}
+.nf-ops[data-theme="light"] [data-surface="pipeline"]{
+  --nfp-bg:#ffffff;
+  --nfp-raise:#f2f5f4;
+  --nfp-raise-2:#e6ebe9;
+  --nfp-line:#d8e0de;
+  --nfp-ink:#14302e;
+  --nfp-muted:#5c6d6a;
+  --nfp-accent:#0c6e69;
+  --nfp-accent-fill:#2bb8ad;
+  --nfp-accent-soft:rgba(43,184,173,.14);
+  --nfp-ok:#2bb8ad;
+  --nfp-warn:#a8710a;
+  --nfp-warn-soft:rgba(240,171,46,.16);
+  --nfp-crit:#a83426;
+  --nfp-crit-soft:rgba(212,82,82,.14);
+  --nfp-idle:#94a2a0;
+  --nfp-grid:#dde5e3;
+  --nfp-series:#2bb8ad;
 }
 
 /* Đầu trang: nhận diện · thanh chặng · lối vào luồng agent. */
@@ -350,7 +405,7 @@
 .nf-trend-legend span{display:flex;align-items:center;gap:5px}
 .nf-trend-legend i{width:12px;height:2px;border-radius:2px}
 .nf-trend-legend i.is-demand{background:var(--nf-ops-teal)}
-.nf-trend-legend i.is-supply{background:var(--nf-ops-blue,#7fa9f5)}
+.nf-trend-legend i.is-supply{background:var(--nf-ops-blue)}
 
 .nf-impact-headline{display:flex;align-items:center;gap:6px;margin:0;padding:0 14px 8px;color:var(--nf-ops-muted);font-size:10px}
 .nf-impact-headline>svg{color:var(--nf-ops-teal-bright);flex:none}
@@ -417,7 +472,7 @@
 .nf-agent-log__line.is-frame{color:var(--nf-ops-teal-bright)}
 .nf-agent-log__line.is-bad{color:var(--nf-ops-amber)}
 .nf-agent-log__line.is-denied{color:var(--nf-ops-red)}
-.nf-agent-log__line.is-llm{color:var(--nf-ops-blue,#7fa9f5)}
+.nf-agent-log__line.is-llm{color:var(--nf-ops-blue)}
 .nf-agent-log__clock{color:var(--nf-ops-muted)}
 .nf-agent-log__actor{color:var(--nf-ops-teal);font-weight:700}
 .nf-agent-log__llm{margin-left:6px;padding:0 4px;border-radius:3px;background:rgba(127,169,245,.16);font-size:9px}

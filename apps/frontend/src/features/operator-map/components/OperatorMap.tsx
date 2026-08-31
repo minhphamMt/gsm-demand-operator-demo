@@ -57,18 +57,22 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
   const layerRef = useRef(layer)
   const movesRef = useRef(moves)
   const viewRef = useRef(view)
-  // Style chỉ đọc lúc khởi tạo bản đồ. Giữ trong ref để việc đổi style không nằm trong
-  // dependency của effect — dựng lại map mỗi lần render là mất trạng thái camera của người dùng.
-  const mapStyleRef = useRef(mapStyle)
+  // Style chỉ đọc được lúc khởi tạo bản đồ, nên đổi style là dựng lại map. Camera được giữ
+  // trong ref qua các lần dựng lại: đổi giao diện sáng/tối mà nhảy về khung nhìn mặc định thì
+  // người vận hành mất chỗ đang theo dõi.
+  const cameraRef = useRef<{ center: [number, number]; zoom: number } | null>(null)
+  const flownToZoneRef = useRef<string | undefined>(selectedZoneId)
   const zonesRef = useRef(zones)
   const [mapStatus, setMapStatus] = useState<MapStatus>('idle')
   const [mapFailure, setMapFailure] = useState<MapFailureKind | null>(null)
   const [retryAttempt, setRetryAttempt] = useState(0)
+  // Tăng mỗi lần bản đồ dựng xong, để các effect gắn thứ gì đó trực tiếp lên map (xe điều chuyển,
+  // feature-state của zone đang chọn) biết mà gắn lại — map mới không thừa hưởng gì từ map cũ.
+  const [mapGeneration, setMapGeneration] = useState(0)
   zonesRef.current = zones
   layerRef.current = layer
   movesRef.current = moves
   viewRef.current = view
-  mapStyleRef.current = mapStyle
   flowStateRef.current = flowState
 
   useEffect(() => {
@@ -76,12 +80,13 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
     const container = containerRef.current
     const rainMarkers = rainMarkersRef.current
     const initialViewport = mapViewportForView(viewRef.current)
+    const savedCamera = cameraRef.current
     const map = new mapboxgl.Map({
       accessToken: env.mapboxAccessToken,
       container,
-      style: mapStyleRef.current,
-      center: initialViewport.center,
-      zoom: initialViewport.zoom,
+      style: mapStyle,
+      center: savedCamera?.center ?? initialViewport.center,
+      zoom: savedCamera?.zoom ?? initialViewport.zoom,
       pitch: 0,
       bearing: 0,
       attributionControl: false,
@@ -233,8 +238,14 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
         })
       }
       syncRainMarkers(map, rainMarkers, zonesRef.current)
-      moveMapToView(map, viewRef.current)
+      // Chỉ canh lại khung nhìn ở lần dựng đầu; lần dựng lại đã khởi tạo đúng camera đang xem.
+      if (!savedCamera) moveMapToView(map, viewRef.current)
       setMapStatus('ready')
+      setMapGeneration((generation) => generation + 1)
+    })
+    map.on('moveend', () => {
+      const center = map.getCenter()
+      cameraRef.current = { center: [center.lng, center.lat], zoom: map.getZoom() }
     })
     map.on('error', (event) => fail(classifyMapFailure(event.error)))
     return () => {
@@ -245,7 +256,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
       mapRef.current = null
       map.remove()
     }
-  }, [onZoneSelect, retryAttempt])
+  }, [mapStyle, onZoneSelect, retryAttempt])
 
   useEffect(() => {
     const map = mapRef.current
@@ -344,7 +355,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
       if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame)
       for (const route of animatedRoutes) route.marker.remove()
     }
-  }, [flowState, mapStatus, moves, vehicleStartedAt, zones])
+  }, [flowState, mapGeneration, mapStatus, moves, vehicleStartedAt, zones])
 
   useEffect(() => {
     const map = mapRef.current
@@ -364,9 +375,13 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
       map.setFeatureState({ source: 'operator-zone-areas', id: zone.id }, { selected })
       map.setFeatureState({ source: 'operator-zone-centers', id: zone.id }, { selected })
     }
+    // Chỉ bay tới zone khi lựa chọn thực sự đổi. Lần chạy do dựng lại bản đồ (đổi giao diện)
+    // chỉ tô lại vùng đang chọn, không kéo camera khỏi chỗ người vận hành đang xem.
+    if (flownToZoneRef.current === selectedZoneId) return
+    flownToZoneRef.current = selectedZoneId
     const zone = zones.find((candidate) => candidate.id === selectedZoneId)
     if (zone) map.flyTo({ center: zone.center, zoom: 11, essential: true })
-  }, [selectedZoneId, zones])
+  }, [mapGeneration, selectedZoneId, zones])
 
   if (!env.hasMapboxToken)
     return (
