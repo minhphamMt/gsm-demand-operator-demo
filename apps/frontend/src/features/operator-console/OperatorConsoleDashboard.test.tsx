@@ -536,16 +536,6 @@ describe('operator console dashboard layout', () => {
     expect(await screen.findByRole('region', { name: 'Autonomous Resolution Pipeline' })).toBeInTheDocument()
   })
 
-  it('marks the workflow stage the console is actually in, not a separate counter', async () => {
-    renderDashboard()
-
-    const ribbon = await screen.findByRole('list', { name: 'Tiến trình vận hành' })
-    const current = within(ribbon).getAllByRole('listitem').filter((step) => step.getAttribute('aria-current') === 'step')
-    // Đúng một ô được đánh dấu: thanh chặng đọc `OperatorWorkflowStage`, không giữ trạng thái riêng.
-    expect(current).toHaveLength(1)
-    expect(current[0]).toHaveTextContent('Ghi nhận')
-  })
-
   it('charts the live per-zone imbalance beside the map', async () => {
     renderDashboard()
 

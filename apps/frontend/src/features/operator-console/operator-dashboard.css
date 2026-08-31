@@ -1,5 +1,5 @@
 .nf-ops{width:100%;height:100%;min-height:0;display:flex;flex-direction:column;background:var(--color-bg)}
-.nf-scenario-bar{height:44px;flex:none;display:flex;align-items:center;gap:12px;padding:7px 18px;border-bottom:1px solid var(--color-divider);background:var(--color-neutral-100);font-size:12px;white-space:nowrap}.nf-scenario-bar>strong{font:700 12px/1 var(--font-display);letter-spacing:.05em}.nf-scenario-bar>i{width:1px;height:16px;background:var(--color-divider)}.nf-scenario-bar>span{display:flex;align-items:center;gap:5px;color:var(--color-neutral-800)}.nf-scenario-bar .nf-model{margin-left:auto;padding:4px 7px;border:1px solid var(--color-divider);border-radius:4px;color:var(--nf-ok-ink);font-size:9px;font-weight:800}.nf-scenario-bar>small{color:var(--color-neutral-700);font-size:9px;font-weight:700;letter-spacing:.08em}.nf-scenario-bar .seg-opt{padding:5px 9px;font-size:11px}.nf-scenario-bar .btn{padding:5px 9px;font-size:11px}
+.nf-scenario-bar{height:44px;flex:none;display:flex;align-items:center;gap:12px;padding:7px 18px;border-bottom:1px solid var(--color-divider);background:var(--color-neutral-100);font-size:12px;white-space:nowrap}.nf-scenario-bar>i{width:1px;height:16px;background:var(--color-divider)}.nf-scenario-bar>span{display:flex;align-items:center;gap:5px;color:var(--color-neutral-800)}.nf-scenario-bar .nf-model{margin-left:auto;padding:4px 7px;border:1px solid var(--color-divider);border-radius:4px;color:var(--nf-ok-ink);font-size:9px;font-weight:800}.nf-scenario-bar>small{color:var(--color-neutral-700);font-size:9px;font-weight:700;letter-spacing:.08em}.nf-scenario-bar .seg-opt{padding:5px 9px;font-size:11px}.nf-scenario-bar .btn{padding:5px 9px;font-size:11px}
 .nf-ops-workspace{position:relative;flex:1;min-height:0;display:flex}.nf-map-stage{position:relative;flex:1;min-width:0;overflow:hidden;border-right:1px solid var(--color-divider)}.nf-map-stage>div:first-child,.nf-map-stage>div:first-child>div{height:100%;min-height:0;border-radius:0}.nf-map-stage .mapboxgl-map{border-radius:0}
 .nf-map-controls{position:absolute;z-index:5;top:14px;right:14px;display:flex;align-items:stretch;gap:8px}.nf-map-controls>div{padding:8px;border:1px solid rgba(255,255,255,.8);border-radius:8px;background:rgba(255,255,255,.96);box-shadow:var(--nf-shadow)}.nf-map-controls small{display:block;margin-bottom:6px;color:var(--color-neutral-700);font-size:8px;font-weight:800;letter-spacing:.1em}.nf-map-controls .seg-opt{padding:5px 8px;font-size:10px}.nf-map-controls strong{display:block;color:var(--nf-ok-ink);font-size:11px}
 .nf-zone-finder{position:absolute;z-index:5;top:14px;left:14px;width:228px;max-height:calc(100% - 98px);display:flex;flex-direction:column;padding:10px;border:1px solid rgba(255,255,255,.85);border-radius:9px;background:rgba(255,255,255,.96);box-shadow:var(--nf-shadow)}.nf-zone-finder>strong{font:700 10px/1 var(--font-display);letter-spacing:.08em}.nf-zone-finder>label{display:flex;align-items:center;gap:6px;margin:8px 0;border:1px solid var(--color-divider);border-radius:5px;padding:5px 7px}.nf-zone-finder input{width:100%;min-width:0;border:0;background:transparent;font-size:11px;outline:0}.nf-zone-finder>div{min-height:0;overflow:auto}.nf-zone-finder button{width:100%;display:flex;align-items:center;gap:5px;padding:7px 4px;border:0;border-bottom:1px solid var(--color-divider);background:transparent;text-align:left;cursor:pointer}.nf-zone-finder button:hover,.nf-zone-finder button.is-active{background:var(--nf-ok-100)}.nf-zone-finder button span{min-width:0;flex:1}.nf-zone-finder button b{display:block;overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.nf-zone-finder button small{display:block;margin-top:2px;color:var(--color-neutral-600);font-size:9px}.nf-zone-finder em{font-size:10px;font-style:normal;font-weight:800;white-space:nowrap}.nf-zone-finder .is-deficit{color:var(--color-accent-700)}.nf-zone-finder .is-surplus{color:var(--nf-ok-ink)}
@@ -207,7 +207,7 @@
   --nfp-series:#2bb8ad;
 }
 
-/* Đầu trang: nhận diện · điều hướng · thanh chặng · lối vào luồng agent · tài khoản.
+/* Đầu trang: nhận diện · điều hướng · lối vào luồng agent · tài khoản.
    Đây là đầu trang duy nhất của trang Điều hành — shell không dựng thanh sáng ở đây nữa, nên
    nó phải gánh cả điều hướng, thông báo và đăng xuất. `z-index` cao hơn nhật ký agent (40) để
    menu thông báo đổ xuống không bị bảng nào che. */
@@ -216,24 +216,13 @@
 .nf-ops-brand__mark{width:28px;height:28px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(135deg,var(--nf-ops-teal),#1c7f74);color:#04140f}
 .nf-ops-brand strong{display:block;font:800 13px/1 var(--font-display);letter-spacing:.02em;white-space:nowrap}
 .nf-ops-brand strong em{font-style:normal;color:var(--nf-ops-teal-bright)}
-.nf-ops-brand small{display:block;margin-top:3px;color:var(--nf-ops-muted);font-size:8px;font-weight:700;letter-spacing:.09em}
 
 .nf-ops-nav{display:flex;flex:none;gap:2px;padding-left:14px;border-left:1px solid var(--nf-ops-line)}
 .nf-ops-nav a{display:flex;align-items:center;padding:0 11px;height:30px;border-radius:7px;color:var(--nf-ops-muted);font:600 12px/1 var(--font-body);text-decoration:none;white-space:nowrap}
 .nf-ops-nav a:hover{background:var(--nf-ops-surface-2);color:var(--nf-ops-ink)}
 .nf-ops-nav a.is-active{background:var(--nf-ops-teal);color:#04140f;font-weight:800}
 
-.nf-stage-ribbon{display:flex;align-items:center;gap:5px;margin:0;padding:0;list-style:none}
-.nf-stage-step{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--nf-ops-line);border-radius:99px;background:var(--nf-ops-surface);color:var(--nf-ops-muted)}
-.nf-stage-step>span{width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:50%;background:var(--nf-ops-surface-3);font-size:9px;font-weight:800}
-.nf-stage-step>small{font-size:10px;font-weight:700;white-space:nowrap}
-.nf-stage-step.is-done{border-color:rgba(53,183,165,.4);color:var(--nf-ops-teal-bright)}
-.nf-stage-step.is-done>span{background:var(--nf-ops-teal);color:#04140f}
-.nf-stage-step.is-current{border-color:var(--nf-ops-teal);background:rgba(53,183,165,.13);color:var(--nf-ops-ink)}
-.nf-stage-step.is-current>span{background:var(--nf-ops-teal);color:#04140f}
-
 .nf-ops-header__tools{display:flex;align-items:center;gap:10px;margin-left:auto}
-.nf-human-loop{display:flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid rgba(53,183,165,.3);border-radius:6px;background:rgba(53,183,165,.09);color:var(--nf-ops-teal-bright);font-size:9px;font-weight:800;letter-spacing:.05em;white-space:nowrap}
 .nf-agent-summary{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--nf-ops-line);border-radius:8px;background:var(--nf-ops-surface-2);color:var(--nf-ops-ink);cursor:pointer;transition:border-color .15s ease,background .15s ease}
 .nf-agent-summary:hover{border-color:var(--nf-ops-teal);background:var(--nf-ops-surface-3)}
 .nf-agent-summary__icon{width:22px;height:22px;display:grid;place-items:center;flex:none;border-radius:6px;background:rgba(53,183,165,.15);color:var(--nf-ops-teal-bright)}
@@ -255,19 +244,16 @@
 .nf-ops-account .nf-notification-anchor>button:hover{background:var(--nf-ops-surface-3);color:var(--nf-ops-ink)}
 .nf-ops-account .nf-notification-count{border-color:var(--nf-ops-surface)}
 
-/* Gộp điều hướng vào cùng hàng với thanh chặng nên hàng này chật đi nhiều ở màn hẹp. Nhường
-   dần theo thứ tự "mất đi ít nhất": số liệu tham khảo → nhãn trang trí → chữ phụ → nhãn chặng.
+/* Ở màn hẹp, hàng này nhường dần theo thứ tự "mất đi ít nhất": số liệu tham khảo → chữ phụ.
    Điều hướng và cụm tài khoản không bao giờ bị bỏ — đó là lối duy nhất rời trang và đăng xuất. */
 .nf-ops-header__tools{flex:none}
 @media(max-width:1640px){.nf-ops-health{display:none}}
-@media(max-width:1520px){.nf-human-loop{display:none}}
 @media(max-width:1420px){
-  .nf-ops-brand small,.nf-agent-summary__copy small{display:none}
+  .nf-agent-summary__copy small{display:none}
   .nf-ops-nav{padding-left:10px}
   .nf-ops-nav a{padding:0 9px;font-size:11px}
 }
 @media(max-width:1320px){.nf-agent-summary__copy,.nf-ops-clock{display:none}}
-@media(max-width:1260px){.nf-stage-step>small{display:none}.nf-stage-step{padding:5px 7px}}
 .nf-ops-refresh .is-spinning{animation:nf-spin 1s linear infinite}
 
 /* Cột trái: chỉ số + biểu đồ cân bằng zone. */

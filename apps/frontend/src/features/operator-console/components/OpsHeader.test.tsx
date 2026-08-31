@@ -15,10 +15,7 @@ function renderHeader(props: Partial<Parameters<typeof OpsHeader>[0]> = {}, path
         isRefreshing={false}
         onOpenAgentFlow={() => {}}
         onToggleTheme={() => {}}
-        regimeLabel="Mưa lớn · giờ cao điểm"
-        stage="observe"
         theme="dark"
-        zoneCount={30}
         {...props}
       />
     </MemoryRouter>,

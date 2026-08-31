@@ -744,12 +744,9 @@ export function OperatorConsoleDashboard({
         onOpenAgentFlow={() => { setPipelineTab("agents"); setPipelineOpen(true); }}
         onSignOut={onSignOut}
         onToggleTheme={() => setOpsTheme((current) => (current === "dark" ? "light" : "dark"))}
-        regimeLabel={scenarioPresentation(activeSnapshot.regime, displaySourceAt).weather}
         serverTimeLabel={serverNow ? formatTimeLabel(serverNow) : undefined}
-        stage={activeStage}
         theme={opsTheme}
         userEmail={userEmail}
-        zoneCount={zones.length}
       />
       <ScenarioBar
         forecastMinutes={displayedHorizon}
@@ -1094,8 +1091,6 @@ export function ScenarioBar({
   const scenario = scenarioPresentation(regime, generatedAt);
   return (
     <div className="nf-scenario-bar">
-      <strong>{scenario.heading}</strong>
-      <i />
       <span>
         <CloudRain size={14} /> {scenario.weather}
       </span>

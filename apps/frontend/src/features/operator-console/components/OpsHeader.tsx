@@ -1,40 +1,11 @@
-import { Bot, Check, ChevronRight, LogOut, Moon, RefreshCw, ShieldCheck, Sun, Zap } from "lucide-react";
+import { Bot, ChevronRight, LogOut, Moon, RefreshCw, Sun, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation } from "react-router";
 
 import { operatorNavItems } from "@/shared/components/layout/operatorNavItems";
 import { routes } from "@/shared/config/routes";
 
-import type { OperatorWorkflowStage } from "../model/operatorWorkflow";
-
-// Đầu trang kiểu bảng điều hành: nhận diện + chặng đang ở + lối vào luồng agent.
-//
-// Thanh chặng đọc `OperatorWorkflowStage` thật của console, không giữ tiến trình riêng — một
-// nguồn sự thật duy nhất cho "đang ở bước nào", nếu không hai chỗ sẽ lệch nhau khi phương án
-// bị từ chối hoặc hết hạn.
-
-const ribbonStages: readonly { id: OperatorWorkflowStage; label: string }[] = [
-  { id: "observe", label: "Ghi nhận" },
-  { id: "forecast", label: "Dự báo" },
-  { id: "plan", label: "Phương án" },
-  { id: "approved", label: "Phê duyệt" },
-  { id: "executing", label: "Thực thi" },
-];
-
-// Các chặng không nằm trên thanh vẫn phải chỉ đúng một ô: `campaign` và `executed` là phần
-// đuôi của Thực thi, `not_required`/`no_solution` dừng ngay sau Dự báo.
-const ribbonIndexByStage: Record<OperatorWorkflowStage, number> = {
-  observe: 0,
-  forecast: 1,
-  not_required: 1,
-  no_solution: 1,
-  plan: 2,
-  approved: 3,
-  activation_draft: 3,
-  executing: 4,
-  executed: 4,
-  campaign: 4,
-};
+// Đầu trang kiểu bảng điều hành: nhận diện + lối vào luồng agent.
 
 export type AgentRunSummary = {
   done: number;
@@ -51,12 +22,9 @@ export function OpsHeader({
   onOpenAgentFlow,
   onSignOut,
   onToggleTheme,
-  regimeLabel,
   serverTimeLabel,
-  stage,
   theme,
   userEmail,
-  zoneCount,
 }: {
   agentSummary?: AgentRunSummary | undefined;
   health?: { api: string; database: string; ai: string; map: string } | undefined;
@@ -65,14 +33,10 @@ export function OpsHeader({
   onOpenAgentFlow: () => void;
   onSignOut?: (() => void) | undefined;
   onToggleTheme: () => void;
-  regimeLabel: string;
   serverTimeLabel?: string | undefined;
-  stage: OperatorWorkflowStage;
   theme: "dark" | "light";
   userEmail?: string | null | undefined;
-  zoneCount: number;
 }) {
-  const activeIndex = ribbonIndexByStage[stage] ?? 0;
   const location = useLocation();
 
   return (
@@ -81,7 +45,6 @@ export function OpsHeader({
         <span className="nf-ops-brand__mark"><Zap size={16} /></span>
         <div>
           <strong>NOVAFOUR <em>OPS</em></strong>
-          <small>TRUNG TÂM ĐIỀU PHỐI · {zoneCount} ZONE · {regimeLabel}</small>
         </div>
       </div>
 
@@ -99,21 +62,7 @@ export function OpsHeader({
         ))}
       </nav>
 
-      <ol className="nf-stage-ribbon" aria-label="Tiến trình vận hành">
-        {ribbonStages.map((ribbonStage, index) => (
-          <li
-            aria-current={index === activeIndex ? "step" : undefined}
-            className={`nf-stage-step ${index < activeIndex ? "is-done" : ""} ${index === activeIndex ? "is-current" : ""}`}
-            key={ribbonStage.id}
-          >
-            <span>{index < activeIndex ? <Check size={11} /> : index + 1}</span>
-            <small>{ribbonStage.label}</small>
-          </li>
-        ))}
-      </ol>
-
       <div className="nf-ops-header__tools">
-        <span className="nf-human-loop"><ShieldCheck size={13} /> AI ĐỀ XUẤT · NGƯỜI QUYẾT ĐỊNH</span>
         <button className="nf-agent-summary" onClick={onOpenAgentFlow} type="button">
           <span className="nf-agent-summary__icon"><Bot size={13} /></span>
           <span className="nf-agent-summary__copy">
@@ -148,8 +97,7 @@ export function OpsHeader({
         {(notifications || userEmail || onSignOut) && (
           <div className="nf-ops-account">
             {notifications}
-            {/* Danh tính chỉ còn hai chữ cái: email đầy đủ nằm ở tooltip, chỗ trên thanh dành cho
-                thanh chặng — thanh sáng cũ đã có sẵn cả hai nên mới rộng được. */}
+            {/* Danh tính chỉ còn hai chữ cái: email đầy đủ nằm ở tooltip cho gọn thanh. */}
             {userEmail !== undefined && <span title={userEmail ?? "Điều phối viên"}>{(userEmail ?? "OP").slice(0, 2).toUpperCase()}</span>}
             {onSignOut && (
               <button aria-label="Đăng xuất" className="nf-ops-refresh" onClick={onSignOut} title="Đăng xuất" type="button">
