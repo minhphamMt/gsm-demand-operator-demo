@@ -49,6 +49,7 @@ import { projectZonesAtMinute } from "@/features/operator-dashboard/model/foreca
 import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline";
 import { usePipelineRun } from "@/features/operator-pipeline/hooks/usePipelineRun";
 import { useObserverSession } from "@/features/operator-pipeline/hooks/useObserverSession";
+import { zonesAfterDispatch } from "@/features/operator-data/model/dispatchedSupply";
 import { AgentInteractionLog } from "@/features/operator-console/components/AgentInteractionLog";
 import { awaitingApprovalRow, conversationRows, mergeLogRows, thinkingRows } from "@/features/operator-console/model/logRows";
 import { auditLogRows } from "@/features/operator-console/model/auditLogRows";
@@ -342,7 +343,18 @@ export function OperatorConsoleDashboard({
   const displayTimeForSource = (replaySourceAt: string) => replayAnchorAt && serverNow
     ? observedAtForReplaySource(replaySourceAt, replayAnchorAt, serverNow)
     : replaySourceAt;
-  const observedZones = activeSnapshot.zones;
+  // Cộng tác động của lượt điều phối vào cung TRƯỚC mọi thứ đọc `zones`: bản đồ, bảng khu
+  // vực, `fleetBalanceSummary`, đếm hotspot và cả phép chiếu dự báo đều lấy từ đây. Cộng ở
+  // một chỗ này nên chúng không thể lệch nhau, và không chỗ nào phải tự biết về điều xe.
+  //
+  // Gác bằng `isLiveEdge` vì `dispatch` bám theo **phương án**, không theo bucket replay: rời
+  // sang bucket khác mà phương án chưa đổi thì lớp phủ sẽ cộng số xe của thế giới này vào số
+  // liệu của thế giới khác. Đây đúng là vị từ đang gác `optimize` và `runForecast`.
+  //
+  // Cố ý KHÔNG tắt khi batch chạy xong: xe đã ở zone đích thật, và snapshot replay thì không
+  // bao giờ ghi nhận điều đó. Tắt lúc đó sẽ làm vùng vừa xanh đỏ lại ngay khi chặng cuối
+  // hoàn tất — tệ hơn hẳn là không có lớp phủ nào.
+  const observedZones = zonesAfterDispatch(activeSnapshot.zones, isLiveEdge ? dispatch : undefined);
   const recordedZones = observedZones.map((zone) => {
     const { operationalGap: _forecastRisk, ...recordedZone } = zone;
     return recordedZone;
