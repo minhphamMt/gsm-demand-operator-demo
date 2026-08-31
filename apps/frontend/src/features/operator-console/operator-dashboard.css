@@ -207,13 +207,21 @@
   --nfp-series:#2bb8ad;
 }
 
-/* Đầu trang: nhận diện · thanh chặng · lối vào luồng agent. */
-.nf-ops-header{height:56px;flex:none;display:flex;align-items:center;gap:20px;padding:0 18px;border-bottom:1px solid var(--nf-ops-line);background:#10181d}
+/* Đầu trang: nhận diện · điều hướng · thanh chặng · lối vào luồng agent · tài khoản.
+   Đây là đầu trang duy nhất của trang Điều hành — shell không dựng thanh sáng ở đây nữa, nên
+   nó phải gánh cả điều hướng, thông báo và đăng xuất. `z-index` cao hơn nhật ký agent (40) để
+   menu thông báo đổ xuống không bị bảng nào che. */
+.nf-ops-header{position:relative;z-index:45;height:56px;flex:none;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--nf-ops-line);background:#10181d}
 .nf-ops-brand{display:flex;align-items:center;gap:9px}
 .nf-ops-brand__mark{width:28px;height:28px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(135deg,var(--nf-ops-teal),#1c7f74);color:#04140f}
-.nf-ops-brand strong{display:block;font:800 13px/1 var(--font-display);letter-spacing:.02em}
+.nf-ops-brand strong{display:block;font:800 13px/1 var(--font-display);letter-spacing:.02em;white-space:nowrap}
 .nf-ops-brand strong em{font-style:normal;color:var(--nf-ops-teal-bright)}
 .nf-ops-brand small{display:block;margin-top:3px;color:var(--nf-ops-muted);font-size:8px;font-weight:700;letter-spacing:.09em}
+
+.nf-ops-nav{display:flex;flex:none;gap:2px;padding-left:14px;border-left:1px solid var(--nf-ops-line)}
+.nf-ops-nav a{display:flex;align-items:center;padding:0 11px;height:30px;border-radius:7px;color:var(--nf-ops-muted);font:600 12px/1 var(--font-body);text-decoration:none;white-space:nowrap}
+.nf-ops-nav a:hover{background:var(--nf-ops-surface-2);color:var(--nf-ops-ink)}
+.nf-ops-nav a.is-active{background:var(--nf-ops-teal);color:#04140f;font-weight:800}
 
 .nf-stage-ribbon{display:flex;align-items:center;gap:5px;margin:0;padding:0;list-style:none}
 .nf-stage-step{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--nf-ops-line);border-radius:99px;background:var(--nf-ops-surface);color:var(--nf-ops-muted)}
@@ -230,12 +238,36 @@
 .nf-agent-summary:hover{border-color:var(--nf-ops-teal);background:var(--nf-ops-surface-3)}
 .nf-agent-summary__icon{width:22px;height:22px;display:grid;place-items:center;flex:none;border-radius:6px;background:rgba(53,183,165,.15);color:var(--nf-ops-teal-bright)}
 .nf-agent-summary__copy{text-align:left}
-.nf-agent-summary__copy strong{display:block;font-size:10px;font-weight:800}
+.nf-agent-summary__copy strong{display:block;font-size:10px;font-weight:800;white-space:nowrap}
 .nf-agent-summary__copy small{display:block;margin-top:2px;color:var(--nf-ops-muted);font-size:9px;white-space:nowrap}
 .nf-ops-clock{color:var(--nf-ops-muted);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .nf-ops-refresh{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--nf-ops-line);border-radius:7px;background:var(--nf-ops-surface-2);color:var(--nf-ops-muted);cursor:pointer}
 .nf-ops-refresh:hover:not(:disabled){border-color:var(--nf-ops-teal);color:var(--nf-ops-teal-bright)}
 .nf-ops-refresh:disabled{cursor:not-allowed;opacity:.5}
+
+.nf-ops-health{display:flex;align-items:center;gap:6px;color:var(--nf-ops-muted);font-size:10px;font-weight:700;white-space:nowrap}
+.nf-ops-health__dot{width:7px;height:7px;flex:none;border-radius:50%;background:var(--nf-ops-teal)}
+.nf-ops-account{display:flex;align-items:center;gap:6px;padding-left:10px;border-left:1px solid var(--nf-ops-line)}
+.nf-ops-account>span{width:30px;height:30px;display:grid;place-items:center;flex:none;border-radius:8px;background:var(--nf-ops-teal);color:#04140f;font-size:11px;font-weight:800}
+/* Chuông dùng chung IconButton (tiện ích Tailwind cho nền sáng) — kéo về đúng cỡ và màu của
+   thanh tối; viền vòng đếm bám nền thanh nên đổi theo token thay vì trắng cố định. */
+.nf-ops-account .nf-notification-anchor>button{width:30px;height:30px;border-radius:7px;color:var(--nf-ops-muted)}
+.nf-ops-account .nf-notification-anchor>button:hover{background:var(--nf-ops-surface-3);color:var(--nf-ops-ink)}
+.nf-ops-account .nf-notification-count{border-color:var(--nf-ops-surface)}
+
+/* Gộp điều hướng vào cùng hàng với thanh chặng nên hàng này chật đi nhiều ở màn hẹp. Nhường
+   dần theo thứ tự "mất đi ít nhất": số liệu tham khảo → nhãn trang trí → chữ phụ → nhãn chặng.
+   Điều hướng và cụm tài khoản không bao giờ bị bỏ — đó là lối duy nhất rời trang và đăng xuất. */
+.nf-ops-header__tools{flex:none}
+@media(max-width:1640px){.nf-ops-health{display:none}}
+@media(max-width:1520px){.nf-human-loop{display:none}}
+@media(max-width:1420px){
+  .nf-ops-brand small,.nf-agent-summary__copy small{display:none}
+  .nf-ops-nav{padding-left:10px}
+  .nf-ops-nav a{padding:0 9px;font-size:11px}
+}
+@media(max-width:1320px){.nf-agent-summary__copy,.nf-ops-clock{display:none}}
+@media(max-width:1260px){.nf-stage-step>small{display:none}.nf-stage-step{padding:5px 7px}}
 .nf-ops-refresh .is-spinning{animation:nf-spin 1s linear infinite}
 
 /* Cột trái: chỉ số + biểu đồ cân bằng zone. */

@@ -1,4 +1,9 @@
-import { Bot, Check, ChevronRight, Moon, RefreshCw, ShieldCheck, Sun, Zap } from "lucide-react";
+import { Bot, Check, ChevronRight, LogOut, Moon, RefreshCw, ShieldCheck, Sun, Zap } from "lucide-react";
+import type { ReactNode } from "react";
+import { NavLink, useLocation } from "react-router";
+
+import { operatorNavItems } from "@/shared/components/layout/operatorNavItems";
+import { routes } from "@/shared/config/routes";
 
 import type { OperatorWorkflowStage } from "../model/operatorWorkflow";
 
@@ -40,26 +45,35 @@ export type AgentRunSummary = {
 
 export function OpsHeader({
   agentSummary,
+  health,
   isRefreshing,
+  notifications,
   onOpenAgentFlow,
+  onSignOut,
   onToggleTheme,
   regimeLabel,
   serverTimeLabel,
   stage,
   theme,
+  userEmail,
   zoneCount,
 }: {
   agentSummary?: AgentRunSummary | undefined;
+  health?: { api: string; database: string; ai: string; map: string } | undefined;
   isRefreshing: boolean;
+  notifications?: ReactNode;
   onOpenAgentFlow: () => void;
+  onSignOut?: (() => void) | undefined;
   onToggleTheme: () => void;
   regimeLabel: string;
   serverTimeLabel?: string | undefined;
   stage: OperatorWorkflowStage;
   theme: "dark" | "light";
+  userEmail?: string | null | undefined;
   zoneCount: number;
 }) {
   const activeIndex = ribbonIndexByStage[stage] ?? 0;
+  const location = useLocation();
 
   return (
     <header className="nf-ops-header">
@@ -70,6 +84,20 @@ export function OpsHeader({
           <small>TRUNG TÂM ĐIỀU PHỐI · {zoneCount} ZONE · {regimeLabel}</small>
         </div>
       </div>
+
+      <nav aria-label="Khu vực chính" className="nf-ops-nav">
+        {operatorNavItems.map((item) => (
+          <NavLink
+            aria-current={item.matches(location.pathname) ? "page" : undefined}
+            className={item.matches(location.pathname) ? "is-active" : ""}
+            end={item.path === routes.operator.root}
+            key={item.path}
+            to={item.path}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
 
       <ol className="nf-stage-ribbon" aria-label="Tiến trình vận hành">
         {ribbonStages.map((ribbonStage, index) => (
@@ -100,6 +128,11 @@ export function OpsHeader({
           </span>
           <ChevronRight size={13} />
         </button>
+        {health && (
+          <span className="nf-ops-health" title={`DB ${health.database} · AI ${health.ai} · MAP ${health.map}`}>
+            <i className="nf-ops-health__dot" />DB {health.database} · AI {health.ai} · MAP {health.map}
+          </span>
+        )}
         {serverTimeLabel && <time className="nf-ops-clock">{serverTimeLabel}</time>}
         {isRefreshing && <RefreshCw aria-label="Đang làm mới dữ liệu" className="nf-ops-refreshing" size={13} />}
         <button
@@ -112,6 +145,19 @@ export function OpsHeader({
         >
           {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
         </button>
+        {(notifications || userEmail || onSignOut) && (
+          <div className="nf-ops-account">
+            {notifications}
+            {/* Danh tính chỉ còn hai chữ cái: email đầy đủ nằm ở tooltip, chỗ trên thanh dành cho
+                thanh chặng — thanh sáng cũ đã có sẵn cả hai nên mới rộng được. */}
+            {userEmail !== undefined && <span title={userEmail ?? "Điều phối viên"}>{(userEmail ?? "OP").slice(0, 2).toUpperCase()}</span>}
+            {onSignOut && (
+              <button aria-label="Đăng xuất" className="nf-ops-refresh" onClick={onSignOut} title="Đăng xuất" type="button">
+                <LogOut size={14} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

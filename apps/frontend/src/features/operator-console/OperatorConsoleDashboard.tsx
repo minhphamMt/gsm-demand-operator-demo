@@ -10,7 +10,7 @@ import {
   Terminal,
   X,
 } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 
 import {
@@ -110,7 +110,15 @@ function readStoredOpsTheme(): OpsTheme {
   }
 }
 
-export function OperatorConsoleDashboard() {
+export function OperatorConsoleDashboard({
+  notifications,
+  onSignOut,
+  userEmail,
+}: {
+  notifications?: ReactNode;
+  onSignOut?: () => void;
+  userEmail?: string | null;
+} = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [opsTheme, setOpsTheme] = useState<OpsTheme>(readStoredOpsTheme);
@@ -698,13 +706,17 @@ export function OperatorConsoleDashboard() {
         }}
       />
       <OpsHeader
+        health={capabilities.data?.health}
         isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
+        notifications={notifications}
         onOpenAgentFlow={() => { setPipelineTab("agents"); setPipelineOpen(true); }}
+        onSignOut={onSignOut}
         onToggleTheme={() => setOpsTheme((current) => (current === "dark" ? "light" : "dark"))}
         regimeLabel={scenarioPresentation(activeSnapshot.regime, displaySourceAt).weather}
         serverTimeLabel={serverNow ? formatTimeLabel(serverNow) : undefined}
         stage={activeStage}
         theme={opsTheme}
+        userEmail={userEmail}
         zoneCount={zones.length}
       />
       <ScenarioBar

@@ -33,9 +33,11 @@ describe('OperatorShell server clock', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     queryClient.setQueryData(['operator', 'capabilities'], capabilities)
 
+    // Trang Điều hành đã nhường đầu trang cho OpsHeader, nên đồng hồ của shell chỉ còn ở các
+    // trang khác — kiểm ở đúng chỗ nó thật sự hiển thị.
     const { container } = render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/operator']}>
+        <MemoryRouter initialEntries={['/operator/history']}>
           <OperatorShell />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -47,6 +49,22 @@ describe('OperatorShell server clock', () => {
     act(() => vi.advanceTimersByTime(60_000))
 
     expect(clock()).toHaveTextContent('10:01')
+  })
+
+  it('drops its own header on the dashboard route so OpsHeader is the only one', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    queryClient.setQueryData(['operator', 'capabilities'], capabilities)
+    const renderAt = (path: string) => render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[path]}>
+          <OperatorShell />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    ).container
+
+    expect(renderAt('/operator').querySelector('.nf-console-header')).toBeNull()
+    cleanup()
+    expect(renderAt('/operator/history').querySelector('.nf-console-header')).not.toBeNull()
   })
 
   it('keeps the operating navigation active on the offer detail route', () => {
