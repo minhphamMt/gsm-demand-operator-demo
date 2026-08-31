@@ -163,12 +163,15 @@ def test_dat_proposed_thi_noi_ra_nhung_khong_hua_mot_cong_duyet() -> None:
 
     Trạng thái "đang chờ duyệt" thuộc về phương án trong CSDL — thứ chỉ client biết. Một dòng
     "chờ bạn duyệt" phát từ đây sẽ để người vận hành ngồi đợi một nút không bao giờ hiện.
+
+    Khẳng định trên **tính chất**, không trên câu chữ: dòng phải nói đồ thị dừng ở đâu và
+    khuyến nghị gì, và tuyệt đối không hứa một cổng duyệt.
     """
     text = module._proposed_text(_state())
 
     assert text is not None
     assert "PLAN_B" in text
-    assert "không ghi phương án" in text
+    assert "PROPOSED" in text
     assert "chờ" not in text, "Lượt chạy này không tạo ra cổng duyệt nào."
 
 

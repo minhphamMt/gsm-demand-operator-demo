@@ -328,6 +328,21 @@ def build_graph(deps: GraphDependencies) -> Any:
                 }
             )
         recommended = PLAN_IDS[_recommend(context.plan_variants)]
+        # Một dòng cho mỗi phương án. Không có nó, nhật ký chỉ nói "3 phương án đã chấm" rồi
+        # khuyến nghị một cái — người gõ chat không thấy được số nào để tự phán đoán, mà số thì
+        # nằm trong panel họ vừa được bảo là không cần mở nữa.
+        #
+        # Đọc nguyên văn từ dict đã dựng ở trên: không cộng, không làm tròn, không định dạng lại
+        # — cùng luật vỏ mỏng của `narration.py`.
+        for entry in plans:
+            emit(
+                "narration",
+                "optimization",
+                f"{entry['plan_id']} ({entry['strategy']}): {entry['move_count']} chặng, "
+                f"{entry['total_units']} xe, {entry['total_cost']} VNĐ, "
+                f"còn {entry['residual_zone_count']} zone chưa phủ"
+                + ("  ← khuyến nghị" if entry["plan_id"] == recommended else ""),
+            )
         emit(
             "agent_finished",
             "optimization",

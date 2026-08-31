@@ -5,6 +5,7 @@ import { isPlanInputFresh } from '@/features/operator-data/model/proposalRules'
 import { createSeededOperatorState } from '@/features/operator-data/model/seedOperatorState'
 import { eligibleDriversFor, refreshStaleProposalQueue, withLiveEligibility } from '@/features/operator-data/model/proposalWorkflowState'
 import { createZones } from '@/features/operator-data/model/zoneGeometry'
+import { currentOperatorReplaySourceAt } from '@/features/operator-console/model/defaultReplay'
 import { operatorNowIso, type PipelineRunRecord, type RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 import type { AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DispatchBatch, DriverView, Offer, OperationsReport, OperationsReportFilters, OperatorDataAdapter, PersistentNotification, Proposal, ScenarioComparison, Snapshot } from '@/features/operator-data/model/types'
 
@@ -117,13 +118,15 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     const simulation = simulateSnapshot(baseZones, { comparison, gain, regime: scenario.regime, replayIndex })
     return clone({
       generatedAt: new Date().toISOString(),
-      // Mọi snapshot phải biết mình thuộc BUCKET REPLAY nào. Thiếu `sourceAt`, console rơi về
-      // `generatedAt` — mốc đồng hồ thật — rồi đưa nó vào `observedAtForReplaySource()`, vốn chỉ
-      // nhận bucket. Trộn hai loại mốc cho ra thời gian vô nghĩa: đo thật thấy "Đang xem" nhảy
-      // từ 17:00 sang 01:31 ngay sau khi chạy dự báo, rail báo "Snapshot đã cũ", và `tính phương
-      // án` không bao giờ chạy được trong bản mock. Bản thật không dính vì
-      // `POST /operator/ai/forecast` gọi `refreshReplaySnapshot()` trả snapshot có `sourceAt`.
-      sourceAt: currentReplayBucket(),
+      // Mọi snapshot phải biết mình thuộc BUCKET REPLAY nào, và phải là bucket mà console đang
+      // neo vào — `currentOperatorReplaySourceAt()` chọn từ danh sách mốc đã kiểm chứng của
+      // dataset đóng băng, KHÔNG phải đồng hồ thật. Dùng đồng hồ thật ở đây thì lệch anchor cả
+      // tháng, và `observedAtForReplaySource()` (liveBucket + source − anchor) cho ra thời gian
+      // vô nghĩa: đo thật thấy "Đang xem" nhảy sang 01:31 rồi rail báo "Snapshot đã cũ".
+      //
+      // Bản thật không dính vì `POST /operator/ai/forecast` gọi `refreshReplaySnapshot()` trả
+      // snapshot mang `sourceAt` của đúng bucket được yêu cầu.
+      sourceAt: currentOperatorReplaySourceAt(),
       replayStep: `${String(17 + Math.floor(replayIndex / 12)).padStart(2, '0')}:${String((replayIndex % 12) * 5).padStart(2, '0')}`,
       scenario: comparison,
       demoScenarioId,
@@ -378,15 +381,6 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
   })),
 }
 
-// Làm tròn xuống bước replay 5 phút. Tự chứa để `operator-data` không phải import ngược lên
-// `operator-console` chỉ vì một phép làm tròn.
-function currentReplayBucket(now = new Date()): string {
-  const bucket = new Date(now)
-  bucket.setSeconds(0, 0)
-  bucket.setMinutes(Math.floor(bucket.getMinutes() / 5) * 5)
-  return bucket.toISOString()
-}
-
 const mockSessions = new Map<string, RunEvent[]>()
 
 type MockLine = Omit<RunEvent, 'seq' | 'at'>
@@ -504,13 +498,16 @@ function buildMockRunEvents(): RunEvent[] {
     { kind: 'agent_finished', actor: 'dispatch', text: 'có phương án điều chuyển', source: 'deterministic', ok: true },
     { kind: 'narration', actor: 'graph', text: 'sinh 3 phương án theo strategy MIN_COST, BALANCED, MIN_ETA', source: 'deterministic' },
     { kind: 'agent_started', actor: 'optimization', text: 'chấm điểm và xếp hạng phương án', source: 'deterministic' },
+    { kind: 'narration', actor: 'optimization', text: 'PLAN_A (MIN_COST): 6 chặng, 42 xe, 180000 VNĐ, còn 2 zone chưa phủ', source: 'deterministic' },
+    { kind: 'narration', actor: 'optimization', text: 'PLAN_B (BALANCED): 6 chặng, 42 xe, 180000 VNĐ, còn 2 zone chưa phủ  ← khuyến nghị', source: 'deterministic' },
+    { kind: 'narration', actor: 'optimization', text: 'PLAN_C (MIN_ETA): 6 chặng, 42 xe, 180000 VNĐ, còn 2 zone chưa phủ', source: 'deterministic' },
     { kind: 'agent_finished', actor: 'optimization', text: '3 phương án đã chấm, khuyến nghị PLAN_B (ba chiến lược hội tụ)', source: 'deterministic', ok: true },
     { kind: 'narration', actor: 'graph', text: 'quality gate: phương án đạt ràng buộc tối thiểu', source: 'deterministic', ok: true },
     { kind: 'agent_started', actor: 'explanation', text: 'viết lời giải thích cho điều phối viên', source: 'deterministic' },
     { kind: 'tool_finished', actor: 'explanation', text: 'lấy số nguồn để viết giải thích: 6 chặng, 42 xe, 180000 VNĐ', source: 'deterministic', tool: 'render_explanation', ok: true },
     { kind: 'agent_finished', actor: 'explanation', text: 'giải thích xong (lớp template)', source: 'deterministic', ok: true },
     { kind: 'narration', actor: 'graph', text: 'dựng quyết định cuối từ phương án BALANCED', source: 'deterministic' },
-    { kind: 'narration', actor: 'graph', text: 'phân tích đạt PROPOSED, khuyến nghị PLAN_B — lượt chạy này không ghi phương án nào vào CSDL', source: 'system', code: 'GRAPH_PROPOSED' },
+    { kind: 'narration', actor: 'graph', text: 'đồ thị dừng ở PROPOSED, khuyến nghị PLAN_B — việc ghi phương án do bước sau đảm nhiệm', source: 'system', code: 'GRAPH_PROPOSED' },
     { kind: 'run_finished', actor: 'graph', text: 'hoàn tất — quyết định sẵn sàng để duyệt', source: 'system', ok: true },
   ]
   return lines.map((line, index) => ({

@@ -330,3 +330,28 @@ def test_luot_khong_noi_gi_thi_khong_de_lai_dong_rong(zones: list[dict[str, obje
     )
 
     assert not [event for event in log.snapshot() if event.kind == "narration"]
+
+
+def test_nhat_ky_neu_du_so_lieu_cua_tung_phuong_an(zones: list[dict[str, object]]) -> None:
+    """Không có mấy dòng này thì nhật ký chỉ nói "3 phương án đã chấm" rồi khuyến nghị một cái.
+
+    Người gõ chat không thấy được số nào để tự phán đoán — mà số thì nằm trong panel họ vừa
+    được bảo là không cần mở nữa.
+    """
+    log = RunLog()
+    state = run_pipeline(_fresh_context(zones), snapshot_id="ev", data_source="AI_PARQUET_REPLAY:ev", emit=log.append)
+
+    dong = [event.text for event in log.snapshot() if event.actor == "optimization"]
+    plans = (state.get("plan_set") or {}).get("plans") or []
+    assert plans, "Lượt chạy phải sinh ra phương án, nếu không test này vô nghĩa."
+
+    for plan in plans:
+        khop = [text for text in dong if text.startswith(f"{plan['plan_id']} (")]
+        assert khop, f"Thiếu dòng cho {plan['plan_id']}"
+        # Đọc nguyên văn: số trong dòng phải là số của phương án, không phải bản định dạng lại.
+        assert str(plan["total_cost"]) in khop[0]
+        assert str(plan["move_count"]) in khop[0]
+
+    khuyen_nghi = [text for text in dong if "← khuyến nghị" in text]
+    assert len(khuyen_nghi) == 1, "Đúng một phương án được đánh dấu khuyến nghị."
+    assert khuyen_nghi[0].startswith(f"{state['recommended_plan_id']} (")
