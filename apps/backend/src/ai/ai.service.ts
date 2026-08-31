@@ -104,6 +104,7 @@ const requiredLiveFields = [
 @Injectable()
 export class AiService {
   private readonly aiServiceUrl = (process.env.AI_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+  private readonly aiServiceApiKey = process.env.AI_SERVICE_API_KEY ?? '';
 
   constructor(private readonly db: SupabaseService) {}
 
@@ -701,7 +702,10 @@ export class AiService {
 
   private async request<T = unknown>(path: string, init: RequestInit): Promise<T> {
     try {
-      const response = await fetch(`${this.aiServiceUrl}${path}`, { ...init, signal: AbortSignal.timeout(10_000) });
+      const headers = this.aiServiceApiKey
+        ? { ...init.headers, 'x-api-key': this.aiServiceApiKey }
+        : init.headers;
+      const response = await fetch(`${this.aiServiceUrl}${path}`, { ...init, headers, signal: AbortSignal.timeout(10_000) });
       const payload: unknown = await response.json();
       if (!response.ok) throw new Error(`AI service returned ${response.status}`);
       return payload as T;

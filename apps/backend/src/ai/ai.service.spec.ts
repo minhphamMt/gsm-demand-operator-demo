@@ -517,4 +517,36 @@ describe('AiService persistence', () => {
       }),
     });
   });
+
+  describe('shared-secret auth against apps/ai (issue #12)', () => {
+    const originalFetch = global.fetch;
+    const originalKey = process.env.AI_SERVICE_API_KEY;
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+      process.env.AI_SERVICE_API_KEY = originalKey;
+    });
+
+    it('forwards X-API-Key when AI_SERVICE_API_KEY is configured', async () => {
+      process.env.AI_SERVICE_API_KEY = 'shared-secret';
+      const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok' }) });
+      global.fetch = fetchMock as never;
+
+      await new AiService({} as never).status();
+
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(init.headers).toMatchObject({ 'x-api-key': 'shared-secret' });
+    });
+
+    it('sends no api key header when AI_SERVICE_API_KEY is unset', async () => {
+      delete process.env.AI_SERVICE_API_KEY;
+      const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok' }) });
+      global.fetch = fetchMock as never;
+
+      await new AiService({} as never).status();
+
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(init.headers).toBeUndefined();
+    });
+  });
 });

@@ -19,6 +19,7 @@ export class DemoAuthService {
   private readonly client: SupabaseClient | undefined;
   private readonly email: string | undefined;
   private readonly password: string | undefined;
+  private readonly nodeEnv: string;
 
   constructor(
     config: ConfigService,
@@ -28,6 +29,7 @@ export class DemoAuthService {
     const publishableKey = config.get<string>('SUPABASE_PUBLISHABLE_KEY');
     this.email = config.get<string>('DEMO_OPERATOR_EMAIL')?.trim() || undefined;
     this.password = config.get<string>('DEMO_OPERATOR_PASSWORD') || undefined;
+    this.nodeEnv = config.get<string>('NODE_ENV') ?? 'development';
     if (url && publishableKey) {
       this.client = createClient(url, publishableKey, {
         auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
@@ -36,6 +38,11 @@ export class DemoAuthService {
   }
 
   async createSession(): Promise<DemoSessionResponse> {
+    if (this.nodeEnv === 'production') {
+      this.logger.warn(JSON.stringify({ event: 'demo_auth_blocked_production', node_env: this.nodeEnv }));
+      throw new UnauthorizedException('Demo access is disabled');
+    }
+
     if (!this.client || !this.email || !this.password) {
       throw new UnauthorizedException('Demo access is disabled');
     }
@@ -54,6 +61,8 @@ export class DemoAuthService {
     if (profileError || profile?.role !== 'OPERATOR' || profile.is_active !== true) {
       throw new ForbiddenException('The configured demo account is not an active operator');
     }
+
+    this.logger.warn(JSON.stringify({ event: 'demo_session_issued', user_id: data.user.id, node_env: this.nodeEnv }));
 
     return {
       access_token: data.session.access_token,
