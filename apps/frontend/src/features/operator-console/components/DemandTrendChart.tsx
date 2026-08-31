@@ -1,7 +1,7 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import type { ReplayTimelineStep } from "@/features/operator-data";
-import { demandTrendRows } from "../model/demandTrendRows";
+import { demandTrendRows, type ReplayClock } from "../model/demandTrendRows";
 
 // Xu hướng cầu–cung trong ngày, đọc từ cửa sổ replay của AI service.
 //
@@ -9,8 +9,16 @@ import { demandTrendRows } from "../model/demandTrendRows";
 // chỉ khác là lấy cả cửa sổ thay vì một mốc. Mốc nào thiếu tổng thì bị loại chứ không vẽ 0 —
 // một điểm 0 giả giữa đường cong đọc thành "mạng lưới sập" chứ không thành "thiếu dữ liệu".
 
-export function DemandTrendChart({ steps }: { steps: readonly ReplayTimelineStep[] }) {
-  const rows = demandTrendRows(steps);
+export function DemandTrendChart({
+  clock,
+  steps,
+}: {
+  // Cùng mốc neo mà cả màn hình dùng để quy giờ dataset về giờ vận hành. Vắng thì trục hoành
+  // giữ giờ dataset — chỉ xảy ra lúc mốc neo hoặc giờ máy chủ chưa tải xong.
+  clock?: ReplayClock | undefined;
+  steps: readonly ReplayTimelineStep[];
+}) {
+  const rows = demandTrendRows(steps, clock);
   const latest = rows[rows.length - 1];
 
   // Khối luôn giữ khung kể cả khi chưa có mốc nào: để nó biến mất làm cả cột nhảy chỗ mỗi lần
