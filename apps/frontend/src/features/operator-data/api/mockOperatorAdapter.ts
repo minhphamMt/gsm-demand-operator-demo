@@ -117,6 +117,13 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     const simulation = simulateSnapshot(baseZones, { comparison, gain, regime: scenario.regime, replayIndex })
     return clone({
       generatedAt: new Date().toISOString(),
+      // Mọi snapshot phải biết mình thuộc BUCKET REPLAY nào. Thiếu `sourceAt`, console rơi về
+      // `generatedAt` — mốc đồng hồ thật — rồi đưa nó vào `observedAtForReplaySource()`, vốn chỉ
+      // nhận bucket. Trộn hai loại mốc cho ra thời gian vô nghĩa: đo thật thấy "Đang xem" nhảy
+      // từ 17:00 sang 01:31 ngay sau khi chạy dự báo, rail báo "Snapshot đã cũ", và `tính phương
+      // án` không bao giờ chạy được trong bản mock. Bản thật không dính vì
+      // `POST /operator/ai/forecast` gọi `refreshReplaySnapshot()` trả snapshot có `sourceAt`.
+      sourceAt: currentReplayBucket(),
       replayStep: `${String(17 + Math.floor(replayIndex / 12)).padStart(2, '0')}:${String((replayIndex % 12) * 5).padStart(2, '0')}`,
       scenario: comparison,
       demoScenarioId,
@@ -369,6 +376,15 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     analysis: { ok: false, model: 'google/gemini-3.7-flash', error: 'LLM_API_KEY chưa được đặt' },
     explanation: { ok: false, model: 'anthropic/claude-haiku-4.5', error: 'LLM_API_KEY chưa được đặt' },
   })),
+}
+
+// Làm tròn xuống bước replay 5 phút. Tự chứa để `operator-data` không phải import ngược lên
+// `operator-console` chỉ vì một phép làm tròn.
+function currentReplayBucket(now = new Date()): string {
+  const bucket = new Date(now)
+  bucket.setSeconds(0, 0)
+  bucket.setMinutes(Math.floor(bucket.getMinutes() / 5) * 5)
+  return bucket.toISOString()
 }
 
 const mockSessions = new Map<string, RunEvent[]>()

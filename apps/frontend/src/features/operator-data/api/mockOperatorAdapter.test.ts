@@ -101,3 +101,34 @@ describe('mock operator adapter', () => {
     vi.useRealTimers()
   })
 })
+
+describe('snapshot mang bucket replay', () => {
+  // `sourceAt` thiếu thì console rơi về `generatedAt` — mốc đồng hồ thật — rồi đưa nó vào
+  // `observedAtForReplaySource()`, vốn chỉ nhận bucket. Trộn hai loại mốc cho ra thời gian vô
+  // nghĩa: đo thật thấy "Đang xem" nhảy từ 17:00 sang 01:31 ngay sau khi chạy dự báo, rail báo
+  // "Snapshot đã cũ", và `tính phương án` không bao giờ chạy được trong bản mock.
+  const laBucket5Phut = (at: string | undefined) => {
+    expect(at).toBeDefined()
+    const moc = new Date(at!)
+    expect(Number.isNaN(moc.getTime())).toBe(false)
+    expect(moc.getSeconds()).toBe(0)
+    expect(moc.getMilliseconds()).toBe(0)
+    expect(moc.getMinutes() % 5).toBe(0)
+    // Và nó phải là bucket HIỆN TẠI, không phải một mốc cũ trong bộ seed.
+    expect(Date.now() - moc.getTime()).toBeLessThan(6 * 60_000)
+  }
+
+  it('snapshot nền biết mình thuộc bucket nào', async () => {
+    laBucket5Phut((await mockOperatorAdapter.getSnapshot('baseline')).sourceAt)
+  })
+
+  it('dự báo cũng vậy — đây là chỗ đã hỏng', async () => {
+    laBucket5Phut((await mockOperatorAdapter.generateAiDecision(1, 5)).sourceAt)
+  })
+
+  it('runReplayStep vẫn ghi đè bằng bucket được yêu cầu', async () => {
+    const bucket = '2026-08-31T10:00:00.000Z'
+
+    expect((await mockOperatorAdapter.runReplayStep(bucket)).sourceAt).toBe(bucket)
+  })
+})
