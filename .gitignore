@@ -113,3 +113,11 @@ frontend/dist/
 CODEX_OPERATIONS_V2_UI_TASK*.md
 apps/frontend/operations-v2-preview.html
 apps/frontend/src/prototypes/operations-v2/preview-main.tsx
+
+# BMad tooling — bản cài đặt và định nghĩa skill của công cụ, không phải mã dự án.
+# Sản phẩm do nó sinh ra (_bmad-output/) vẫn theo dõi bình thường.
+_bmad/
+.agents/skills/
+
+# Tài liệu nháp, không phải spec đã chốt
+docs/tempdocs/
