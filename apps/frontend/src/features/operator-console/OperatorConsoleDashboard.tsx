@@ -792,7 +792,10 @@ export function OperatorConsoleDashboard({
       />
       <div className="nf-ops-workspace">
         <aside aria-label="Biểu đồ vận hành" className="nf-insight-column">
-          <DemandTrendChart steps={dayWindow.data ?? []} />
+          <DemandTrendChart
+            clock={replayAnchorAt && serverNow ? { anchorSourceAt: replayAnchorAt, serverNow } : undefined}
+            steps={dayWindow.data ?? []}
+          />
           <AiImpactChart plan={planReady ? plan : undefined} />
           <section className="nf-insight-chart">
             <div className="nf-rail-title">
