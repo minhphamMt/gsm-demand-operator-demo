@@ -53,6 +53,7 @@ import { AgentInteractionLog } from "@/features/operator-console/components/Agen
 import { awaitingApprovalRow, conversationRows, mergeLogRows } from "@/features/operator-console/model/logRows";
 import { auditLogRows } from "@/features/operator-console/model/auditLogRows";
 import { useOperatorActionLog } from "@/features/operator-console/hooks/useOperatorActionLog";
+import type { OperatorAction } from "@/features/operator-console/model/operatorLog";
 import { AiImpactChart } from "./components/AiImpactChart";
 import { DemandTrendChart } from "./components/DemandTrendChart";
 import { NetworkHealthPanel } from "./components/NetworkHealthPanel";
@@ -438,7 +439,7 @@ export function OperatorConsoleDashboard() {
       onSettled: () => setReplayTargetAt(undefined),
     });
   };
-  const runForecastFor = (horizon: ForecastHorizon) => {
+  const runForecastFor = (horizon: ForecastHorizon, onDone?: () => void) => {
     if (hasExecution || !isLiveEdge || !dataComplete || snapshotStale || actions.generateAiDecision.isPending) return;
     requestedForecastRef.current = horizon;
     setPlanningSourceAt(sourceAt);
@@ -456,6 +457,7 @@ export function OperatorConsoleDashboard() {
         setWorkflowStage("forecast");
         setMapSource("forecast");
         setDrawerOpen(true);
+        onDone?.();
       },
     });
   };
@@ -468,8 +470,15 @@ export function OperatorConsoleDashboard() {
   };
   const runForecast = () => runForecastFor(forecastMinutes);
 
-  const optimize = () => {
-    if (!isLiveEdge || !forecastReady || !dataComplete || snapshotStale || hasExecution) return;
+  /** Tính và **ghi** phương án.
+   *
+   * `requireForecast` chỉ tắt được cổng TUẦN TỰ của giao diện, không tắt cổng an toàn nào.
+   * Server tự chạy dự báo bên trong (`generate(persistForecast = persistProposal = true)`), nên
+   * "phải bấm dự báo trước" là quy ước của màn hình chứ không phải ràng buộc của dữ liệu. Lượt
+   * `chạy phân tích` đi thẳng vào đây vì nó vừa chạy xong toàn bộ chuỗi trong đồ thị.
+   */
+  const optimizeFor = ({ requireForecast }: { requireForecast: boolean }) => {
+    if (!isLiveEdge || (requireForecast && !forecastReady) || !dataComplete || snapshotStale || hasExecution) return;
     const parsedSnapshotId = Number(activeSnapshot.replayStep);
     const snapshotId = Number.isInteger(parsedSnapshotId) ? parsedSnapshotId : 0;
     actions.optimizeAiDecision.mutate(
@@ -490,6 +499,7 @@ export function OperatorConsoleDashboard() {
       } },
     );
   };
+  const optimize = () => optimizeFor({ requireForecast: true });
 
   const closeDialog = () => {
     if (!actionPending) {
@@ -646,7 +656,7 @@ export function OperatorConsoleDashboard() {
     if (snapshotStale) return "snapshot đã cũ so với mốc hiện tại, hãy làm mới trước";
     return undefined;
   };
-  const guarded = (action: "forecast" | "optimize", run: () => void, extra?: () => string | undefined) => () => {
+  const guarded = (action: OperatorAction, run: () => void, extra?: () => string | undefined) => () => {
     const reason = blockedReason() ?? extra?.();
     if (reason) {
       operatorLog.noteFailed(action, new Error(reason));
@@ -654,8 +664,30 @@ export function OperatorConsoleDashboard() {
     }
     run();
   };
+  // `chạy phân tích` phải kết thúc bằng một phương án CÓ THẬT để duyệt.
+  //
+  // Đồ thị tính đủ ba phương án rồi **không ghi gì** (`POST /runs` chỉ trả `run_id`), nên một
+  // mình nó để lại nhật ký đẹp và không có gì để bấm duyệt. Bước thứ hai gọi đúng endpoint mà
+  // nút "Tính phương án" vẫn gọi, nên phương án hiện ra là phương án thật, qua đúng cổng cũ.
+  //
+  // Đánh đổi: optimizer chạy hai lần — một trong đồ thị để tường thuật, một để ghi. Test parity
+  // khoá `state["decision"]` bằng đúng response của `POST /decisions`, nên hai lượt cho ra cùng
+  // một con số; cái mất là vài giây, cái được là một cổng duyệt thật.
+  const runFullAnalysis = () => {
+    startPipelineRun();
+    // Đi ĐÚNG chuỗi dự báo → tính phương án, không nhảy cóc. `RailActions` kiểm `!forecastReady`
+    // trước nhánh phương án, nên bỏ qua bước dự báo thì phương án có ghi được vẫn không tới
+    // được nút duyệt — đo thật thấy rail kẹt ở "Gõ chạy dự báo" trong khi drawer đã mở.
+    //
+    // `requireForecast: false` ở bước hai là bắt buộc: `forecastReady` đọc từ closure của lần
+    // render này, mà lần render đó chưa thấy kết quả dự báo vừa xong.
+    runForecastFor(forecastMinutes, () => optimizeFor({ requireForecast: false }));
+  };
   const chatHandlers = {
-    start_run: startPipelineRun,
+    // Cũng phải qua `guarded`. Không có nó, lượt chạy vẫn tường thuật đầy đủ trong khi bước ghi
+    // phương án im lặng bỏ qua — người đọc thấy agent làm việc rồi tưởng phương án trên màn hình
+    // là của lượt này, mà đó là plan cũ còn sót.
+    start_run: guarded("optimize", runFullAnalysis),
     start_forecast: guarded("forecast", runForecast),
     start_optimize: guarded("optimize", optimize, () =>
       forecastReady ? undefined : "chưa có dự báo cho mốc này — gõ \"chạy dự báo\" trước đã"),
@@ -941,7 +973,7 @@ export function OperatorConsoleDashboard() {
           isStarting={pipeline.isStarting}
           onClose={() => setPipelineOpen(false)}
           onOpenPlan={() => { setPipelineOpen(false); setDrawerOpen(true); }}
-          onStart={startPipelineRun}
+          onStart={runFullAnalysis}
           onTabChange={setPipelineTab}
           run={pipeline.run}
           runError={pipeline.error}

@@ -141,10 +141,10 @@ def _proposed_text(state: PipelineState) -> str | None:
     if not decision or decision.get("planning_status") == "not_required":
         return None
     plan_id = state.get("recommended_plan_id") or "phương án"
-    return (
-        f"phân tích đạt PROPOSED, khuyến nghị {plan_id} — lượt chạy này không ghi phương án "
-        "nào vào CSDL"
-    )
+    # Nói đúng phạm vi của MÌNH: đồ thị dừng ở PROPOSED và không ghi gì. Câu cũ — "lượt chạy
+    # này không ghi phương án nào vào CSDL" — đúng về `POST /runs` nhưng đọc ra thành sai ở
+    # bảng điều hành, nơi lượt chạy luôn đi kèm một bước ghi ngay sau đó rồi phương án hiện ra.
+    return f"đồ thị dừng ở PROPOSED, khuyến nghị {plan_id} — việc ghi phương án do bước sau đảm nhiệm"
 
 
 def _execute(run_id: str, request: DecisionRequest, entry: RunEntry) -> None:
