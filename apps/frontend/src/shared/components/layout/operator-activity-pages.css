@@ -569,6 +569,31 @@
   background: rgba(53, 183, 165, .08);
 }
 
+.nf-workspace-page--dark .nf-offer-card table th {
+  background: #172128;
+  color: #90a09e;
+}
+
+.nf-workspace-page--dark .nf-offer-card table tbody tr:hover {
+  background: rgba(53, 183, 165, .08);
+}
+
+.nf-workspace-page--dark .nf-data-refresh-indicator {
+  border-color: rgba(53, 183, 165, .42);
+  background: #172128;
+  color: #54d4c1;
+}
+
+.nf-workspace-page--dark .nf-data-refresh-indicator.is-error {
+  border-color: rgba(238, 177, 81, .52);
+  background: rgba(238, 177, 81, .13);
+  color: #eeb151;
+}
+
+.nf-workspace-page--dark .nf-data-refresh-indicator button:hover {
+  background: rgba(255, 255, 255, .08);
+}
+
 .nf-workspace-page--dark .nf-history-overview {
   background: #172128;
 }

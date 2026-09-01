@@ -102,6 +102,51 @@
   background: #f7fbfa;
 }
 
+/* The plan review stylesheet is also used inside the dark execution workspace.
+   Keep its higher-specificity light selectors from leaking into that surface. */
+.nf-workspace-page--dark:has(.nf-plan-review-shell) .nf-workspace-heading {
+  background: #10181d;
+  border-bottom-color: #2a3941;
+}
+
+.nf-workspace-page--dark .nf-workspace-body:has(.nf-plan-review-shell) {
+  background: #0c1216;
+}
+
+.nf-workspace-page--dark .nf-plan-detail-stack > .rounded-panel {
+  border-color: #2a3941;
+  background: #121a20;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .24);
+}
+
+.nf-workspace-page--dark .nf-plan-detail-stack > .rounded-panel:first-child {
+  border-color: rgba(53, 183, 165, .48);
+  background: linear-gradient(135deg, rgba(53, 183, 165, .14), #121a20 72%);
+}
+
+.nf-workspace-page--dark .nf-plan-detail-stack > .rounded-panel:first-child > ol {
+  border-color: #2a3941;
+  background: #172128;
+}
+
+.nf-workspace-page--dark .nf-plan-detail-stack > .rounded-panel:first-child > dl > div {
+  background: #121a20;
+  border-color: #2a3941;
+}
+
+.nf-workspace-page--dark .nf-plan-detail-stack .rounded-panel table th {
+  background: #172128;
+  color: #90a09e;
+}
+
+.nf-workspace-page--dark .nf-plan-detail-stack .rounded-panel table tr:hover {
+  background: rgba(53, 183, 165, .08);
+}
+
+.nf-workspace-page--dark .nf-plan-detail-stack .ring-white {
+  --tw-ring-color: #121a20 !important;
+}
+
 @media (max-width: 900px) {
   .nf-workspace-body:has(.nf-plan-review-shell) {
     padding: 12px;

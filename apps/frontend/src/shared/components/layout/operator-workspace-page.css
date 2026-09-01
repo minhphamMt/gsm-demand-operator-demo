@@ -205,6 +205,27 @@
   background: rgba(127, 169, 245, .14) !important;
 }
 
+.nf-workspace-page--dark .bg-brand-50,
+.nf-workspace-page--dark .bg-emerald-50 {
+  background: rgba(53, 183, 165, .12) !important;
+}
+
+.nf-workspace-page--dark .bg-emerald-100 {
+  background: rgba(53, 183, 165, .16) !important;
+}
+
+.nf-workspace-page--dark .border-emerald-200 {
+  border-color: rgba(53, 183, 165, .48) !important;
+}
+
+.nf-workspace-page--dark .text-brand-700,
+.nf-workspace-page--dark .text-brand-800,
+.nf-workspace-page--dark .text-emerald-800,
+.nf-workspace-page--dark .text-emerald-900,
+.nf-workspace-page--dark .text-emerald-950 {
+  color: #54d4c1 !important;
+}
+
 .nf-workspace-page--dark table {
   color: var(--color-text);
 }

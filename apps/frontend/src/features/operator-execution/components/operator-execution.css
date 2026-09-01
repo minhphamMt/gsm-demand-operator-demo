@@ -668,6 +668,10 @@
   border-bottom-color: #2a3941;
 }
 
+.nf-workspace-page--dark .nf-workspace-body:has(.nf-operation-shell) {
+  background: #0c1216;
+}
+
 .nf-workspace-page--dark .nf-operation-context {
   border-color: #2a3941;
   background: radial-gradient(circle at 92% -20%, rgba(53, 183, 165, .16), transparent 42%), #121a20;
