@@ -146,8 +146,14 @@ def trained_model_readiness() -> dict[str, object]:
         features = simulation_features()
     except Exception as error:  # noqa: BLE001 - readiness reports loader failures.
         return {"ready": False, "error": str(error), "artifacts": len(list(model_directory.glob("*.txt")))}
+    expected_artifacts = bundle["artifacts"]
     return {
-        "ready": len(models) == 18 and bool(bundle["verified"]),
+        "ready": (
+            isinstance(expected_artifacts, int)
+            and expected_artifacts > 0
+            and len(models) == expected_artifacts
+            and bool(bundle["verified"])
+        ),
         "artifacts": len(models),
         "model_version": bundle["model_version"],
         "bundle": bundle,

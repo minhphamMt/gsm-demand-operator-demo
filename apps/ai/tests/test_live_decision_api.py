@@ -390,6 +390,15 @@ def test_model_bundle_manifest_verifies_all_twelve_artifacts() -> None:
     assert training_data["source_kind"] == "hybrid_synthetic"
 
 
+def test_health_readiness_accepts_the_current_twelve_artifact_bundle() -> None:
+    from src.api.routes_inference import trained_model_readiness
+
+    readiness = trained_model_readiness()
+
+    assert readiness["ready"] is True
+    assert readiness["artifacts"] == 12
+
+
 def test_model_bundle_rejects_a_tampered_artifact(tmp_path) -> None:
     from src.config import get_settings
 
