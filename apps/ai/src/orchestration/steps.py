@@ -396,6 +396,7 @@ def assemble_decision(
     planning_status: str,
     reason_code: str | None,
     extra_warnings: Sequence[dict[str, object]] = (),
+    policy_overrides: Mapping[str, float] | None = None,
 ) -> dict[str, object]:
     """Dựng payload quyết định. Một nơi duy nhất — route và đồ thị đều gọi hàm này.
 
@@ -463,6 +464,10 @@ def assemble_decision(
             "replay_snapshot_verified": replay_source_at_iso is not None,
             "source_kind": source_kind,
         },
+        # Ngưỡng điều phối viên đổi cho lượt chạy này, rỗng nếu chạy bằng policy.yaml
+        # nguyên bản. Đi kèm quyết định vì §3 #7 cấm state ẩn: một plan không nói ra nó
+        # được tính dưới ngưỡng nào thì không ai dựng lại được nó về sau.
+        "policy_overrides": dict(policy_overrides or {}),
         "activation_policy": {
             "incentive_amount": policy.rules.incentive_base,
             "incentive_budget_cap": policy.rules.incentive_budget_cap,

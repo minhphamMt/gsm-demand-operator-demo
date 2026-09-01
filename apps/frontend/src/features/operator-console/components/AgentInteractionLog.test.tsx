@@ -52,7 +52,7 @@ describe('AgentInteractionLog', () => {
     show([])
 
     expect(screen.getByRole('log')).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })).toBeInTheDocument()
     expect(screen.getByRole('log')).toHaveTextContent('Gõ chạy phân tích để agent bắt đầu')
   })
 
@@ -164,15 +164,15 @@ describe('AgentInteractionLog', () => {
   it('gửi câu đã gõ rồi xoá ô nhập', async () => {
     const { onAsk } = show([])
 
-    await userEvent.type(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' }), 'zone nào thiếu xe{Enter}')
+    await userEvent.type(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' }), 'zone nào thiếu xe{Enter}')
 
     expect(onAsk).toHaveBeenCalledWith('zone nào thiếu xe')
-    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })).toHaveValue('')
   })
 
   it('không gửi câu rỗng hay chỉ có khoảng trắng', async () => {
     const { onAsk } = show([])
-    const box = screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })
+    const box = screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })
 
     await userEvent.type(box, '{Enter}')
     await userEvent.type(box, '    {Enter}')
@@ -263,7 +263,7 @@ describe('AgentInteractionLog', () => {
   // --- lệnh gạch chéo ---
 
   const type = (text: string) =>
-    userEvent.type(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' }), text)
+    userEvent.type(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' }), text)
 
   it('/clear xoá nhật ký khỏi màn hình mà không gửi gì cho agent', async () => {
     const { onAsk } = show([row(1), row(2), row(3)])
@@ -352,7 +352,7 @@ describe('AgentInteractionLog', () => {
 
   it('↑ gọi lại câu vừa gõ, ↓ trả về dòng trắng', async () => {
     show([])
-    const box = screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })
+    const box = screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })
 
     await userEvent.type(box, 'chạy dự báo{Enter}')
     await userEvent.type(box, '{ArrowUp}')
@@ -364,7 +364,7 @@ describe('AgentInteractionLog', () => {
 
   it('↑ đi ngược dần qua lịch sử', async () => {
     show([])
-    const box = screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })
+    const box = screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })
 
     await userEvent.type(box, 'câu một{Enter}')
     await userEvent.type(box, 'câu hai{Enter}')
@@ -446,6 +446,131 @@ describe('AgentInteractionLog', () => {
     expect(copied).toContain('đã phê duyệt PLAN_B')
     expect(copied).not.toContain('3 phương án đã chấm')
     vi.unstubAllGlobals()
+  })
+
+  // --- menu gõ `/` ---
+
+  const box = () => screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })
+
+  it('gõ / bật menu đủ bảng lệnh, kèm mô tả từng lệnh', async () => {
+    show([])
+
+    await type('/')
+
+    const options = screen.getAllByRole('option')
+    expect(options.map((option) => option.textContent)).toEqual([
+      expect.stringContaining('/clear'),
+      expect.stringContaining('/export'),
+      expect.stringContaining('/gates'),
+      expect.stringContaining('/status'),
+      expect.stringContaining('/help'),
+    ])
+    expect(options[0]).toHaveTextContent('bản ghi ở CSDL không đổi')
+    expect(box()).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('lọc dần theo chữ gõ thêm', async () => {
+    show([])
+
+    await type('/g')
+
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+    expect(screen.getByRole('option')).toHaveTextContent('/gates')
+  })
+
+  it('không bật menu khi đang viết câu hỏi cho agent', async () => {
+    show([])
+
+    await type('zone nào')
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(box()).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('↑↓ lái menu và công bố mục đang tô cho trình đọc màn hình', async () => {
+    show([])
+    await type('/')
+
+    expect(box()).toHaveAttribute('aria-activedescendant', 'nf-agent-log-cmd-clear')
+
+    await type('{ArrowDown}')
+    expect(box()).toHaveAttribute('aria-activedescendant', 'nf-agent-log-cmd-export')
+
+    await type('{ArrowUp}')
+    expect(box()).toHaveAttribute('aria-activedescendant', 'nf-agent-log-cmd-clear')
+  })
+
+  it('↑ ở đầu danh sách vòng xuống cuối, không kẹt', async () => {
+    show([])
+    await type('/')
+
+    await type('{ArrowUp}')
+
+    expect(box()).toHaveAttribute('aria-activedescendant', 'nf-agent-log-cmd-help')
+  })
+
+  it('Enter chạy lệnh ĐANG TÔ, nên gõ /g rồi Enter ra /gates', async () => {
+    show([row(1, { text: 'tường thuật của đồ thị' })])
+
+    await type('/g{Enter}')
+
+    expect(screen.getByText('chỉ quyết định')).toBeInTheDocument()
+  })
+
+  it('Enter khi mới gõ / chạy lệnh đầu danh sách, không báo "không có lệnh"', async () => {
+    show([row(1), row(2)])
+
+    await type('/{Enter}')
+
+    expect(screen.getByRole('log')).toHaveTextContent('đã xoá 2 dòng khỏi màn hình')
+  })
+
+  it('Tab điền nốt tên lệnh mà chưa chạy — còn kịp đọc lại trước khi Enter', async () => {
+    show([])
+
+    await type('/s{Tab}')
+
+    expect(box()).toHaveValue('/status')
+    expect(screen.getByRole('log')).not.toHaveTextContent('Mốc đang xem')
+  })
+
+  it('bấm chuột vào một mục thì chạy đúng lệnh đó', async () => {
+    show([])
+    await type('/')
+
+    await userEvent.click(screen.getByRole('option', { name: /\/status/ }))
+
+    expect(screen.getByRole('log')).toHaveTextContent('rain_peak')
+  })
+
+  it('Esc đóng menu mà không xoá chữ đang gõ', async () => {
+    show([])
+    await type('/cl')
+
+    await type('{Escape}')
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(box()).toHaveValue('/cl')
+  })
+
+  it('gõ tiếp sau Esc thì menu mở lại — Esc bỏ qua gợi ý, không tắt hẳn tính năng', async () => {
+    show([])
+    await type('/cl{Escape}')
+
+    await type('e')
+
+    expect(screen.getByRole('option')).toHaveTextContent('/clear')
+  })
+
+  it('menu mở thì ↑ lái menu chứ không gọi lại lịch sử', async () => {
+    show([])
+    await userEvent.type(box(), 'chạy dự báo{Enter}')
+
+    await type('/')
+    await type('{ArrowUp}')
+
+    // Chữ trong ô vẫn là `/`; nếu ↑ gọi lịch sử thì nó đã thành 'chạy dự báo'.
+    expect(box()).toHaveValue('/')
   })
 
   it('vẫn không có nút hành động nào sau khi thêm lệnh — lệnh gõ, không bấm', async () => {

@@ -7,14 +7,17 @@ lặng lẽ trôi khỏi bản gốc, đúng thứ luật này sinh ra để c�
 
 Nên đường duy nhất là: một người đọc file (Python), các dịch vụ khác hỏi qua HTTP.
 
-Chỉ-đọc và không tham số: không có gì để chọn, và không có gì để ghi.
+Vẫn CHỈ-ĐỌC. Bảng chỉ số của điều phối viên chỉnh được ngưỡng, nhưng giá trị đã chỉnh đi
+kèm từng request suy luận (`DecisionRequest.policy_overrides`) và chỉ sống trong lượt chạy
+đó — không có endpoint nào ghi ngược vào file, vì §13.2 bắt mọi thay đổi giá trị phải qua
+owner Data/BA hoặc PM.
 """
 
 from typing import Any
 
 from fastapi import APIRouter
 
-from src.common.policy import get_policy
+from src.common.policy import get_policy, operator_tunable_keys
 from src.config import get_settings
 
 router = APIRouter(prefix="/api/v1", tags=["policy"])
@@ -29,10 +32,17 @@ def read_policy() -> dict[str, Any]:
 
     `frozen_at` đi kèm vì I-08 khoá file — bên gọi thấy mốc này đổi là biết ngưỡng đã đổi,
     không phải đoán qua giá trị.
+
+    `meta` và `tunable` đi kèm để giao diện dựng được bảng chỉ số mà không phải giữ một bản
+    sao của đơn vị, chủ sở hữu hay mã ASSUMPTION. Quan trọng hơn: `tunable` do **server**
+    quyết, nên UI không thể tự mở một ngưỡng mà `apply_overrides` sẽ từ chối — hai bên đọc
+    cùng một danh sách thay vì đoán nhau.
     """
     policy = get_policy(get_settings().policy_path)
     return {
         "version": policy.version,
         "frozen_at": policy.frozen_at,
         "rules": policy.rules.model_dump(),
+        "meta": {key: meta.model_dump() for key, meta in policy.meta.items()},
+        "tunable": list(operator_tunable_keys(policy)),
     }

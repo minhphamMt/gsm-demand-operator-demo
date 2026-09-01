@@ -20,6 +20,7 @@ type AiDecision = {
   forecast_mode: string;
   planning_status?: 'not_required' | 'optimizer_evaluated';
   reason_code?: string | null;
+  policy_overrides?: Record<string, number>;
   risk_zones?: Array<{ zone_id: number; gap: number; required_units: number; risk_basis: string }>;
   activation_policy: { incentive_amount: number; incentive_budget_cap: number; overbooking_factor: number; assumed_accept_rate: number; offer_ttl_minutes?: number };
   activation_recommendation: {
@@ -44,6 +45,20 @@ type AiDecision = {
   };
   plan: { moves: Array<Record<string, unknown> & { to_zone?: number; units_to_move?: number; drivers?: number }>; residual_gap: Array<{ zone_id: number; gap_remaining: number; suggested_activation: number }>; plan_totals: { total_cost: number; budget_cap: number }; source_capacities?: Array<{ zone_id: number; movable_units: number }>; relocation_targets?: Array<{ zone_id: number; gap: number; required_units: number; is_policy_hotspot: boolean; target_basis?: string }>; warnings: Array<Record<string, unknown>> };
 };
+
+/**
+ * Nhãn phiên bản chính sách của một lượt chạy.
+ *
+ * Key được sắp xếp để cùng một bộ override luôn cho ra cùng một nhãn — nếu nhãn đổi theo
+ * thứ tự key của JSON, hai lượt chạy giống hệt nhau sẽ trông như hai chính sách khác nhau.
+ * Giá trị nằm trong nhãn chứ không chỉ tên key: biết `budget_cap` đã bị chỉnh mà không biết
+ * chỉnh thành bao nhiêu thì vẫn không dựng lại được lượt chạy.
+ */
+export function policyVersionFor(overrides?: Record<string, number>): string {
+  const entries = Object.entries(overrides ?? {}).sort(([left], [right]) => left.localeCompare(right));
+  if (!entries.length) return 'policy-v1';
+  return `policy-v1+ovr(${entries.map(([key, value]) => `${key}=${value}`).join(',')})`;
+}
 
 type DatasetRegime = 'normal' | 'peak' | 'rain' | 'rain_peak';
 type DatasetSnapshot = {
@@ -123,9 +138,9 @@ export class AiService {
     return { snapshot, decision };
   }
 
-  async optimize(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
+  async optimize(snapshotId: number, horizonMinutes: 5 | 10 | 15, policyOverrides?: Record<string, number>) {
     await assertNoActiveExecution(this.db);
-    const decision = await this.generate(horizonMinutes, snapshotId, true, true);
+    const decision = await this.generate(horizonMinutes, snapshotId, true, true, policyOverrides);
     return { decision };
   }
 
@@ -198,6 +213,19 @@ export class AiService {
       this.logger.warn(`Không đọc được policy từ AI service: ${cause instanceof Error ? cause.message : 'lỗi không rõ'}`);
       return undefined;
     }
+  }
+
+  /** Toàn bộ ngưỡng vận hành cho bảng chỉ số của điều phối viên.
+   *
+   * Proxy mỏng, KHÔNG cache — khác `zoneRiskThresholds()` ở ngay điểm này. Ngưỡng rủi ro
+   * là hằng của tiến trình nên cache đúng; còn bảng chỉ số là nơi người dùng đọc để quyết
+   * định chỉnh gì, và một giá trị cũ ở đó nghĩa là họ chỉnh dựa trên số không còn thật.
+   *
+   * Cũng không có endpoint ghi tương ứng: §13.2 bắt mọi thay đổi giá trị `policy.yaml` phải
+   * qua owner, nên override chỉ đi kèm từng lượt chạy chứ không ghi ngược vào file.
+   */
+  async readPolicy() {
+    return this.request<Record<string, unknown>>('/api/v1/policy', { method: 'GET' });
   }
 
   async startRun(horizonMinutes: 5 | 10 | 15, snapshotId?: number) {
@@ -273,7 +301,13 @@ export class AiService {
     };
   }
 
-  async generate(horizonMinutes: 5 | 10 | 15, snapshotId?: number, persistProposal = true, persistForecast = persistProposal) {
+  async generate(
+    horizonMinutes: 5 | 10 | 15,
+    snapshotId?: number,
+    persistProposal = true,
+    persistForecast = persistProposal,
+    policyOverrides?: Record<string, number>,
+  ) {
     const inferenceStartedAt = Date.now();
     let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');
     snapshotQuery = snapshotId
@@ -302,6 +336,10 @@ export class AiService {
       data_source: `supabase:ai_zone_observations:${snapshot.id}`,
       replay_source_at: replaySourceAt,
       zones,
+      // Ngưỡng đã chỉnh nằm TRONG `input_payload` được lưu xuống `model_inputs`, không phải
+      // một tham số bên lề: §3 #7 đòi mọi thứ ảnh hưởng tới quyết định phải nằm trong dấu
+      // vết. Bỏ hẳn key khi không có override để payload cũ băm ra đúng hash cũ.
+      ...(policyOverrides && Object.keys(policyOverrides).length ? { policy_overrides: policyOverrides } : {}),
     };
     const { data: modelInput, error: inputError } = await this.db.client.from('model_inputs').insert({
       source_snapshot_id: snapshot.id,
@@ -521,6 +559,7 @@ export class AiService {
       forecastRunId,
       hotspots: decision.hotspots,
       activationPolicy: decision.activation_policy,
+      policyOverrides: decision.policy_overrides ?? {},
     })).digest('hex');
     const noSolution = decision.plan.warnings.find((warning) => warning.code === 'NO_SOLUTION');
     const { data, error } = await this.db.client.from('optimizer_runs').insert({
@@ -529,7 +568,10 @@ export class AiService {
       input_hash: inputHash,
       solver_name: 'greedy-relocation',
       solver_version: 'v1',
-      policy_version: 'policy-v1',
+      // Lượt chạy dưới ngưỡng đã chỉnh KHÔNG được mang cùng nhãn với lượt chạy dưới
+      // policy.yaml nguyên bản: hai plan cùng nhãn nhưng khác ngưỡng là thứ khiến so sánh
+      // KPI về sau mất nghĩa mà không ai thấy lý do.
+      policy_version: policyVersionFor(decision.policy_overrides),
       status,
       fallback_reason: status === 'FALLBACK' ? decision.forecast_mode : null,
       infeasible_reason: status === 'INFEASIBLE' ? String(noSolution?.message ?? 'No safe improving action') : null,

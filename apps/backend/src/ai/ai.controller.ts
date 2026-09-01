@@ -35,11 +35,18 @@ export class AiController {
     return this.service.runNext(body.horizonMinutes, body.regime);
   }
 
+  @Get('policy')
+  @ApiOperation({ summary: 'Read the operating thresholds that drive forecasting, planning and activation' })
+  @ApiOkResponse({ description: 'Policy rules with their unit, owner and which keys an operator may tune per run.' })
+  policy() {
+    return this.service.readPolicy();
+  }
+
   @Post('optimize')
   @SensitiveMutation()
   @ApiOperation({ summary: 'Run the trained optimizer for a forecasted snapshot and persist its proposal' })
   optimize(@Body() body: OptimizeAiDecisionDto) {
-    return this.service.optimize(body.snapshotId, body.horizonMinutes);
+    return this.service.optimize(body.snapshotId, body.horizonMinutes, body.policyOverrides);
   }
 
   @Post('forecast')

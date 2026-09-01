@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import {
   clearMark,
   clearedText,
+  commandMenuMatches,
   exportText,
   gatesText,
   helpText,
@@ -58,6 +59,32 @@ describe('parseConsoleCommand', () => {
     for (const typed of ['/approve', '/reject', '/campaign', '/dispatch', '/offer']) {
       expect(parseConsoleCommand(typed).kind).toBe('unknown')
     }
+  })
+})
+
+describe('commandMenuMatches', () => {
+  it('gõ đúng một dấu / thì hiện đủ bảng lệnh', () => {
+    expect(commandMenuMatches('/').map((command) => command.name))
+      .toEqual(['/clear', '/export', '/gates', '/status', '/help'])
+  })
+
+  it('lọc dần theo tiền tố, không phân biệt hoa thường', () => {
+    expect(commandMenuMatches('/g').map((c) => c.name)).toEqual(['/gates'])
+    expect(commandMenuMatches('/S').map((c) => c.name)).toEqual(['/status'])
+    expect(commandMenuMatches('/e').map((c) => c.name)).toEqual(['/export'])
+  })
+
+  it('đóng khi đang viết câu hỏi cho agent — gợi ý lệnh ở đó chỉ làm vướng', () => {
+    expect(commandMenuMatches('zone nào thiếu xe')).toEqual([])
+    expect(commandMenuMatches('')).toEqual([])
+  })
+
+  it('đóng khi đã gõ hết tên lệnh và sang khoảng trắng', () => {
+    expect(commandMenuMatches('/clear ')).toEqual([])
+  })
+
+  it('đóng khi không khớp gì — để Enter cho ra câu "không có lệnh", rõ hơn menu trống', () => {
+    expect(commandMenuMatches('/xyz')).toEqual([])
   })
 })
 

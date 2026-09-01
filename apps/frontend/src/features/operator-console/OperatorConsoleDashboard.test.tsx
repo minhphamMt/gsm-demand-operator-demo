@@ -18,7 +18,7 @@ import type { Zone } from '@/features/operator-data'
  * Nên test vẫn khẳng định đúng thứ nó vẫn khẳng định, cộng thêm một tầng nữa.
  */
 async function raLenh(cau: string) {
-  await userEvent.type(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' }), `${cau}{Enter}`)
+  await userEvent.type(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' }), `${cau}{Enter}`)
 }
 
 function renderDashboard({ withActiveExecution = false }: { withActiveExecution?: boolean } = {}) {

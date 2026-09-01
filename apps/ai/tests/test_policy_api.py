@@ -47,3 +47,25 @@ def test_nguong_dau_phai_it_nhat_mot_xe():
     """`gap = 0` là định nghĩa của "ổn định"; cho phép ngưỡng 0 sẽ xoá hẳn mức đó."""
     with pytest.raises(ValidationError, match="≥ 1"):
         PolicyRules(**{**_rules_payload(), "zone_risk_gap_thresholds": (0, 6, 11)})
+
+
+def test_endpoint_kem_meta_va_danh_sach_chinh_duoc():
+    """Giao diện dựng bảng chỉ số từ payload này, nên đơn vị và `tunable` phải đi cùng.
+
+    `tunable` do server quyết chứ không phải UI tự suy: nếu UI tự chọn, nó sẽ mở một ngưỡng
+    mà `apply_overrides` từ chối, và điều phối viên gặp lỗi 422 sau khi đã kéo xong thanh.
+    """
+    body = TestClient(app).get("/api/v1/policy").json()
+
+    assert body["meta"]["budget_cap"]["unit"] == "VNĐ/plan"
+    assert body["meta"]["avg_vehicle_speed_kmh"]["verified"] is True
+    assert "budget_cap" in body["tunable"]
+    assert "avg_vehicle_speed_kmh" not in body["tunable"]
+
+
+def test_endpoint_khong_co_duong_ghi():
+    """§13.2: giá trị policy chỉ đổi qua owner. Một endpoint ghi ở đây là đường vòng qua đó."""
+    client = TestClient(app)
+
+    assert client.post("/api/v1/policy", json={"budget_cap": 1}).status_code == 405
+    assert client.put("/api/v1/policy", json={"budget_cap": 1}).status_code == 405

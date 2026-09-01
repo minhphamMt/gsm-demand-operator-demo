@@ -30,15 +30,15 @@ const panel = (props: Partial<Parameters<typeof PolicyPanel>[0]> = {}) => render
 describe('PolicyPanel', () => {
   afterEach(cleanup)
 
-  it('nói rõ ngưỡng chỉnh ở đây không ghi vào policy.yaml', () => {
-    // Ranh giới quan trọng nhất của màn này. Một điều phối viên tưởng mình vừa đổi chính
-    // sách của cả hệ thống là một hiểu nhầm tốn tiền — §13.2 bắt phải qua owner.
+  it('dựng bảng từ policy, không kèm ghi chú giải thích', () => {
+    // Ghi chú phạm vi đã gỡ theo yêu cầu. Test giữ lại để nó không lặng lẽ quay về, và để
+    // khẳng định việc gỡ chữ KHÔNG kéo theo mất ngưỡng nào — hai chuyện dễ bị gộp làm một.
     panel()
 
     const region = screen.getByRole('region', { name: 'Chỉ số chính sách' })
-    expect(region).toHaveTextContent('lượt tính tiếp theo')
-    expect(region).toHaveTextContent('Không ghi vào')
-    expect(region).toHaveTextContent('policy.yaml')
+    expect(region).not.toHaveTextContent('lượt tính tiếp theo')
+    expect(region).toHaveTextContent('Ngân sách điều chuyển')
+    expect(region).toHaveTextContent('500.000')
   })
 
   it('cho kéo ngưỡng chưa chốt', () => {

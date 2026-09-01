@@ -16,10 +16,12 @@ import {
 // nên trả lời câu hỏi mà không màn nào khác trả lời được: "phương án tiếp theo sẽ được
 // tính dưới ngưỡng nào, và tôi đổi được cái nào?"
 //
-// RANH GIỚI QUAN TRỌNG NHẤT của màn này: giá trị chỉnh ở đây áp cho ĐÚNG lượt tính tiếp
-// theo. Nó KHÔNG ghi vào `config/policy.yaml` — §13.2 bắt mọi thay đổi giá trị phải qua
-// owner Data/BA hoặc PM. Câu đó phải nằm trên màn hình, không chỉ trong comment này: một
-// điều phối viên tưởng mình vừa đổi chính sách của cả hệ thống là một hiểu nhầm tốn tiền.
+// RANH GIỚI của màn này: giá trị chỉnh ở đây áp cho ĐÚNG lượt tính tiếp theo. Nó KHÔNG ghi
+// vào `config/policy.yaml` — §13.2 bắt mọi thay đổi giá trị phải qua owner Data/BA hoặc PM.
+//
+// Ranh giới đó được giữ bằng CODE, không bằng chữ trên màn hình: không có endpoint ghi
+// (`routes_policy.py` chỉ-đọc), và override đi kèm từng request suy luận rồi hết hiệu lực.
+// Ghi chú giải thích đã gỡ khỏi giao diện theo yêu cầu; hành vi không đổi.
 
 export function PolicyPanel({ draft, metrics, isLoading, hasError, onChange, onReset }: {
   draft: PolicyOverrides
@@ -63,11 +65,6 @@ export function PolicyPanel({ draft, metrics, isLoading, hasError, onChange, onR
         {changedCount > 0 && <b className="nf-policy-badge">{changedCount} ĐÃ CHỈNH</b>}
         <small>v{metrics.version}</small>
       </div>
-
-      <p className="nf-policy-scope">
-        Giá trị chỉnh ở đây áp cho <b>lượt tính tiếp theo</b>. Không ghi vào <code>policy.yaml</code>
-        {" "}— đổi ngưỡng chính thức cần owner Data/BA hoặc PM duyệt.
-      </p>
 
       {policyGroups(metrics).map((group) => (
         <div className="nf-policy-group" key={group.id}>

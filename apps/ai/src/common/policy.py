@@ -25,7 +25,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from src.common.errors import ConfigError
+from src.common.errors import ConfigError, PolicyOverrideRejectedError
 
 logger = logging.getLogger(__name__)
 
@@ -347,3 +347,109 @@ def _format_errors(exc: ValidationError, prefix: str = "") -> str:
         name = f"{prefix}.{loc}" if prefix else loc
         parts.append(f"{name}: {err['msg']} (nhận: {err.get('input')!r})")
     return "; ".join(parts)
+
+
+# Ngưỡng do điều phối viên chỉnh chỉ sống trong MỘT lượt chạy. Không có đường nào từ đây
+# ghi ngược vào policy.yaml: CLAUDE.md §3 #2 cho file này một người đọc duy nhất, và
+# §13.2 bắt mọi thay đổi giá trị phải qua owner. Override là bản sao trong bộ nhớ của một
+# request, không phải một phiên bản mới của chính sách.
+
+
+def operator_tunable_keys(policy: Policy) -> tuple[str, ...]:
+    """Key mà điều phối viên được phép chỉnh cho một lượt chạy.
+
+    Danh sách SUY RA từ dữ liệu chứ không chép tay, vì một allowlist viết tay sẽ trôi khỏi
+    policy.yaml ngay lần thêm key tiếp theo mà không gì phát hiện. Hai điều kiện:
+
+    `verified: false` — số chưa được Data/BA chốt thì còn là đề xuất của tài liệu, chỉnh
+    trong một lượt chạy là đúng bản chất của nó. Ngược lại `verified: true` đã qua owner
+    (§11.2) nên không mở cho UI; hiện chỉ `avg_vehicle_speed_kmh` thuộc nhóm này, và nó
+    còn dùng chung cho Optimizer/Generator/Activation — §3 #2 đòi một giá trị duy nhất.
+
+    Vô hướng int/float — `priority_zones`, `zone_risk_gap_thresholds` và
+    `conservative_gap_mode` đổi cấu trúc bài toán chứ không phải độ chặt của nó, không
+    thuộc loại kéo một thanh trượt là xong.
+    """
+    return tuple(
+        key for key in REQUIRED_RULE_KEYS if not policy.meta[key].verified and _is_scalar(getattr(policy.rules, key))
+    )
+
+
+def apply_overrides(policy: Policy, overrides: dict[str, Any]) -> Policy:
+    """Policy mới với vài ngưỡng thay bằng giá trị của lượt chạy này.
+
+    Trả về BẢN SAO; `policy` gốc và cache của `get_policy` không đổi — nếu override rò rỉ
+    sang lượt chạy sau thì hai plan cùng `model_version` sẽ không tái lập được như nhau,
+    đúng thứ tính deterministic (§3 #4) phải bảo vệ.
+
+    Dựng lại `PolicyRules` thay vì `model_copy(update=...)` là có chủ đích: `model_copy`
+    bỏ qua validator, nên một giá trị sai kiểu sẽ đi thẳng vào optimizer. Dựng lại thì mọi
+    ràng buộc của schema chạy đúng như lúc nạp file.
+    """
+    if not overrides:
+        return policy
+
+    tunable = set(operator_tunable_keys(policy))
+    cleaned: dict[str, Any] = {}
+    for key, value in overrides.items():
+        if key not in REQUIRED_RULE_KEYS:
+            raise PolicyOverrideRejectedError(
+                f"Không có ngưỡng '{key}' trong policy.",
+                {"key": key},
+            )
+        if key not in tunable:
+            reason = (
+                "đã được owner chốt (verified: true)" if policy.meta[key].verified else "không phải ngưỡng vô hướng"
+            )
+            raise PolicyOverrideRejectedError(
+                f"Ngưỡng '{key}' {reason}; không mở cho điều chỉnh tại chỗ.",
+                {"key": key, "reason": reason},
+            )
+        cleaned[key] = _checked_override(policy, key, value)
+
+    values = policy.rules.model_dump()
+    values.update(cleaned)
+    try:
+        rules = PolicyRules(**values)
+    except ValidationError as exc:
+        raise PolicyOverrideRejectedError(
+            f"Override không hợp lệ — {_format_errors(exc, 'rules')}",
+            {"keys": sorted(cleaned)},
+        ) from exc
+
+    logger.info("Áp override ngưỡng cho một lượt chạy: %s", ", ".join(f"{k}={v}" for k, v in sorted(cleaned.items())))
+    return policy.model_copy(update={"rules": rules})
+
+
+def _is_scalar(value: Any) -> bool:
+    """int/float thật, không tính bool — `isinstance(True, int)` là True trong Python."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _checked_override(policy: Policy, key: str, value: Any) -> float:
+    """Chặn các giá trị vô nghĩa trước khi tới schema.
+
+    Schema biết KIỂU nhưng không biết KHOẢNG: `budget_cap: int` nhận -1 mà không kêu, rồi
+    optimizer lặng lẽ không xếp nổi một move nào và kết quả trông như "không có phương án".
+    Chặn ở đây để lỗi nói đúng nguyên nhân.
+    """
+    if not _is_scalar(value):
+        raise PolicyOverrideRejectedError(
+            f"Ngưỡng '{key}' cần một số, nhận {type(value).__name__}.",
+            {"key": key},
+        )
+    if value != value or value in (float("inf"), float("-inf")):  # NaN tự khác chính nó
+        raise PolicyOverrideRejectedError(f"Ngưỡng '{key}' phải là số hữu hạn.", {"key": key})
+    if value <= 0:
+        raise PolicyOverrideRejectedError(f"Ngưỡng '{key}' phải lớn hơn 0, nhận {value}.", {"key": key})
+
+    # Đọc trần từ `unit` thay vì liệt kê tên key: đơn vị là thứ đi cùng giá trị trong
+    # policy.yaml, nên một key tỷ lệ mới sẽ tự được chặn mà không phải sửa hàm này.
+    unit = policy.meta[key].unit or ""
+    if unit.startswith("tỷ lệ") and value > 1:
+        raise PolicyOverrideRejectedError(
+            f"Ngưỡng '{key}' là tỷ lệ 0–1, nhận {value}.",
+            {"key": key, "unit": unit},
+        )
+    # `_is_scalar` ở trên đã thu hẹp về int/float; ép kiểu để mypy thấy điều đó.
+    return float(value) if isinstance(value, float) else int(value)

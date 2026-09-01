@@ -1,5 +1,5 @@
 import { assertNoActiveExecution } from '../operator/active-execution.guard';
-import { AiService, proposalOperationalWindow, replaySourceAtIso } from './ai.service';
+import { AiService, policyVersionFor, proposalOperationalWindow, replaySourceAtIso } from './ai.service';
 
 jest.mock('../operator/active-execution.guard', () => ({ assertNoActiveExecution: jest.fn() }));
 
@@ -55,6 +55,69 @@ describe('AiService.zoneRiskThresholds', () => {
     jest.spyOn(service as never, 'request').mockRejectedValue(new Error('AI service down') as never);
 
     await expect(service.zoneRiskThresholds()).resolves.toBeUndefined();
+  });
+});
+
+describe('policyVersionFor', () => {
+  it('giữ nhãn cũ khi chạy bằng policy.yaml nguyên bản', () => {
+    // Lượt chạy không chỉnh gì phải băm và gắn nhãn y như trước khi có tính năng này,
+    // nếu không thì mọi bản ghi cũ trông như đã đổi chính sách.
+    expect(policyVersionFor()).toBe('policy-v1');
+    expect(policyVersionFor({})).toBe('policy-v1');
+  });
+
+  it('ghi cả tên lẫn giá trị ngưỡng đã chỉnh', () => {
+    // Biết `budget_cap` bị chỉnh mà không biết chỉnh thành bao nhiêu thì vẫn không
+    // dựng lại được lượt chạy — dấu vết như vậy là dấu vết rỗng.
+    expect(policyVersionFor({ budget_cap: 400000 })).toBe('policy-v1+ovr(budget_cap=400000)');
+  });
+
+  it('cùng bộ override cho ra cùng một nhãn bất kể thứ tự key', () => {
+    expect(policyVersionFor({ max_distance: 5.5, budget_cap: 400000 }))
+      .toBe(policyVersionFor({ budget_cap: 400000, max_distance: 5.5 }));
+  });
+});
+
+describe('AiService.readPolicy', () => {
+  it('proxy thẳng policy của AI service, không tự parse YAML', async () => {
+    // CLAUDE.md §3 #2: chỉ src/common/policy.py được đọc file. Backend parse YAML =
+    // người đọc thứ hai, và một bản sao ngưỡng trôi khỏi bản gốc.
+    const service = new AiService({} as never);
+    const request = jest.spyOn(service as never, 'request').mockResolvedValue({ rules: {}, tunable: [] } as never);
+
+    await service.readPolicy();
+
+    expect(request).toHaveBeenCalledWith('/api/v1/policy', { method: 'GET' });
+  });
+
+  it('không cache — bảng chỉ số phải đọc số đang thật', async () => {
+    const service = new AiService({} as never);
+    const request = jest.spyOn(service as never, 'request').mockResolvedValue({ rules: {} } as never);
+
+    await service.readPolicy();
+    await service.readPolicy();
+
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('AiService.optimize', () => {
+  it('chuyển ngưỡng đã chỉnh xuống lượt chạy', async () => {
+    const service = new AiService({} as never);
+    const generate = jest.spyOn(service, 'generate').mockResolvedValue({} as never);
+
+    await service.optimize(7, 15, { budget_cap: 400000 });
+
+    expect(generate).toHaveBeenCalledWith(15, 7, true, true, { budget_cap: 400000 });
+  });
+
+  it('không chỉnh gì thì không gửi override', async () => {
+    const service = new AiService({} as never);
+    const generate = jest.spyOn(service, 'generate').mockResolvedValue({} as never);
+
+    await service.optimize(7, 15);
+
+    expect(generate).toHaveBeenCalledWith(15, 7, true, true, undefined);
   });
 });
 

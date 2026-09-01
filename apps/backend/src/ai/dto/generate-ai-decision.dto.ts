@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsDateString, IsIn, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsDateString, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 
 export class GenerateAiDecisionDto {
   @Transform(({ value }) => Number(value))
@@ -16,6 +16,20 @@ export class OptimizeAiDecisionDto {
   @IsInt()
   @Min(1)
   snapshotId!: number;
+
+  /**
+   * Ngưỡng điều phối viên chỉnh trên bảng chỉ số, áp cho ĐÚNG lượt chạy này.
+   *
+   * Backend cố ý không biết key nào hợp lệ hay khoảng giá trị nào được phép: `policy.yaml`
+   * chỉ có một người đọc (CLAUDE.md §3 #2) và đó là `src/common/policy.py`. Kiểm ở đây
+   * nghĩa là chép một bản luật thứ hai sang TypeScript, rồi hai bản trôi khỏi nhau. Nên
+   * tầng này chỉ chặn thứ nó tự biết — phải là số — và để AI service từ chối phần còn lại
+   * bằng 422 POLICY_OVERRIDE_REJECTED.
+   */
+  @IsOptional()
+  @IsObject()
+  @IsNumber({}, { each: true })
+  policyOverrides?: Record<string, number>;
 }
 
 export class RunNextAiDecisionDto extends GenerateAiDecisionDto {
