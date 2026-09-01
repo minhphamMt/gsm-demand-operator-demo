@@ -24,7 +24,8 @@
 .operations-v2 button, .operations-v2 input, .operations-v2 select, .operations-v2 textarea { font: inherit; }
 .operations-header { height: 64px; display: flex; align-items: center; gap: 20px; padding: 0 24px; background: #10181d; border-bottom: 1px solid var(--ops-line); position: sticky; top: 0; z-index: 20; }
 .operations-brand { display: flex; align-items: center; gap: 10px; flex: none; }
-.operations-brand__mark { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid rgba(84,212,193,.55); border-radius: 8px; color: var(--ops-teal-bright); background: rgba(53,183,165,.08); }
+.operations-brand__mark { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; color: var(--ops-teal-bright); background: url('/favicon.png') center / cover no-repeat; }
+.operations-brand__mark svg { display: none; }
 .operations-brand strong { display: block; color: #f7fbf9; font-size: 13px; letter-spacing: .03em; line-height: 1.1; }
 .operations-brand strong em { color: var(--ops-teal-bright); font-style: normal; }
 .operations-brand small { display: block; margin-top: 4px; color: var(--ops-dim); font-size: 8px; letter-spacing: .13em; }

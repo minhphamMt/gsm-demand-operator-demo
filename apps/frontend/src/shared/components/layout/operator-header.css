@@ -1,6 +1,6 @@
 .nf-ops-header{position:relative;z-index:45;height:56px;flex:none;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--nf-ops-line,#2a3941);background:#10181d;color:var(--nf-ops-ink,#f0f5f2)}
 .nf-ops-brand{display:flex;align-items:center;gap:9px}
-.nf-ops-brand__mark{width:28px;height:28px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(135deg,var(--nf-ops-teal,#35b7a5),#1c7f74);color:#04140f}
+.nf-ops-brand__mark{width:30px;height:30px;display:block;border-radius:8px;object-fit:cover}
 .nf-ops-brand strong{display:block;font:800 13px/1 var(--font-display);letter-spacing:.02em;white-space:nowrap}
 .nf-ops-brand strong em{font-style:normal;color:var(--nf-ops-teal-bright,#54d4c1)}
 .nf-ops-nav{display:flex;flex:none;gap:2px;padding-left:14px;border-left:1px solid var(--nf-ops-line,#2a3941)}

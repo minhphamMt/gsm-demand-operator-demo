@@ -1,9 +1,10 @@
-import { Bot, ChevronRight, LogOut, Moon, RefreshCw, Sun, Zap } from 'lucide-react'
+import { Bot, ChevronRight, LogOut, Moon, RefreshCw, Sun } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router'
 
 import { operatorNavItems } from './operatorNavItems'
 import { routes } from '@/shared/config/routes'
+import novafourOpsMark from '@/assets/novafour-ops-mark-chatgpt.png'
 
 import './operator-header.css'
 
@@ -50,7 +51,7 @@ export function OperatorHeader({
 
   return <header className="nf-ops-header">
     <div className="nf-ops-brand">
-      <span className="nf-ops-brand__mark"><Zap size={16} /></span>
+      <img alt="" aria-hidden="true" className="nf-ops-brand__mark" src={novafourOpsMark} />
       <strong>NOVAFOUR <em>OPS</em></strong>
     </div>
 

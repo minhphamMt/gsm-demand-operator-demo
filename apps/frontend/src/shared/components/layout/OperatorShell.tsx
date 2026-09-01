@@ -9,6 +9,7 @@ import { routes } from '@/shared/config/routes'
 import { capabilitiesQuery } from '@/features/operator-data'
 import { useServerClock } from '@/features/operator-console/hooks/useServerClock'
 import { env } from '@/shared/config/env'
+import novafourOpsMark from '@/assets/novafour-ops-mark-chatgpt.png'
 import { OperatorHeader } from './OperatorHeader'
 import '@/features/operator-console/operator-console.css'
 import '@/features/operator-console/operator-shell.css'
@@ -46,7 +47,7 @@ export function OperatorShell({ notifications, onSignOut, userEmail }: OperatorS
       userEmail={userEmail}
     />}
     {!hasOwnHeader && !hasDarkWorkspace && <header className="nf-console-header">
-      <div className="nf-console-brand"><span className="nf-console-logo" aria-hidden="true">ϟ</span><div><strong>NOVAFOUR OPS</strong><small>ĐIỀU PHỐI XE ĐIỆN · HÀ NỘI</small></div></div>
+      <div className="nf-console-brand"><img alt="" aria-hidden="true" className="nf-console-logo" src={novafourOpsMark} /><div><strong>NOVAFOUR OPS</strong><small>ĐIỀU PHỐI XE ĐIỆN · HÀ NỘI</small></div></div>
       <nav className="nf-console-nav" aria-label="Khu vực chính">
         {operatorNavItems.map((item) => <NavLink aria-current={item.matches(location.pathname) ? 'page' : undefined} className={item.matches(location.pathname) ? 'is-active' : ''} end={item.path === routes.operator.root} key={item.path} to={item.path}>{item.label}</NavLink>)}
       </nav>
