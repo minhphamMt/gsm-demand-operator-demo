@@ -53,6 +53,7 @@ jobs:
             --image "${IMAGE}" \
             --region "${REGION}" \
             --project "${PROJECT_ID}" \
+            --update-env-vars "^@^OPERATOR_DISPATCH_ENABLED=true@CORS_ORIGINS=https://c3-app-042-p042.vercel.app,https://gsm-demand-operator-demo.vercel.app" \
             --quiet
 
       - name: Verify readiness

@@ -248,7 +248,7 @@ Copy-Item apps/ai/.env.example apps/ai/.env
 | `CAMPAIGN_LIFECYCLE_ENABLED` | `true` | Internal | Bật reconciler campaign/offer |
 | `CAMPAIGN_LIFECYCLE_INTERVAL_MS` | `30000` | Internal | Chu kỳ reconciler |
 | `SIMULATION_WRITE_ENABLED` | `false` | Internal | Cho phép ghi dữ liệu mô phỏng |
-| `OPERATOR_DISPATCH_ENABLED` | `false` | Internal | Bật phát hành dispatch |
+| `OPERATOR_DISPATCH_ENABLED` | `true` | Internal | Bật phát hành dispatch |
 | `OPERATOR_ACTIVATION_ENABLED` | `true` | Internal | Bật campaign/offer |
 | `OPERATOR_SETTLEMENT_ENABLED` | `false` | Internal | Bật settlement |
 
