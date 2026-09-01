@@ -40,13 +40,31 @@ def _travel(result: Mapping[str, Any]) -> str:
     )
 
 
+def _current_shortage(result: Mapping[str, Any]) -> str:
+    """Câu này phải tự nói ra chữ "đang" và mốc quan sát.
+
+    Nhật ký cũ đặt hotspot dự báo cạnh câu hỏi hiện tại mà không đánh dấu thì, nên đọc lại
+    log không phân biệt được hai loại số. Ghi mốc `observed_at` vào câu là cách rẻ nhất để
+    một dòng log tự bảo vệ nghĩa của nó.
+    """
+    vuot_nguong = result.get("shortage_zone_ids") or []
+    co_hut = result.get("unmet_zone_ids") or []
+    return (
+        f"{result.get('shortage_zone_count')} zone đang thiếu xe vượt ngưỡng {list(vuot_nguong)}, "
+        f"{result.get('unmet_zone_count')} zone còn cầu chưa phục vụ {list(co_hut)} "
+        f"(tổng {result.get('total_unmet_now')} trên {result.get('total_demand_observed')} cầu) "
+        f"tại {result.get('observed_at')} — tổng cung rỗi {result.get('total_idle_supply')} xe, "
+        f"ngưỡng tối thiểu {result.get('min_supply_per_zone')} xe/zone"
+    )
+
+
 def _supply(result: Mapping[str, Any]) -> str:
     hotspots = result.get("policy_hotspot_ids") or []
     risks = result.get("risk_zone_ids") or []
     return (
         f"{len(hotspots)} hotspot chính sách {sorted(hotspots)}, {len(risks)} zone rủi ro, "
         f"{result.get('surplus_zone_count')} zone dư, tổng cung rỗi {result.get('total_idle_supply')} xe — "
-        f"regime {result.get('planning_regime')}"
+        f"regime {result.get('planning_regime')}, dự báo +{result.get('horizon_min')} phút"
     )
 
 
@@ -74,6 +92,7 @@ FORMATTERS: dict[str, Formatter] = {
     "run_forecast": _forecast,
     "get_weather": _weather,
     "get_travel_conditions": _travel,
+    "get_current_shortage": _current_shortage,
     "get_supply_state": _supply,
     "compute_relocation": _relocation,
     "render_explanation": _explanation,

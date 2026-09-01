@@ -2,10 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
   ChevronRight,
-  Circle,
   CloudRain,
   LoaderCircle,
-  Pause,
   Search,
   Terminal,
   X,
@@ -35,6 +33,7 @@ import {
   operationalGapFor,
   plansQuery,
   offersQuery,
+  policyQuery,
   replaySnapshotQuery,
   replayWindowQuery,
   snapshotQuery,
@@ -44,24 +43,26 @@ import {
   isProposalReviewable,
 } from "@/features/operator-data";
 import { operatorQueryKeys } from "@/features/operator-data/api/operatorQueries";
-import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, Proposal, Snapshot, Zone } from "@/features/operator-data";
+import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, PolicyOverrides, Proposal, Snapshot, Zone } from "@/features/operator-data";
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
+import { PolicyPanel } from "./components/PolicyPanel";
+import { pendingOverrides } from "./model/policyControls";
 import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline";
 import { usePipelineRun } from "@/features/operator-pipeline/hooks/usePipelineRun";
 import { useObserverSession } from "@/features/operator-pipeline/hooks/useObserverSession";
-import { buildAgentCards, runningAgentCount } from "@/features/operator-pipeline/model/agentCards";
 import { zonesAfterDispatch } from "@/features/operator-data/model/dispatchedSupply";
 import { AgentInteractionLog } from "@/features/operator-console/components/AgentInteractionLog";
 import { awaitingApprovalRow, conversationRows, mergeLogRows, thinkingRows } from "@/features/operator-console/model/logRows";
 import { auditLogRows } from "@/features/operator-console/model/auditLogRows";
 import { useOperatorActionLog } from "@/features/operator-console/hooks/useOperatorActionLog";
+import type { ConsoleStatus } from "@/features/operator-console/model/logCommands";
 import type { OperatorAction } from "@/features/operator-console/model/operatorLog";
 import { AiImpactChart } from "./components/AiImpactChart";
 import { DemandTrendChart } from "./components/DemandTrendChart";
 import { NetworkHealthPanel } from "./components/NetworkHealthPanel";
 import { OpsHeader } from "./components/OpsHeader";
 import { ZoneBalanceChart } from "./components/ZoneBalanceChart";
-import { DataRefreshState, Skeleton } from "@/shared/components/ui/FeedbackStates";
+import { Skeleton } from "@/shared/components/ui/FeedbackStates";
 import { AppError } from "@/shared/api/client";
 import { routes } from "@/shared/config/routes";
 import { formatNumber } from "@/shared/lib/format";
@@ -77,14 +78,13 @@ import { useServerClock } from "./hooks/useServerClock";
 import { SnapshotStaleAlert } from "@/features/operator-dashboard/components/SnapshotStaleAlert";
 import {
   planningHorizonFor,
-  stageAtLeast,
   stageHasPlan,
   resolveWorkflowStage,
   type OperatorWorkflowStage,
 } from "./model/operatorWorkflow";
 import { operatorMapFlowState } from "./operatorMapFlowState";
 import { proposalCoverageForStage } from "./model/proposalCoverage";
-import { scenarioPresentation } from "./model/scenarioPresentation";
+import { regimeWeatherLabel } from "./model/regimeWeatherLabel";
 import { fleetBalanceSummary } from "./model/fleetBalanceSummary";
 import { isSameReplayInstant, observedAtForReplaySource } from "./model/replayClock";
 import "./operator-dashboard.css";
@@ -118,25 +118,23 @@ export function OperatorConsoleDashboard({
   onSignOut,
   userEmail,
 }: {
-  notifications?: ReactNode;
+  // Shell của main khai báo các prop này kèm `| undefined` cho exactOptionalPropertyTypes,
+  // nên chữ ký ở đây phải nới theo, nếu không trang operator không truyền xuống được.
+  notifications?: ReactNode | undefined;
   onSignOut?: (() => void) | undefined;
   userEmail?: string | null | undefined;
 } = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [opsTheme, setOpsTheme] = useState<OpsTheme>(readStoredOpsTheme);
-  const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(5);
+  const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(15);
   const [replaySnapshot, setReplaySnapshot] = useState<Snapshot>();
   const [selectedZoneId, setSelectedZoneId] = useState<string>();
   const [search, setSearch] = useState("");
-  // Keep the map controls lightweight on first entry. The two side panels remain
-  // visible; the zone list is opened only when the operator needs to inspect it.
-  const [finderOpen, setFinderOpen] = useState(false);
-  const [insightOpen, setInsightOpen] = useState(true);
+  const [finderOpen, setFinderOpen] = useState(true);
   const [layer, setLayer] = useState<MapLayer>("gap");
   const [mapView, setMapView] = useState<MapView>("city");
   const [mapSource, setMapSource] = useState<MapSource>("observed");
-  const [replayTargetAt, setReplayTargetAt] = useState<string>();
   const [forecastRun, setForecastRun] = useState<{
     horizon: ForecastHorizon;
     sourceAt: string;
@@ -153,8 +151,10 @@ export function OperatorConsoleDashboard({
   const [rejectNote, setRejectNote] = useState("");
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const [pipelineTab, setPipelineTab] = useState<PipelineTabId>("agents");
-  const [quickAgentCommand, setQuickAgentCommand] = useState<{ id: number; text: string }>();
-  const quickAgentCommandIdRef = useRef(0);
+  // Ngưỡng điều phối viên đang kéo, sống trong state của màn hình chứ không ghi đi đâu.
+  // Đặt ở đây thay vì trong PolicyPanel vì lượt tính (`optimizeFor`) mới là nơi dùng nó —
+  // panel chỉ là chỗ nhập, và state nằm trong panel sẽ mất mỗi lần cột chỉ huy đóng lại.
+  const [policyDraft, setPolicyDraft] = useState<PolicyOverrides>({});
 
   useEffect(() => {
     try {
@@ -166,6 +166,7 @@ export function OperatorConsoleDashboard({
 
   const snapshot = useQuery(snapshotQuery("baseline", "rain-peak", 0, planningSourceAt === undefined));
   const capabilities = useQuery(capabilitiesQuery());
+  const policy = useQuery(policyQuery());
   const replayAnchorAt = useCurrentReplayAnchor(
     capabilities.data?.serverTime,
     capabilities.isError,
@@ -194,7 +195,6 @@ export function OperatorConsoleDashboard({
       || lastAutoReplayAtRef.current === replayAnchorAt
     ) return;
     lastAutoReplayAtRef.current = replayAnchorAt;
-    setReplayTargetAt(replayAnchorAt);
     setDrawerOpen(false);
     actions.runReplayStep.mutate(replayAnchorAt, {
       onSuccess: (nextSnapshot) => {
@@ -222,7 +222,6 @@ export function OperatorConsoleDashboard({
           15_000,
         );
       },
-      onSettled: () => setReplayTargetAt(undefined),
     });
   }, [actions.runReplayStep, autoReplayRetry, planningSourceAt, queryClient, replayAnchorAt, snapshot.data, workflowStage]);
 
@@ -265,15 +264,6 @@ export function OperatorConsoleDashboard({
   // còn đang tải. Đó cũng là lý do horizon và snapshot đi vào ở `start()` chứ không ở đây —
   // lúc này chúng chưa được tính.
   const pipeline = usePipelineRun();
-  const agentCards = buildAgentCards(pipeline.run);
-  const agentSummary = pipeline.run
-    ? {
-      done: agentCards.filter((card) => card.status === "DONE").length,
-      running: runningAgentCount(agentCards),
-      total: agentCards.length,
-      warning: agentCards.filter((card) => card.status === "WARNING" || card.status === "FAILED").length,
-    }
-    : undefined;
   // Phiên hỏi–đáp cũng phải nằm trên ba guard clause vì nó là hook. Tham số của từng câu hỏi
   // đi vào ở `ask()`, nên hook không cần biết gì tại thời điểm này.
   const observer = useObserverSession();
@@ -281,20 +271,23 @@ export function OperatorConsoleDashboard({
   // quyết định — mắt xích "người duyệt" của mạch ở §1.
   const operatorLog = useOperatorActionLog();
 
+  if (plans.isPending || campaigns.isPending || dispatches.isPending)
+    return (
+      <div className="nf-console-loading">
+        <Skeleton />
+      </div>
+    );
+
   const execution = activeExecutionPlan(plans.data, campaigns.data, dispatches.data);
   const hasExecution = Boolean(execution);
 
   if (snapshot.isPending)
     return (
-      <div className="nf-console-loading nf-console-loading--dark" role="status">
-        <span>Đang nạp dữ liệu vận hành…</span>
+      <div className="nf-console-loading">
         <Skeleton />
       </div>
     );
-  // Keep the last usable snapshot on screen when a background refresh fails.
-  // A transient API/network error must not turn an otherwise usable console
-  // into a blank-looking full-screen error state.
-  if (snapshot.isError && !snapshot.data)
+  if (snapshot.isError || !snapshot.data)
     return (
       <div className="nf-console-loading">
         <strong>Không thể nạp snapshot vận hành.</strong>
@@ -387,7 +380,6 @@ export function OperatorConsoleDashboard({
     : (forecastHorizons[0] ?? forecastMinutes);
   const hasRequestedForecast = forecastRun?.horizon === displayedHorizon && forecastRun.sourceAt === sourceAt;
   const forecastReady = Boolean(hasRequestedForecast && hasExactForecastRun(activeSnapshot.ai, displayedHorizon));
-  const forecastStale = Boolean(forecastRun) && !forecastReady;
   const displayedMapSource: MapSource = hasExecution ? "observed" : mapSource;
   const zones =
     displayedMapSource === "forecast" && forecastReady
@@ -472,11 +464,9 @@ export function OperatorConsoleDashboard({
       setOptimizationStopReason(undefined);
       setWorkflowStage("observe");
       setMapSource("observed");
-      setReplayTargetAt(undefined);
       setDrawerOpen(false);
       return;
     }
-    setReplayTargetAt(nextSourceAt);
     setDrawerOpen(false);
     actions.runReplayStep.mutate(nextSourceAt, {
       onSuccess: (nextSnapshot) => {
@@ -490,7 +480,6 @@ export function OperatorConsoleDashboard({
         setWorkflowStage("observe");
         setMapSource("observed");
       },
-      onSettled: () => setReplayTargetAt(undefined),
     });
   };
   const runForecastFor = (horizon: ForecastHorizon, onDone?: () => void) => {
@@ -535,8 +524,12 @@ export function OperatorConsoleDashboard({
     if (!isLiveEdge || (requireForecast && !forecastReady) || !dataComplete || snapshotStale || hasExecution) return;
     const parsedSnapshotId = Number(activeSnapshot.replayStep);
     const snapshotId = Number.isInteger(parsedSnapshotId) ? parsedSnapshotId : 0;
+    // Chỉ gửi những ngưỡng THỰC SỰ khác `policy.yaml`: kéo đi rồi kéo về chỗ cũ không phải
+    // là một thay đổi, và gắn nhãn override cho một lượt chạy đúng chính sách gốc sẽ làm
+    // mọi so sánh KPI về sau tưởng đó là hai chính sách khác nhau.
+    const overrides = pendingOverrides(policy.data, policyDraft);
     actions.optimizeAiDecision.mutate(
-      { snapshotId, horizonMinutes: planningHorizonFor(displayedHorizon) },
+      { snapshotId, horizonMinutes: planningHorizonFor(displayedHorizon), policyOverrides: overrides },
       {
         onError: (cause) => operatorLog.noteFailed("optimize", cause),
         onSuccess: (result) => {
@@ -695,10 +688,6 @@ export function OperatorConsoleDashboard({
   // một đường tạo run, không phải hai.
   const pipelineInput = { horizonMinutes: displayedHorizon, snapshotId: Number(activeSnapshot.replayStep) };
   const startPipelineRun = () => pipeline.start(pipelineInput);
-  const runQuickAgentCommand = (text: string) => {
-    quickAgentCommandIdRef.current += 1;
-    setQuickAgentCommand({ id: quickAgentCommandIdRef.current, text });
-  };
   // Việc gõ vào nhật ký làm được. Cả ba đều gọi ĐÚNG handler mà nút vẫn gọi — một đường cho
   // mỗi việc. Không có mục nào chạm hai cổng §11.1: duyệt phương án và phát hành campaign
   // vẫn chỉ mở bằng nút, qua hộp thoại xác nhận của chúng.
@@ -751,6 +740,29 @@ export function OperatorConsoleDashboard({
       forecastReady ? undefined : "chưa có dự báo cho mốc này — gõ \"chạy dự báo\" trước đã"),
   };
 
+  // Ảnh chụp trạng thái cho lệnh `/status` của popup nhật ký. Dựng ở đây vì đây là chỗ duy nhất
+  // biết đủ cả sáu nguồn; popup không được tự đi hỏi query nào, nếu không nó thành nguồn sự
+  // thật thứ hai cạnh màn hình chính và hai bên sẽ lệch đúng lúc người ta cần tin nhất.
+  //
+  // `displaySourceAt` chứ không phải `sourceAt`: mọi chỗ khác trên màn hình đã chiếu mốc replay
+  // về đồng hồ vận hành, và `/status` mà in giờ thô của dataset thì nó mâu thuẫn với chính cái
+  // header người ta đang nhìn.
+  const consoleStatus: ConsoleStatus = {
+    observedAt: displaySourceAt,
+    isLiveEdge,
+    isStale: snapshotStale,
+    regime: activeSnapshot.regime,
+    zoneCount: zones.length,
+    missingZoneCount,
+    forecastReady,
+    horizonMinutes: displayedHorizon,
+    stage: activeStage,
+    plan: planReady && plan
+      ? { id: plan.id, version: plan.version, status: plan.status }
+      : undefined,
+    awaitingApproval: canReviewPlan,
+  };
+
   // Gộp một lần rồi dùng cho cả hai việc: `conversationRows` lọc ra thứ để đọc,
   // `thinkingRows` suy ra ai đang chạy. Gộp hai lần thì hai bên có thể nhìn hai mảng khác
   // nhau trong cùng một lần render.
@@ -767,24 +779,18 @@ export function OperatorConsoleDashboard({
   return (
     // `data-stage` nói cho CSS biết panel `connect` đang mở. Dùng thuộc tính thay vì `:has()`
     // để không phụ thuộc mức hỗ trợ selector của trình duyệt cho một thứ ảnh hưởng cả layout.
-    <div className="nf-ops" data-rail-open={railOpen ? "true" : "false"} data-stage={pipelineOpen && pipelineTab === "connect" ? "on" : undefined} data-theme={opsTheme}>
-      {isLiveEdge && !replayTargetAt && <SnapshotStaleAlert
-          autoRefresh
-          generatedAt={displaySourceAt}
-          isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
-          onRefresh={() => {
-            void snapshot.refetch();
-            if (replayAnchorAt) changeReplaySource(replayAnchorAt, true);
-            else setReplaySnapshot(undefined);
-          }}
-        />}
-      <DataRefreshState
-        hasError={snapshot.isRefetchError}
-        isFetching={snapshot.isFetching}
-        onRetry={() => void snapshot.refetch()}
+    <div className="nf-ops" data-stage={pipelineOpen && pipelineTab === "connect" ? "on" : undefined} data-theme={opsTheme}>
+      <SnapshotStaleAlert
+        autoRefresh
+        generatedAt={displaySourceAt}
+        isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
+        onRefresh={() => {
+          void snapshot.refetch();
+          if (replayAnchorAt) changeReplaySource(replayAnchorAt, true);
+          else setReplaySnapshot(undefined);
+        }}
       />
       <OpsHeader
-        agentSummary={agentSummary}
         health={capabilities.data?.health}
         isRefreshing={snapshot.isFetching || actions.runReplayStep.isPending}
         notifications={notifications}
@@ -797,9 +803,6 @@ export function OperatorConsoleDashboard({
       />
       <ScenarioBar
         forecastMinutes={displayedHorizon}
-        fleet={activeSnapshot.kpis.fleetAvailable}
-        generatedAt={displaySourceAt}
-        modelVersion={forecastRunForHorizon(activeSnapshot.ai, displayedHorizon)?.modelVersion ?? activeSnapshot.ai?.modelVersion}
         horizons={forecastHorizons}
         executionActive={hasExecution}
         isForecasting={actions.generateAiDecision.isPending}
@@ -810,10 +813,9 @@ export function OperatorConsoleDashboard({
           else setReplaySnapshot(undefined);
         }}
         regime={activeSnapshot.regime}
-        zoneCount={zones.length}
       />
       <div className="nf-ops-workspace">
-        <aside aria-label="Biểu đồ vận hành" className={`nf-insight-column${insightOpen ? "" : " is-collapsed"}`}>
+        <aside aria-label="Biểu đồ vận hành" className="nf-insight-column">
           <DemandTrendChart
             clock={replayAnchorAt && serverNow ? { anchorSourceAt: replayAnchorAt, serverNow } : undefined}
             steps={dayWindow.data ?? []}
@@ -827,16 +829,6 @@ export function OperatorConsoleDashboard({
             <ZoneBalanceChart onSelect={setSelectedZoneId} zones={zones} />
           </section>
         </aside>
-        <button
-          aria-expanded={insightOpen}
-          aria-label={insightOpen ? "Thu gọn bảng phân tích" : "Mở bảng phân tích"}
-          className="nf-insight-toggle"
-          onClick={() => setInsightOpen((value) => !value)}
-          style={{ left: insightOpen ? "var(--nf-insight-column-width)" : 0 }}
-          type="button"
-        >
-          {insightOpen ? "‹" : "›"}
-        </button>
         <section className="nf-map-stage" aria-label="Bản đồ vận hành">
           {!hasExecution && forecastRun
             ? <ForecastRunStatus forecast={activeSnapshot.ai} horizon={forecastMinutes} isExact={forecastReady} />
@@ -961,7 +953,7 @@ export function OperatorConsoleDashboard({
           aria-label={railOpen ? "Thu gọn bảng chỉ huy" : "Mở bảng chỉ huy"}
           className="nf-rail-toggle"
           onClick={() => setRailOpen((value) => !value)}
-          style={{ right: railOpen ? "var(--nf-command-rail-width)" : 0 }}
+          style={{ right: railOpen ? 404 : 0 }}
           type="button"
         >
           {railOpen ? "›" : "‹"}
@@ -993,20 +985,13 @@ export function OperatorConsoleDashboard({
                 requests={activeSnapshot.kpis.requests}
                 stage={activeStage}
               />
-              <Pipeline
-                campaign={campaign}
-                dispatch={dispatch}
-                forecastReady={forecastReady}
-                forecastStale={forecastStale}
-                isForecasting={actions.generateAiDecision.isPending}
-                isOptimizing={actions.optimizeAiDecision.isPending}
-                isScanning={actions.runReplayStep.isPending}
-                optimizationStopReason={optimizationStopReason}
-                plan={planReady ? plan : undefined}
-                onOpenPlan={() => setDrawerOpen(true)}
-                onOpenExecution={() => navigate(routes.operator.execution)}
-                replayTargetAt={replayTargetAt ? displayTimeForSource(replayTargetAt) : undefined}
-                stage={activeStage}
+              <PolicyPanel
+                draft={policyDraft}
+                hasError={Boolean(policy.error)}
+                isLoading={policy.isPending}
+                metrics={policy.data}
+                onChange={(key, value) => setPolicyDraft((current) => ({ ...current, [key]: value }))}
+                onReset={() => setPolicyDraft({})}
               />
               <RailActions
                 activeDispatch={dispatch}
@@ -1034,7 +1019,6 @@ export function OperatorConsoleDashboard({
                 onOpenExecution={() => navigate(routes.operator.execution)}
                 onOpenPlan={() => setDrawerOpen(true)}
                 onReject={() => openDialog("reject")}
-                onQuickCommand={runQuickAgentCommand}
                 plan={planReady ? plan : undefined}
                 reviewNow={proposalNow}
                 stage={activeStage}
@@ -1050,8 +1034,8 @@ export function OperatorConsoleDashboard({
           isBusy={observer.isBusy}
           isRunning={pipeline.run?.status === "RUNNING"}
           onAsk={(text) => observer.ask(text, { ...pipelineInput, handlers: chatHandlers })}
-          quickCommand={quickAgentCommand}
           rows={conversationRows(mergedLogRows)}
+          status={consoleStatus}
           thinking={thinkingRows(mergedLogRows)}
       />
       {pipelineOpen && (
@@ -1120,45 +1104,32 @@ export function OperatorConsoleDashboard({
 
 export function ScenarioBar({
   executionActive = false,
-  fleet,
   forecastMinutes,
-  generatedAt,
   horizons,
   isForecasting = false,
-  modelVersion,
   onForecastChange,
   onRefresh,
   regime,
-  zoneCount,
 }: {
   executionActive?: boolean;
-  fleet: number;
   forecastMinutes: ForecastHorizon;
-  generatedAt: string;
   horizons: readonly ForecastHorizon[];
   isForecasting?: boolean;
-  modelVersion: string | null | undefined;
   onForecastChange: (value: ForecastHorizon) => void;
   onRefresh: () => void;
   regime: string;
-  zoneCount: number;
 }) {
-  const scenario = scenarioPresentation(regime, generatedAt);
   return (
     <div className="nf-scenario-bar">
       <span>
-        <CloudRain size={14} /> {scenario.weather}
+        <CloudRain size={14} /> {regimeWeatherLabel(regime)}
       </span>
-      <i />
-      <span>
-        Đội xe {fleet} · {zoneCount}/30 zone
-      </span>
-      <span className="nf-model">MODEL {modelVersion ?? "CHƯA XÁC ĐỊNH"}</span>
       {executionActive ? (
         <span className="nf-execution-lock" role="status">ĐANG ĐIỀU HÀNH · DỰ BÁO ĐÃ KHÓA</span>
       ) : (
         <>
-          <small>HORIZON DỰ BÁO</small>
+          {/* Không còn nhãn "HORIZON DỰ BÁO": ba lựa chọn đã tự đọc là "5 phút / 10 phút /
+              15 phút", và `aria-label` của nhóm vẫn nói rõ cho trình đọc màn hình. */}
           <div className="seg" role="group" aria-label="Horizon dự báo">
             {horizons.map((minute) => (
               <label className="seg-opt" key={minute}>
@@ -1596,286 +1567,6 @@ function KpiPanel({
   );
 }
 
-type PipelineState = "done" | "running" | "waiting" | "queued" | "attention" | "stale" | "skipped" | "idle";
-
-function PipelineStepIcon({ state }: { state: PipelineState }) {
-  if (state === "done") return <Check size={11} />;
-  if (state === "waiting" || state === "queued") return <Pause size={10} />;
-  if (state === "attention" || state === "stale") return "!";
-  if (state === "skipped") return "–";
-  if (state === "running") return "▶";
-  return <Circle size={8} />;
-}
-
-function Pipeline({
-  campaign,
-  dispatch,
-  forecastReady,
-  forecastStale,
-  isForecasting,
-  isOptimizing,
-  isScanning,
-  optimizationStopReason,
-  onOpenExecution,
-  onOpenPlan,
-  plan,
-  replayTargetAt,
-  stage,
-}: {
-  campaign: Campaign | undefined;
-  dispatch: DispatchBatch | undefined;
-  forecastReady: boolean;
-  forecastStale: boolean;
-  isForecasting: boolean;
-  isOptimizing: boolean;
-  isScanning: boolean;
-  optimizationStopReason?: string | undefined;
-  onOpenExecution: () => void;
-  onOpenPlan: () => void;
-  plan: Proposal | undefined;
-  replayTargetAt: string | undefined;
-  stage: OperatorWorkflowStage;
-}) {
-  const hasPlan = Boolean(plan);
-  const planningNotRequired = stage === "not_required";
-  const approved = stageAtLeast(stage, "approved");
-  const active = Boolean(campaign);
-  const activationReady = stageAtLeast(stage, "activation_draft");
-  const relocationSkipped = Boolean(plan && plan.moves.length === 0 && activationReady);
-  const relocationDone = Boolean(plan?.moves.length) && stageAtLeast(stage, "executed");
-  const dispatchState = dispatch ? dispatchStatusPresentation(dispatch) : undefined;
-  const steps = [
-    {
-      label: "Nạp snapshot vận hành",
-      state: (isScanning ? "running" : "done") as PipelineState,
-      command: "snapshot.load(zone_registry)",
-      result: isScanning
-        ? replayTargetAt
-          ? `${formatTimeLabel(replayTargetAt)} · đang đọc 30 zone`
-          : "Đang đọc mốc dữ liệu ghi nhận"
-        : "30/30 zone hợp lệ từ nguồn dữ liệu dự án",
-    },
-    {
-      label: "Dự báo cung–cầu",
-      state: (isForecasting
-        ? "running"
-        : forecastReady
-          ? "done"
-          : forecastStale
-            ? "stale"
-            : "waiting") as PipelineState,
-      command: "forecast.run(model=trained_replay)",
-      result: isForecasting
-          ? "Đang chạy model và dải bất định"
-        : forecastReady
-          ? "Dự báo mới khớp mốc đang xem"
-          : forecastStale
-            ? "Kết quả thuộc mốc hoặc horizon trước"
-            : "Chờ lệnh chạy dự báo",
-    },
-    {
-      label: "Phát hiện hotspot & nguồn dư",
-      state: (isOptimizing ? "running" : forecastReady ? "done" : "idle") as PipelineState,
-      command: "imbalance.detect(±3/−4 xe)",
-      result: forecastReady
-        ? planningNotRequired
-          ? "0 hotspot chính sách; vùng thiếu p90 chỉ được giữ ở mức cảnh báo"
-          : "Đã phân loại vùng thiếu, dư và cân bằng"
-        : "Cần kết quả dự báo mới",
-    },
-    {
-      label: "Kiểm tra ràng buộc điều phối",
-      state: (forecastReady ? "done" : "idle") as PipelineState,
-      command: "policy.check()",
-      result: forecastReady
-        ? "Đã kiểm tra ETA, SOC và đệm giữ lại"
-        : "Chờ hotspot và nguồn dư",
-    },
-    {
-      label: "Tạo phương án điều phối",
-      state: (isOptimizing
-        ? "running"
-        : planningNotRequired
-          ? "skipped"
-        : hasPlan
-        ? "done"
-        : forecastReady
-          ? "waiting"
-          : "idle") as PipelineState,
-      command: "relocation.optimize()",
-      result: isOptimizing ? "Model đang áp ràng buộc và ghép nguồn–đích" : hasPlan
-        ? plan?.moves.length
-          ? `${plan.moves.length} lượt điều chuyển trực tiếp từ kết quả model`
-          : "Không có nguồn dư an toàn; cần chuyển sang activation"
-        : planningNotRequired
-          ? `Dừng đúng chính sách: không tạo proposal (${optimizationStopReason ?? "NO_ACTION_REQUIRED"})`
-        : forecastReady
-          ? "Sẵn sàng ghép cặp nguồn–đích"
-          : "Cần hotspot và nguồn dư",
-    },
-    {
-      label: "Chờ phê duyệt của điều phối viên",
-      state: (relocationSkipped
-        ? "skipped"
-        : planningNotRequired
-          ? "skipped"
-        : hasPlan && !approved
-        ? "waiting"
-        : approved
-          ? "done"
-          : "idle") as PipelineState,
-      command: "approval.gate(human_required=true)",
-      result: hasPlan
-        ? "Agent dừng để chờ quyết định của bạn"
-        : planningNotRequired
-          ? "Không có phương án nên không cần phê duyệt"
-        : "Chưa có phương án để duyệt",
-    },
-    {
-      label: "Phát lệnh & theo dõi thực hiện",
-      state: (planningNotRequired
-        ? "skipped"
-        : relocationSkipped
-        ? "skipped"
-        : dispatchState?.isQueued
-          ? "queued"
-          : dispatchState?.isOverdue
-            ? "attention"
-          : stage === "executing" && (dispatchState?.isAnimating ?? true)
-            ? "running"
-            : relocationDone
-              ? "done"
-              : "idle") as PipelineState,
-      command: "dispatch.execute()",
-      result: planningNotRequired ? "Không phát lệnh vì không có hotspot chính sách" : relocationSkipped ? "Không có lệnh điều chuyển cần phát" : dispatchState?.isOverdue
-        ? "Đã quá ETA; kiểm tra telemetry hoặc dừng phương án"
-        : dispatchState?.isQueued
-          ? "Đã lưu lệnh; chờ hệ thống thực thi tiếp nhận"
-          : stage === "executing"
-        ? "Đang nhận telemetry thực thi"
-        : relocationDone ? "Đã hoàn tất bước điều chuyển" : "Chờ phương án được duyệt",
-    },
-    {
-      label: "Tính lại thiếu hụt tồn dư",
-      state: (planningNotRequired || relocationSkipped ? "skipped" : relocationDone ? "done" : "idle") as PipelineState,
-      command: "gap.recompute()",
-      result: planningNotRequired ? "Không có điều chuyển để tính lại" : relocationSkipped ? "Giữ nguyên tồn dư từ model" : relocationDone ? "Đã tính lại thiếu hụt sau điều chuyển" : "Cần kết quả thực hiện",
-    },
-    {
-      label: "Đánh giá nhu cầu activation",
-      state: (planningNotRequired ? "skipped" : activationReady ? "done" : relocationDone ? "waiting" : "idle") as PipelineState,
-      command: "activation.evaluate()",
-      result: planningNotRequired ? "Không mở activation khi chưa có hotspot chính sách" : activationReady ? "Đã tạo bản nháp activation từ tồn dư" : relocationDone ? "Sẵn sàng tính phương án activation" : "Chờ bước tính lại",
-    },
-    {
-      label: "Theo dõi phản hồi tài xế",
-      state: (planningNotRequired ? "skipped" : active ? "running" : "idle") as PipelineState,
-      command: "offer.track()",
-      result: planningNotRequired
-        ? "Không có campaign cần theo dõi"
-        : active
-        ? "Đang đồng bộ phản hồi"
-        : "Chỉ chạy khi campaign hoạt động",
-    },
-    {
-      label: "So sánh kịch bản",
-      state: (planningNotRequired ? "skipped" : active ? "done" : "idle") as PipelineState,
-      command: "scenario.compare()",
-      result: planningNotRequired ? "Không có phương án hành động để đối chiếu" : hasPlan ? "Đã có dữ liệu đối chiếu" : "Cần phương án đã tính",
-    },
-    {
-      label: "Ghi nhật ký kiểm toán",
-      state: (planningNotRequired ? "done" : hasPlan ? "done" : "idle") as PipelineState,
-      command: "audit.append()",
-      result: planningNotRequired ? "Đã lưu kết quả không cần hành động" : hasPlan ? "Đã ghi dấu vết quyết định" : "Chưa có mốc để ghi",
-    },
-  ] as const;
-  const completed = steps.filter((step) => step.state === "done" || step.state === "skipped").length;
-  const busy = isScanning || isForecasting || isOptimizing || (stage === "executing" && (dispatchState?.isAnimating ?? true));
-  const agentLabel = busy
-    ? "ĐANG XỬ LÝ"
-    : dispatchState?.isOverdue
-      ? "CẦN KIỂM TRA"
-      : dispatchState?.isQueued
-        ? "ĐANG CHỜ"
-    : forecastStale
-      ? "DỮ LIỆU CŨ"
-      : active
-        ? "THEO DÕI"
-        : planningNotRequired
-          ? "HOÀN TẤT"
-        : hasPlan
-          ? "CHỜ BẠN"
-            : forecastReady
-            ? "THEO DÕI"
-            : "SẴN SÀNG";
-  const currentStepIndex = steps.findIndex((step) => !["done", "skipped"].includes(step.state));
-  const activeStepIndex = currentStepIndex === -1 ? steps.length - 1 : currentStepIndex;
-  const currentStep = steps[activeStepIndex];
-  if (!currentStep) return null;
-  const renderStep = (step: typeof steps[number], index: number) => (
-    <div className={`nf-pipeline-step is-${step.state}`} key={step.label}>
-      <i><PipelineStepIcon state={step.state} /></i>
-      <span>
-        <b>{step.label}</b>
-        <small>{pipelineStatusLabel(step.state)}</small>
-        <code>{step.command}</code>
-        <p>{step.result}</p>
-        {step.state === "running" && (
-          <span className="nf-pipeline-progress">
-            <i />
-          </span>
-        )}
-        {index === 4 && hasPlan && (
-          <button onClick={onOpenPlan} type="button">
-            Xem phương án →
-          </button>
-        )}
-        {index === 6 && (dispatch || campaign) && (
-          <button onClick={onOpenExecution} type="button">
-            Mở trang vận hành →
-          </button>
-        )}
-      </span>
-    </div>
-  );
-  return (
-    <div className="nf-pipeline nf-scroll">
-      <div className="nf-pipeline-heading">
-        <i className={busy ? "is-live" : ""} />
-        <span>TIẾN TRÌNH HỆ THỐNG</span>
-        <b className={busy ? "is-processing" : forecastStale ? "is-stale" : ""}>
-          {agentLabel}
-        </b>
-        <em>BƯỚC {activeStepIndex + 1}/{steps.length}</em>
-      </div>
-      <div aria-live="polite" className="nf-pipeline-current">
-        {renderStep(currentStep, activeStepIndex)}
-      </div>
-      <details className="nf-pipeline-history">
-        <summary>
-          <span>Xem toàn bộ tiến trình</span>
-          <small>{completed}/{steps.length} bước đã xong</small>
-        </summary>
-        <div className="nf-pipeline-history__list">
-          {steps.map(renderStep)}
-        </div>
-      </details>
-    </div>
-  );
-}
-
-function pipelineStatusLabel(state: PipelineState) {
-  if (state === "done") return "XONG";
-  if (state === "running") return "ĐANG CHẠY";
-  if (state === "waiting") return "CHỜ BẠN";
-  if (state === "queued") return "CHỜ HỆ THỐNG";
-  if (state === "attention") return "CẦN KIỂM TRA";
-  if (state === "stale") return "DỮ LIỆU CŨ";
-  if (state === "skipped") return "BỎ QUA";
-  return "CHỜ ĐIỀU KIỆN";
-}
-
 function ActiveExecutionRail({
   audit,
   drivers,
@@ -2036,13 +1727,7 @@ function ActiveExecutionRail({
  * Nó **không** phải một nút bị vô hiệu hoá: chỗ này không còn hành động nào để bấm, nên nó
  * chỉ nói ra câu cần gõ. Để lại một nút xám ở đây sẽ mời người dùng bấm vào thứ không làm gì.
  */
-function ChatStep({ say, hint, busy, error, onQuickCommand }: {
-  say: string
-  hint: string
-  busy?: string | undefined
-  error?: string | undefined
-  onQuickCommand?: ((text: string) => void) | undefined
-}) {
+function ChatStep({ say, hint, busy, error }: { say: string; hint: string; busy?: string | undefined; error?: string | undefined }) {
   return (
     <div className="nf-rail-actions">
       <div aria-live="polite" className="nf-chat-step" role="status">
@@ -2054,12 +1739,7 @@ function ChatStep({ say, hint, busy, error, onQuickCommand }: {
         ) : (
           <>
             <Terminal size={15} />
-            <span>Gõ <button
-              aria-label={`Chạy lệnh nhanh: ${say}`}
-              className="nf-chat-step__command"
-              onClick={() => onQuickCommand?.(say)}
-              type="button"
-            >{say}</button> vào ô Nhật ký agent.</span>
+            <span>Gõ <code>{say}</code> vào nhật ký agent ở góc dưới phải.</span>
           </>
         )}
       </div>
@@ -2094,7 +1774,6 @@ export function RailActions({
   onOpenPlan,
   onOptimize,
   onPrepareActivation,
-  onQuickCommand,
   onReject,
   plan,
   reviewNow = new Date(),
@@ -2125,7 +1804,6 @@ export function RailActions({
   onOpenPlan: () => void;
   onOptimize: () => void;
   onPrepareActivation: () => void;
-  onQuickCommand?: ((text: string) => void) | undefined;
   onReject: () => void;
   plan: Proposal | undefined;
   reviewNow?: Date;
@@ -2173,7 +1851,6 @@ export function RailActions({
       <ChatStep
         busy={isScanning ? "Đang nạp snapshot…" : isGenerating ? "Đang chạy model…" : undefined}
         hint="Chạy model cho mốc đang chọn; kết quả dự báo sẽ tự mở trên bản đồ."
-        onQuickCommand={onQuickCommand}
         say="chạy dự báo"
       />
     );
@@ -2209,7 +1886,6 @@ export function RailActions({
         busy={isOptimizing ? "Model đang tính phương án…" : undefined}
         error={optimizationError ? `Không thể tính phương án: ${optimizationError}` : undefined}
         hint="Model ghép nguồn dư với vùng thiếu theo ETA và các ràng buộc vận hành."
-        onQuickCommand={onQuickCommand}
         say="tính phương án"
       />
     );

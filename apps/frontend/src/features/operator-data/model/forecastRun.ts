@@ -3,7 +3,7 @@ import type { AiSnapshotStatus, ForecastHorizon } from '@/features/operator-data
 const usableStatuses = new Set(['COMPLETED', 'FALLBACK'] as const)
 
 function isForecastHorizon(value: number): value is ForecastHorizon {
-  return value === 5 || value === 10 || value === 15
+  return value === 15 || value === 30
 }
 
 export function supportedForecastHorizons(

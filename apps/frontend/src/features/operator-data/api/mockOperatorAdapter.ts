@@ -81,7 +81,7 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     serverTime: new Date().toISOString(),
     timezone: 'Asia/Ho_Chi_Minh' as const,
     capabilities: {
-      forecastHorizons: { available: true, enabled: true, values: [5, 10, 15] },
+      forecastHorizons: { available: true, enabled: true, values: [15, 30] },
       proposalReview: { available: true, enabled: true },
       dispatchRelease: { available: true, enabled: true },
       dispatchReconciliation: { available: true, enabled: true },
@@ -91,6 +91,25 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     },
   })),
   generateAiDecision: async () => mockOperatorAdapter.getSnapshot('baseline'),
+  // Bộ ngưỡng demo phản chiếu `config/policy.yaml` để bảng chỉ số dựng được ở chế độ mock.
+  // Chỉ `avg_vehicle_speed_kmh` là `verified` — giống hệt file thật, nên nhánh "khoá vì đã
+  // chốt" của giao diện có đường chạy trong demo thay vì chỉ tồn tại trên giấy.
+  getPolicy: async () => ({
+    version: '1.1',
+    frozenAt: '2026-08-08',
+    rules: [
+      { key: 'min_supply_per_zone', value: 3, unit: 'xe', usedBy: ['hotspot.detector'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-01', tunable: true },
+      { key: 'budget_cap', value: 500000, unit: 'VNĐ/plan', usedBy: ['optimizer.greedy'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-02', tunable: true },
+      { key: 'max_distance', value: 7, unit: 'km', usedBy: ['optimizer.constraints'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-03', tunable: true },
+      { key: 'max_supply_move_pct', value: 0.4, unit: 'tỷ lệ 0–1', usedBy: ['optimizer.constraints'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-04', tunable: true },
+      { key: 'avg_vehicle_speed_kmh', value: 25, unit: 'km/h', usedBy: ['optimizer.greedy', 'activation.engine'], verified: true, owner: 'Data/BA', tunable: false },
+      { key: 'incentive_budget_cap', value: 1000000, unit: 'VNĐ/plan', usedBy: ['activation.engine'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-09', tunable: true },
+      { key: 'incentive_base', value: 20000, unit: 'VNĐ', usedBy: ['activation.engine'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-10', tunable: true },
+      { key: 'offer_ttl_minutes', value: 10, unit: 'phút', usedBy: ['activation.engine'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-14', tunable: true },
+      { key: 'assumed_accept_rate', value: 0.6, unit: 'tỷ lệ 0–1', usedBy: ['activation.engine'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-17', tunable: true },
+      { key: 'priority_zones', value: [], unit: 'list[int] 1–30', usedBy: ['optimizer.greedy'], verified: false, owner: 'BA', assumption: 'ASSUMPTION-06', tunable: false },
+    ],
+  }),
   optimizeAiDecision: async () => {
     const proposal = { ...clone(state.plans[0]!), inputSnapshotId: '17:00' }
     state = { ...state, plans: [proposal, ...state.plans.slice(1)] }
@@ -133,10 +152,10 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
       regime: scenario.regime,
       ai: {
         zoneContract: 'AI_ZONE_1_30', registeredZones: 30, liveZones: 30, forecastedZones: 30,
-        horizons: [5, 10, 15], modelVersion: 'mock-forecast-v1', forecastMode: 'simulated',
+        horizons: [15, 30], modelVersion: 'mock-forecast-v1', forecastMode: 'simulated',
         dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), forecastRunId: `mock-${replayIndex}`,
         forecastStatus: 'COMPLETED',
-        forecastRuns: ([5, 10, 15] as const).map((horizonMinutes) => ({
+        forecastRuns: ([15, 30] as const).map((horizonMinutes) => ({
           id: `mock-${replayIndex}-${horizonMinutes}`, horizonMinutes, status: 'COMPLETED' as const,
           modelVersion: 'mock-forecast-v1', featureVersion: 'mock-feature-v1', policyVersion: 'mock-policy-v1', inputHash: `mock-input-${replayIndex}-${horizonMinutes}`,
           forecastMode: 'simulated', dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), completedAt: new Date().toISOString(), zoneCount: 30,
@@ -401,17 +420,15 @@ function mockAnswer(text: string): { action: string | null; events: MockLine[] }
       }],
     }
   }
-  // Mốc ngoài tầm Model 1 bị chặn trước mọi nhánh khác, y như bản thật: model chỉ dự báo tới
-  // +15 phút, còn +30 trên bảng là ngoại suy tuyến tính chứ không phải output model.
+  // Mốc ngoài tầm Model 1 bị chặn trước mọi nhánh khác, y như bản thật: DATA_CONTRACT §4.2
+  // chốt `horizon_min ∈ {15, 30}` và model chỉ có booster cho đúng hai mốc đó.
   const moc = /(\d{1,3})\s*(?:phút|phut|p|min)/.exec(t)
-  if (moc && ![5, 10, 15].includes(Number(moc[1]))) {
+  if (moc && ![15, 30].includes(Number(moc[1]))) {
     return {
       action: null,
       events: [{
         kind: 'narration', actor: observer, source: 'system', ok: false, code: 'HORIZON_NOT_FORECAST',
-        text: Number(moc[1]) === 30
-          ? 'Model 1 chỉ dự báo tới +15 phút. Mốc +30 phút có trên bảng nhưng là ngoại suy tuyến tính, không phải output model — và theo thiết kế thì nó không được dùng để tạo hay duyệt phương án.'
-          : `Không có dự báo cho mốc +${moc[1]} phút. Model 1 chỉ chạy ở 5 phút, 10 phút, 15 phút.`,
+        text: `Không có dự báo cho mốc +${moc[1]} phút. Model 1 chỉ chạy ở 15 phút, 30 phút.`,
       }],
     }
   }

@@ -95,7 +95,7 @@ export class OperatorService {
       timezone: 'Asia/Ho_Chi_Minh',
       health: { api: 'UP', database: databaseError ? 'DEGRADED' : 'UP', ai: 'AVAILABLE', map: 'CLIENT' },
       capabilities: {
-        forecastHorizons: { available: true, enabled: true, values: [5, 10, 15] },
+        forecastHorizons: { available: true, enabled: true, values: [15, 30] },
         proposalReview: { available: true, enabled: true },
         dispatchRelease: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },
         dispatchReconciliation: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },
@@ -234,6 +234,10 @@ export class OperatorService {
       .find((prefix) => replaySource.startsWith(prefix));
     const sourceAt = snapshot.source_at ?? (replayPrefix ? replaySource.slice(replayPrefix.length) : snapshot.captured_at);
     const kpis = calculateSnapshotKpis(observations ?? []);
+    // Ngưỡng thang rủi ro đến từ `policy.yaml` qua AI service, không viết ở đây (§3 #2).
+    // `undefined` khi AI service chưa sẵn sàng — zone sẽ mang severity 'Unknown' thay vì
+    // được chấm bằng một bộ số đoán.
+    const riskThresholds = await this.ai?.zoneRiskThresholds();
     const derivedHotspots = deriveHotspots((latestRun?.forecasts ?? []).map((forecast: any) => ({
       zoneId: `AI-Z${String(forecast.zone_id).padStart(2, '0')}`,
       forecastRunId: latestRun?.run?.id ?? forecast.forecast_run_id,
@@ -282,7 +286,12 @@ export class OperatorService {
         forecastStatus: latestRun?.run?.status ?? null,
       },
       zones: (aiZones ?? []).map((zone: any) => {
-        return mapAiZone(zone, observationsByZone.get(Number(zone.zone_id)), forecastsByZone.get(Number(zone.zone_id)));
+        return mapAiZone(
+          zone,
+          observationsByZone.get(Number(zone.zone_id)),
+          forecastsByZone.get(Number(zone.zone_id)),
+          riskThresholds,
+        );
       }),
       hotspots: derivedHotspots.map((hotspot) => ({
         ...hotspot,

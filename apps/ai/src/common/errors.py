@@ -68,3 +68,20 @@ class DatasetUnavailableError(NovaFourError):
     """Bộ dữ liệu replay thiếu file, sai manifest hoặc không đọc được."""
 
     error_code = "DATASET_UNAVAILABLE"
+
+
+class PolicyOverrideRejectedError(NovaFourError):
+    """Điều phối viên gửi lên một override ngưỡng không hợp lệ cho lượt chạy này.
+
+    Tách khỏi ConfigError vì hai lỗi sống ở hai thời điểm khác nhau: ConfigError là lỗi
+    lúc boot và app chết trước khi nhận request (§6.4), còn lỗi này đến từ một request
+    cụ thể và phải trở thành response 422 — bắt ConfigError để trả HTTP sẽ xoá mất ranh
+    giới "cấu hình sai thì không được chạy tiếp".
+
+    Cũng KHÔNG dùng lại POLICY_VIOLATION: mã đó dành riêng cho `revised_moves` vi phạm
+    ràng buộc (API_CONTRACT.md §1.2), tức là kế hoạch sai dưới ngưỡng đúng. Ở đây ngược
+    lại — chính ngưỡng gửi lên mới là thứ bị từ chối. Gộp hai mã làm bên gọi không phân
+    biệt được phải sửa phương án hay sửa thông số.
+    """
+
+    error_code = "POLICY_OVERRIDE_REJECTED"

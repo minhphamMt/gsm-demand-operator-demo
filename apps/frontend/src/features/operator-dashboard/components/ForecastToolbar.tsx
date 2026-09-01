@@ -4,7 +4,7 @@ import type { AiSnapshotStatus } from '@/features/operator-data'
 import { formatTime } from '@/shared/lib/format'
 
 type Props = { ai?: AiSnapshotStatus | undefined; forecastMinutes: number; generatedAt: string; isLiveData: boolean; onForecastChange: (minute: number) => void; zoneCount: number }
-const horizons = [0, 5, 10, 15] as const
+const horizons = [0, 15, 30] as const
 
 export function ForecastToolbar({ ai, forecastMinutes, generatedAt, isLiveData, onForecastChange, zoneCount }: Props) {
   const ready = ai?.registeredZones === 30 && ai.liveZones === 30

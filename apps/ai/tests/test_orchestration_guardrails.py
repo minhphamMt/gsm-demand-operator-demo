@@ -50,7 +50,7 @@ def _context(*, llm_routing_enabled: bool = False) -> RunContext:
     return RunContext(
         zones=[_Zone(zone) for zone in zones],
         t=pd.Timestamp(SOURCE_AT),
-        horizon_min=5,
+        horizon_min=15,
         replay_source_at=pd.Timestamp(SOURCE_AT),
         policy=get_policy(settings.policy_path),
         settings=settings,

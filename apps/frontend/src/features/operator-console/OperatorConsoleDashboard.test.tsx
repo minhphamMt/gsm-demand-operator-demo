@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -18,10 +18,7 @@ import type { Zone } from '@/features/operator-data'
  * Nên test vẫn khẳng định đúng thứ nó vẫn khẳng định, cộng thêm một tầng nữa.
  */
 async function raLenh(cau: string) {
-  if (!screen.queryByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })) {
-    await userEvent.click(screen.getByRole('button', { name: /Nhật ký agent/ }))
-  }
-  await userEvent.type(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' }), `${cau}{Enter}`)
+  await userEvent.type(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' }), `${cau}{Enter}`)
 }
 
 function renderDashboard({ withActiveExecution = false }: { withActiveExecution?: boolean } = {}) {
@@ -38,18 +35,6 @@ function renderDashboard({ withActiveExecution = false }: { withActiveExecution?
 
 describe('operator console safety states', () => {
   afterEach(() => { cleanup(); vi.restoreAllMocks() })
-
-  it('opens only the two side panels by default and keeps map overlays collapsed', async () => {
-    const queryClient = renderDashboard()
-
-    expect(await screen.findByRole('button', { name: 'Thu gọn bảng phân tích' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Thu gọn bảng chỉ huy' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Mở danh sách khu vực' })).toBeInTheDocument()
-    expect(screen.queryByRole('log')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Nhật ký agent/ })).toBeInTheDocument()
-
-    queryClient.clear()
-  })
 
   it('keeps the operator in a retryable degraded state when the snapshot API is unavailable', async () => {
     vi.spyOn(mockOperatorAdapter, 'getSnapshot').mockRejectedValue(new Error('database unavailable'))
@@ -73,50 +58,93 @@ describe('operator console safety states', () => {
 
   it('renders all forecast horizons declared by the server capability', () => {
     const changeHorizon = vi.fn()
-    render(<ScenarioBar fleet={214} forecastMinutes={5} generatedAt="2026-08-14T08:55:00Z" horizons={[5, 10, 15]} modelVersion="lgbm" onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" zoneCount={30} />)
+    render(<ScenarioBar forecastMinutes={15} horizons={[15, 30]} onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" />)
 
-    expect(screen.getByRole('radio', { name: '5 phút' })).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: '10 phút' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '15 phút' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '30 phút' })).toBeInTheDocument()
+  })
+
+  it('thanh trên cùng chỉ còn bối cảnh và điều khiển', () => {
+    // Bốn nhãn bị gỡ vì không giúp người vận hành quyết định gì: "Đội xe" lặp lại con số của
+    // biểu đồ cầu–cung, "30/30 zone" là `zones.length` nên luôn bằng 30 kể cả khi thiếu dữ
+    // liệu, "MODEL" vẫn còn ở ForecastDrawer và ForecastRunStatus, còn "HORIZON DỰ BÁO" chỉ
+    // nhắc lại thứ ba nút bên cạnh đã tự nói.
+    render(<ScenarioBar forecastMinutes={15} horizons={[15, 30]} onForecastChange={vi.fn()} onRefresh={vi.fn()} regime="rain_peak" />)
+
+    expect(screen.getByText('Mưa lớn · giờ cao điểm')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Làm mới dữ liệu' })).toBeInTheDocument()
+    expect(screen.queryByText(/Đội xe/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/zone$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^MODEL/)).not.toBeInTheDocument()
+    expect(screen.queryByText('HORIZON DỰ BÁO')).not.toBeInTheDocument()
   })
 
   it('keeps the selected horizon stable and runs only after explicit confirmation', async () => {
     const baseline = await mockOperatorAdapter.getSnapshot('baseline')
     if (!baseline.ai) throw new Error('Mock snapshot must include AI forecast metadata')
-    const fiveMinuteOnly = {
+    const fifteenMinuteOnly = {
       ...baseline,
       ai: {
         ...baseline.ai,
-        horizons: [5],
-        forecastRuns: baseline.ai.forecastRuns?.filter((run) => run.horizonMinutes === 5) ?? [],
+        horizons: [15],
+        forecastRuns: baseline.ai.forecastRuns?.filter((run) => run.horizonMinutes === 15) ?? [],
       },
     }
-    vi.spyOn(mockOperatorAdapter, 'getSnapshot').mockResolvedValue(fiveMinuteOnly)
-    vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...fiveMinuteOnly, sourceAt }))
+    vi.spyOn(mockOperatorAdapter, 'getSnapshot').mockResolvedValue(fifteenMinuteOnly)
+    vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...fifteenMinuteOnly, sourceAt }))
     const generate = vi.spyOn(mockOperatorAdapter, 'generateAiDecision')
     const queryClient = renderDashboard()
 
-    await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
+    await userEvent.click(await screen.findByRole('radio', { name: '30 phút' }, { timeout: 15_000 }))
     expect(generate).not.toHaveBeenCalled()
     await raLenh('chạy dự báo')
-    await waitFor(() => expect(generate).toHaveBeenCalledWith(expect.any(Number), 15))
+    await waitFor(() => expect(generate).toHaveBeenCalledWith(expect.any(Number), 30))
 
     queryClient.clear()
   }, 20_000)
+
+  // Bảng chỉ số chính sách thay bảng TIẾN TRÌNH HỆ THỐNG cũ ở cột chỉ huy.
+  //
+  // Hai test dưới giữ đúng lời hứa của màn đó: ngưỡng kéo được, và giá trị đã kéo THỰC SỰ
+  // đi theo lượt tính. Một bảng chỉ đổi con số trên màn hình mà không đổi lượt chạy là thứ
+  // tệ hơn không có bảng — người vận hành tin là mình đã siết ngân sách trong khi không.
+  it('bảng chỉ số chính sách thay chỗ bảng tiến trình cũ', async () => {
+    const queryClient = renderDashboard()
+
+    expect(await screen.findByRole('region', { name: 'Chỉ số chính sách' }, { timeout: 15_000 })).toBeInTheDocument()
+    expect(screen.queryByText('TIẾN TRÌNH HỆ THỐNG')).not.toBeInTheDocument()
+    queryClient.clear()
+  }, 20_000)
+
+  it('gửi ngưỡng đã chỉnh theo lượt tính phương án', async () => {
+    const optimize = vi.spyOn(mockOperatorAdapter, 'optimizeAiDecision')
+    const queryClient = renderDashboard()
+
+    await screen.findByRole('region', { name: 'Chỉ số chính sách' }, { timeout: 15_000 })
+    fireEvent.change(screen.getByLabelText('Ngân sách điều chuyển'), { target: { value: '400000' } })
+    await raLenh('chạy dự báo')
+    await raLenh('tính phương án')
+
+    await waitFor(() => expect(optimize).toHaveBeenCalledWith(
+      expect.any(Number),
+      expect.any(Number),
+      { budget_cap: 400000 },
+    ))
+    queryClient.clear()
+  }, 25_000)
 
   // MA-6.8: thao tác của người vận hành phải nằm cùng dòng chảy với việc agent làm. Trước
   // đó nhật ký im bặt đúng lúc con người ra quyết định, và mạch ở §1 đọc không ra.
   it('ghi thao tác của người vận hành vào nhật ký, tại lúc biết kết quả chứ không lúc bấm', async () => {
     const queryClient = renderDashboard()
 
-    await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
-    await userEvent.click(screen.getByRole('button', { name: /Nhật ký agent/ }))
+    await userEvent.click(await screen.findByRole('radio', { name: '30 phút' }, { timeout: 15_000 }))
     const nhatKy = screen.getByRole('log')
     expect(nhatKy).not.toHaveTextContent('NGƯỜI VẬN HÀNH')
 
     await raLenh('chạy dự báo')
 
-    await waitFor(() => expect(nhatKy).toHaveTextContent('[NGƯỜI VẬN HÀNH] > đã chạy dự báo horizon 15 phút'))
+    await waitFor(() => expect(nhatKy).toHaveTextContent('[NGƯỜI VẬN HÀNH] > đã chạy dự báo horizon 30 phút'))
     queryClient.clear()
   }, 20_000)
 
@@ -124,7 +152,7 @@ describe('operator console safety states', () => {
     vi.spyOn(mockOperatorAdapter, 'generateAiDecision').mockRejectedValue(new Error('Snapshot đã cũ'))
     const queryClient = renderDashboard()
 
-    await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
+    await userEvent.click(await screen.findByRole('radio', { name: '30 phút' }, { timeout: 15_000 }))
     await raLenh('chạy dự báo')
 
     const nhatKy = screen.getByRole('log')
@@ -164,23 +192,6 @@ describe('operator console safety states', () => {
     await waitFor(() => expect(replay).toHaveBeenCalled())
     expect(screen.queryByText('Snapshot đang được tự động làm mới')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Snapshot đã cũ — cần làm mới' })).not.toBeInTheDocument()
-
-    queryClient.clear()
-  })
-
-  it('does not show the live snapshot warning while replaying a historical bucket', async () => {
-    const baseline = await mockOperatorAdapter.getSnapshot('baseline')
-    const replay = vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...baseline, sourceAt }))
-    const queryClient = renderDashboard()
-
-    await waitFor(() => expect(replay).toHaveBeenCalled())
-    const timeline = screen.getByLabelText('Thanh replay vận hành')
-    const currentBeforePlay = timeline.querySelector('button[aria-pressed="true"]')
-    const play = screen.getByRole('button', { name: 'Phát replay' })
-    await waitFor(() => expect(play).not.toBeDisabled())
-    await userEvent.click(play)
-    await waitFor(() => expect(timeline.querySelector('button[aria-pressed="true"]')).not.toBe(currentBeforePlay))
-    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
 
     queryClient.clear()
   })
@@ -254,62 +265,11 @@ describe('operator console safety states', () => {
     const queryClient = renderDashboard()
 
     expect(await screen.findByText('Chưa cấu hình Mapbox', {}, { timeout: 15_000 })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Mở danh sách khu vực' }))
     const zoneButton = await screen.findByRole('button', { name: /Ba Đình/ })
     await userEvent.click(zoneButton)
     expect(screen.getByText(/DỮ LIỆU GHI NHẬN/, { selector: '.nf-zone-card > small' })).toBeInTheDocument()
     queryClient.clear()
   }, 20_000)
-
-  it('runs the suggested command when the operator clicks it in the rail', async () => {
-    const quickCommand = vi.fn()
-    const action = vi.fn()
-
-    render(<RailActions
-      campaign={undefined}
-      forecastReady={false}
-      isGenerating={false}
-      isOptimizing={false}
-      isScanning={false}
-      onActivate={action}
-      onApprove={action}
-      onGenerate={action}
-      onOpenCampaign={action}
-      onOpenPlan={action}
-      onOptimize={action}
-      onPrepareActivation={action}
-      onQuickCommand={quickCommand}
-      onReject={action}
-      plan={undefined}
-      stage="observe"
-    />)
-
-    await userEvent.click(screen.getByRole('button', { name: 'Chạy lệnh nhanh: chạy dự báo' }))
-    expect(quickCommand).toHaveBeenCalledWith('chạy dự báo')
-  })
-
-  it('connects the rail quick command to the real forecast handler', async () => {
-    const generate = vi.spyOn(mockOperatorAdapter, 'generateAiDecision')
-    const queryClient = renderDashboard()
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Chạy lệnh nhanh: chạy dự báo' }))
-    await waitFor(() => expect(generate).toHaveBeenCalled())
-
-    queryClient.clear()
-  })
-
-  it('collapses and reopens the insight column from its left-edge toggle', async () => {
-    const queryClient = renderDashboard()
-    const closeInsights = await screen.findByRole('button', { name: 'Thu gọn bảng phân tích' })
-
-    await userEvent.click(closeInsights)
-    expect(screen.getByRole('button', { name: 'Mở bảng phân tích' })).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Mở bảng phân tích' }))
-    expect(screen.getByRole('button', { name: 'Thu gọn bảng phân tích' })).toBeInTheDocument()
-
-    queryClient.clear()
-  })
 
   it('shows observed supply and demand separately from the p50 and p90 forecast', () => {
     const observed: Zone = {
