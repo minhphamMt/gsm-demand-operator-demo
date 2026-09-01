@@ -1580,3 +1580,86 @@
     max-height:min(328px, calc(100% - 118px));
   }
 }
+
+/* Map top controls share one layout slot so the zone finder never sits on top
+   of the layer/source tabs when the map becomes narrow. */
+.nf-map-overlay-top {
+  position:absolute;
+  z-index:10;
+  top:12px;
+  left:12px;
+  right:12px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(210px,232px);
+  align-items:start;
+  gap:10px;
+  pointer-events:none;
+}
+
+.nf-map-overlay-top > * {
+  position:static;
+  min-width:0;
+  width:auto;
+  max-width:none;
+  pointer-events:auto;
+}
+
+.nf-map-overlay-top .nf-map-controls {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:stretch;
+  gap:6px;
+  min-width:0;
+}
+
+.nf-map-overlay-top .nf-map-controls > .seg {
+  min-width:0;
+  max-width:100%;
+  flex:0 1 auto;
+}
+
+.nf-map-overlay-top .nf-zone-finder {
+  grid-column:2;
+  width:auto;
+  max-height:calc(100vh - 160px);
+}
+
+@media(max-width:900px) {
+  .nf-map-overlay-top {
+    grid-template-columns:minmax(0,1fr);
+    gap:6px;
+  }
+
+  .nf-map-overlay-top .nf-map-controls {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:6px;
+  }
+
+  .nf-map-overlay-top .nf-map-controls > .seg {
+    display:flex;
+    width:100%;
+  }
+
+  .nf-map-overlay-top .nf-map-controls > .seg:first-child {
+    grid-column:1/-1;
+  }
+
+  .nf-map-overlay-top .nf-map-controls .seg-opt {
+    min-width:0;
+    flex:1;
+    justify-content:center;
+    overflow:hidden;
+    padding:7px 6px;
+    font-size:10px;
+    text-overflow:ellipsis;
+  }
+
+  .nf-map-overlay-top .nf-zone-finder {
+    grid-column:1;
+    grid-row:2;
+    justify-self:end;
+    width:min(232px,100%);
+    max-height:min(328px,calc(100vh - 170px));
+  }
+}

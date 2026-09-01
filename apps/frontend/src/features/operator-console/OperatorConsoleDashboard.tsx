@@ -892,19 +892,33 @@ export function OperatorConsoleDashboard({
               zones={zones}
             />
           </Suspense>
-          <MapControls
-            forecastEnabled={forecastReady && !hasExecution}
-            forecastTime={forecastTime}
-            layer={layer}
-            mapSource={displayedMapSource}
-            onLayerChange={setLayer}
-            onSourceChange={setMapSource}
-            onViewChange={(nextView) => {
-              setSelectedZoneId(undefined);
-              setMapView(nextView);
-            }}
-            view={mapView}
-          />
+          <div className="nf-map-overlay-top">
+            <MapControls
+              forecastEnabled={forecastReady && !hasExecution}
+              forecastTime={forecastTime}
+              layer={layer}
+              mapSource={displayedMapSource}
+              onLayerChange={setLayer}
+              onSourceChange={setMapSource}
+              onViewChange={(nextView) => {
+                setSelectedZoneId(undefined);
+                setMapView(nextView);
+              }}
+              view={mapView}
+            />
+            {!execution && (
+              <ZoneFinder
+                isOpen={finderOpen}
+                observationTime={replayTime}
+                onOpenChange={setFinderOpen}
+                onSearch={setSearch}
+                onSelect={setSelectedZoneId}
+                search={search}
+                selectedZoneId={selectedZoneId}
+                zones={visibleZones}
+              />
+            )}
+          </div>
           {execution ? (
             <ExecutionLogPanel
               audit={audit.data}
@@ -920,18 +934,7 @@ export function OperatorConsoleDashboard({
                 },
               )}
             />
-          ) : (
-            <ZoneFinder
-              isOpen={finderOpen}
-              observationTime={replayTime}
-              onOpenChange={setFinderOpen}
-              onSearch={setSearch}
-              onSelect={setSelectedZoneId}
-              search={search}
-              selectedZoneId={selectedZoneId}
-              zones={visibleZones}
-            />
-          )}
+          ) : null}
           {selectedZone && (
             <ZoneCard
               forecastTime={displayedMapSource === "forecast" ? forecastTime : undefined}
