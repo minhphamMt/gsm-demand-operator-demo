@@ -4,7 +4,8 @@ import { NavLink, useLocation } from 'react-router'
 
 import { operatorNavItems } from './operatorNavItems'
 import { routes } from '@/shared/config/routes'
-import novafourOpsMark from '@/assets/novafour-ops-mark-chatgpt.png'
+import novafourOpsLogoDark from '@/assets/novafour-ops-logo-dark.png'
+import novafourOpsLogoLight from '@/assets/novafour-ops-logo-light.png'
 
 import './operator-header.css'
 
@@ -51,8 +52,11 @@ export function OperatorHeader({
 
   return <header className="nf-ops-header" data-theme={theme}>
     <div className="nf-ops-brand">
-      <img alt="" aria-hidden="true" className="nf-ops-brand__mark" src={novafourOpsMark} />
-      <strong>NOVAFOUR <em>OPS</em></strong>
+      <img
+        alt="NOVAFOUR"
+        className="nf-ops-brand__logo"
+        src={theme === 'dark' ? novafourOpsLogoDark : novafourOpsLogoLight}
+      />
     </div>
 
     <nav aria-label="Khu vực chính" className="nf-ops-nav">
