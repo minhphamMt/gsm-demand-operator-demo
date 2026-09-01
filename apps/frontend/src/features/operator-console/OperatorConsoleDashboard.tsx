@@ -109,11 +109,13 @@ type OpsTheme = "dark" | "light";
 const OPS_THEME_STORAGE_KEY = "novafour-ops-theme";
 
 // Đọc theme đã lưu ngay lúc khởi tạo state để tránh nháy màu tối rồi mới chuyển sáng.
+// Lần truy cập đầu tiên mặc định dùng giao diện sáng; lựa chọn tối của người dùng
+// vẫn được giữ lại qua localStorage.
 function readStoredOpsTheme(): OpsTheme {
   try {
-    return localStorage.getItem(OPS_THEME_STORAGE_KEY) === "light" ? "light" : "dark";
+    return localStorage.getItem(OPS_THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
   } catch {
-    return "dark";
+    return "light";
   }
 }
 
