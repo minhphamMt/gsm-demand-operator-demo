@@ -241,6 +241,9 @@ Copy-Item apps/ai/.env.example apps/ai/.env
 | `SUPABASE_URL` | URL project | Public | Supabase project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | publishable key | Public | Xác thực token phía server |
 | `SUPABASE_SERVICE_ROLE_KEY` | service-role key | **Secret** | Truy cập DB đặc quyền; chỉ backend |
+| `DEMO_AUTO_LOGIN_ENABLED` | `false` | Internal | Bật tự đăng nhập operator cho môi trường demo đã được kiểm soát |
+| `DEMO_OPERATOR_EMAIL` | trống | Sensitive | Tài khoản operator demo; chỉ backend |
+| `DEMO_OPERATOR_PASSWORD` | trống | **Secret** | Mật khẩu operator demo; không đưa vào frontend |
 | `TEST_OPERATOR_EMAIL` | email test | Sensitive | Tài khoản smoke test operator |
 | `TEST_OPERATOR_PASSWORD` | password test | **Secret** | Mật khẩu test operator |
 | `TEST_DRIVER_EMAIL` | email test | Sensitive | Tài khoản smoke test driver |
@@ -262,6 +265,7 @@ Copy-Item apps/ai/.env.example apps/ai/.env
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | publishable key | Key public cho đăng nhập |
 | `VITE_MAPBOX_ACCESS_TOKEN` | `pk...` | Public Mapbox token |
 | `VITE_DEMO_MODE` | `false` | Cờ demo UI |
+| `VITE_AUTO_LOGIN` | `false` | Tự lấy phiên operator demo khi mở trang |
 
 `apps/frontend/.env.local` là override tùy chọn trên máy phát triển. Compose
 không truyền `apps/backend/.env` vào frontend nên service-role key không đi vào

@@ -4,13 +4,15 @@ import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/shared/config/env', () => ({
-  env: { apiBaseUrl: 'http://api.test/api/v1', isLiveData: true },
+  env: { apiBaseUrl: 'http://api.test/api/v1', autoLogin: true, isLiveData: true },
 }))
 
 const signOut = vi.fn(async () => undefined)
 type TestSession = { access_token: string; user: { id: string } }
+type SessionResponse = { data: { session: TestSession | null }; error: null }
 const testSession: TestSession = { access_token: 'test-token', user: { id: 'operator-1' } }
-const getSession = vi.fn(async () => ({ data: { session: testSession }, error: null }))
+const getSession = vi.fn<() => Promise<SessionResponse>>(async () => ({ data: { session: testSession }, error: null }))
+const setSession = vi.fn(async () => ({ data: { session: testSession }, error: null }))
 const unsubscribe = vi.fn()
 type AuthStateCallback = (event: string, session: TestSession | null) => void
 let authStateCallback: AuthStateCallback | undefined
@@ -18,6 +20,7 @@ vi.mock('@/shared/api/supabase', () => ({
   getSupabaseClient: () => ({
     auth: {
       getSession,
+      setSession,
       onAuthStateChange: (callback: AuthStateCallback) => {
         authStateCallback = callback
         return { data: { subscription: { unsubscribe } } }
@@ -42,6 +45,8 @@ describe('AuthProvider session expiry', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    getSession.mockResolvedValue({ data: { session: testSession }, error: null })
+    setSession.mockResolvedValue({ data: { session: testSession }, error: null })
     window.sessionStorage.clear()
   })
 
@@ -55,6 +60,22 @@ describe('AuthProvider session expiry', () => {
     expect(await screen.findByText('authenticated')).toBeInTheDocument()
     expect(getSession).toHaveBeenCalledOnce()
     expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
+  it('creates a demo operator session when auto-login is enabled and no session exists', async () => {
+    getSession.mockResolvedValueOnce({ data: { session: null }, error: null })
+    getSession.mockResolvedValue({ data: { session: null }, error: null })
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'demo-access', refresh_token: 'demo-refresh' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'operator-1', email: 'operator@test.local', role: 'OPERATOR' }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const queryClient = new QueryClient()
+
+    render(<QueryClientProvider client={queryClient}><AuthProvider><AuthStatus /></AuthProvider></QueryClientProvider>)
+
+    expect(await screen.findByText('authenticated')).toBeInTheDocument()
+    expect(setSession).toHaveBeenCalledWith({ access_token: 'demo-access', refresh_token: 'demo-refresh' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('clears authenticated state when the API announces a 401', async () => {

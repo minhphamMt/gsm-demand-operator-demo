@@ -19,6 +19,7 @@ export class DemoAuthService {
   private readonly client: SupabaseClient | undefined;
   private readonly email: string | undefined;
   private readonly password: string | undefined;
+  private readonly enabled: boolean;
 
   constructor(
     config: ConfigService,
@@ -26,6 +27,7 @@ export class DemoAuthService {
   ) {
     const url = config.get<string>('SUPABASE_URL');
     const publishableKey = config.get<string>('SUPABASE_PUBLISHABLE_KEY');
+    this.enabled = config.get<string>('DEMO_AUTO_LOGIN_ENABLED')?.trim().toLowerCase() === 'true';
     this.email = config.get<string>('DEMO_OPERATOR_EMAIL')?.trim() || undefined;
     this.password = config.get<string>('DEMO_OPERATOR_PASSWORD') || undefined;
     if (url && publishableKey) {
@@ -36,7 +38,7 @@ export class DemoAuthService {
   }
 
   async createSession(): Promise<DemoSessionResponse> {
-    if (!this.client || !this.email || !this.password) {
+    if (!this.enabled || !this.client || !this.email || !this.password) {
       throw new UnauthorizedException('Demo access is disabled');
     }
 
