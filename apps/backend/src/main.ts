@@ -28,7 +28,27 @@ async function bootstrap() {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
-  app.enableCors({ origin: origins, credentials: true });
+  const allowLocalDevelopmentOrigin = (requestOrigin: string) =>
+    process.env.NODE_ENV !== 'production' &&
+    /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(requestOrigin);
+  app.enableCors({
+    origin: (
+      requestOrigin: string | undefined,
+      callback: (error: Error | null, allow?: boolean) => void,
+    ) => {
+      if (
+        !requestOrigin ||
+        origins.includes(requestOrigin) ||
+        allowLocalDevelopmentOrigin(requestOrigin)
+      ) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Origin is not allowed by CORS'), false);
+    },
+    credentials: true,
+  });
 
   const swagger = new DocumentBuilder()
     .setTitle('GSM Backend')

@@ -150,4 +150,13 @@ describe('snapshot mang bucket replay', () => {
 
     expect((await mockOperatorAdapter.runReplayStep(bucket)).sourceAt).toBe(bucket)
   })
+
+  it('thay đổi dữ liệu mô phỏng theo từng bucket thay vì chỉ đổi nhãn thời gian', async () => {
+    const first = await mockOperatorAdapter.runReplayStep('2026-09-25T08:30:00+07:00')
+    const second = await mockOperatorAdapter.runReplayStep('2026-09-25T08:35:00+07:00')
+
+    expect(second.sourceAt).not.toBe(first.sourceAt)
+    expect(second.replayStep).not.toBe(first.replayStep)
+    expect(second.zones).not.toEqual(first.zones)
+  })
 })

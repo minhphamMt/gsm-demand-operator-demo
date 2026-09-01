@@ -423,7 +423,7 @@ def apply_overrides(policy: Policy, overrides: dict[str, Any]) -> Policy:
 
 def _is_scalar(value: Any) -> bool:
     """int/float thật, không tính bool — `isinstance(True, int)` là True trong Python."""
-    return isinstance(value, int | float) and not isinstance(value, bool)
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 def _checked_override(policy: Policy, key: str, value: Any) -> float:

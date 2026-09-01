@@ -57,10 +57,11 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
   const layerRef = useRef(layer)
   const movesRef = useRef(moves)
   const viewRef = useRef(view)
-  // Style chỉ đọc được lúc khởi tạo bản đồ, nên đổi style là dựng lại map. Camera được giữ
-  // trong ref qua các lần dựng lại: đổi giao diện sáng/tối mà nhảy về khung nhìn mặc định thì
-  // người vận hành mất chỗ đang theo dõi.
+  // Giữ một Mapbox instance trong suốt vòng đời màn hình. Đổi theme chỉ thay style trên
+  // instance hiện tại; dựng lại cả map sẽ làm mất cache tile, marker và khiến màn hình giật.
   const cameraRef = useRef<{ center: [number, number]; zoom: number } | null>(null)
+  const mapStyleRef = useRef(mapStyle)
+  const appliedMapStyleRef = useRef(mapStyle)
   const flownToZoneRef = useRef<string | undefined>(selectedZoneId)
   const zonesRef = useRef(zones)
   const [mapStatus, setMapStatus] = useState<MapStatus>('idle')
@@ -74,6 +75,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
   movesRef.current = moves
   viewRef.current = view
   flowStateRef.current = flowState
+  mapStyleRef.current = mapStyle
 
   useEffect(() => {
     if (!containerRef.current || !env.hasMapboxToken) return undefined
@@ -84,7 +86,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
     const map = new mapboxgl.Map({
       accessToken: env.mapboxAccessToken,
       container,
-      style: mapStyle,
+      style: mapStyleRef.current,
       center: savedCamera?.center ?? initialViewport.center,
       zoom: savedCamera?.zoom ?? initialViewport.zoom,
       pitch: 0,
@@ -93,6 +95,7 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
     })
     mapRef.current = map
     let ready = false
+    let interactionHandlersAttached = false
     const fail = (kind: MapFailureKind) => {
       if (ready) return
       window.clearTimeout(loadTimeout)
@@ -106,9 +109,8 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left')
     const resizeObserver = new ResizeObserver(() => map.resize())
     resizeObserver.observe(container)
-    map.on('load', () => {
-      ready = true
-      window.clearTimeout(loadTimeout)
+    const installLayers = (isInitialLoad: boolean) => {
+      if (!isInitialLoad && map.getSource('operator-zone-areas') && map.getLayer('zone-area-fill')) return
       map.addSource('operator-zone-areas', {
         type: 'geojson',
         data: zonesToFeatureCollection(zonesRef.current),
@@ -225,24 +227,38 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
           'text-halo-width': 1.5,
         },
       })
-      for (const layerId of ['zone-area-fill', 'zone-activity-dot']) {
-        map.on('mouseenter', layerId, () => {
-          map.getCanvas().style.cursor = 'pointer'
-        })
-        map.on('mouseleave', layerId, () => {
-          map.getCanvas().style.cursor = ''
-        })
-        map.on('click', layerId, (event) => {
-          const id = event.features?.[0]?.properties?.id
-          if (typeof id === 'string') onZoneSelect(id)
-        })
+      if (!interactionHandlersAttached) {
+        for (const layerId of ['zone-area-fill', 'zone-activity-dot']) {
+          map.on('mouseenter', layerId, () => {
+            map.getCanvas().style.cursor = 'pointer'
+          })
+          map.on('mouseleave', layerId, () => {
+            map.getCanvas().style.cursor = ''
+          })
+          map.on('click', layerId, (event) => {
+            const id = event.features?.[0]?.properties?.id
+            if (typeof id === 'string') onZoneSelect(id)
+          })
+        }
+        interactionHandlersAttached = true
       }
       syncRainMarkers(map, rainMarkers, zonesRef.current)
-      // Chỉ canh lại khung nhìn ở lần dựng đầu; lần dựng lại đã khởi tạo đúng camera đang xem.
-      if (!savedCamera) moveMapToView(map, viewRef.current)
+      // Chỉ canh lại khung nhìn ở lần dựng đầu; đổi style không được làm người vận hành
+      // mất vị trí đang theo dõi trên bản đồ.
+      if (isInitialLoad && !savedCamera) moveMapToView(map, viewRef.current)
       setMapStatus('ready')
       setMapGeneration((generation) => generation + 1)
-    })
+    }
+    const handleInitialLoad = () => {
+      ready = true
+      window.clearTimeout(loadTimeout)
+      installLayers(true)
+    }
+    const handleStyleLoad = () => {
+      if (ready) installLayers(false)
+    }
+    map.on('load', handleInitialLoad)
+    map.on('style.load', handleStyleLoad)
     map.on('moveend', () => {
       const center = map.getCenter()
       cameraRef.current = { center: [center.lng, center.lat], zoom: map.getZoom() }
@@ -251,12 +267,30 @@ export function OperatorMap({ forecastMinutes, flowState = 'proposal', layer = '
     return () => {
       window.clearTimeout(loadTimeout)
       resizeObserver.disconnect()
+      map.off('load', handleInitialLoad)
+      map.off('style.load', handleStyleLoad)
       for (const marker of rainMarkers.values()) marker.remove()
       rainMarkers.clear()
       mapRef.current = null
       map.remove()
     }
-  }, [mapStyle, onZoneSelect, retryAttempt])
+  }, [onZoneSelect, retryAttempt])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (appliedMapStyleRef.current === mapStyle) return
+    appliedMapStyleRef.current = mapStyle
+    if (!map) return
+
+    // Mapbox vẫn cần tải style/tile của theme mới, nhưng setStyle trên instance hiện tại
+    // giữ camera và giảm chi phí so với huỷ toàn bộ map. Các layer/source của ứng dụng
+    // được cài lại trong handler `style.load` ở effect khởi tạo phía trên.
+    map.setStyle(mapStyle, {
+      diff: true,
+      localFontFamily: undefined,
+      localIdeographFontFamily: undefined,
+    })
+  }, [mapStyle])
 
   useEffect(() => {
     const map = mapRef.current

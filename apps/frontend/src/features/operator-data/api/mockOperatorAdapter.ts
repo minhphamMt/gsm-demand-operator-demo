@@ -5,16 +5,28 @@ import { isPlanInputFresh } from '@/features/operator-data/model/proposalRules'
 import { createSeededOperatorState } from '@/features/operator-data/model/seedOperatorState'
 import { eligibleDriversFor, refreshStaleProposalQueue, withLiveEligibility } from '@/features/operator-data/model/proposalWorkflowState'
 import { createZones } from '@/features/operator-data/model/zoneGeometry'
-import { currentOperatorReplaySourceAt } from '@/features/operator-console/model/defaultReplay'
+import { currentOperatorReplaySourceAt, verifiedReplaySources } from '@/features/operator-console/model/defaultReplay'
 import { operatorNowIso, type PipelineRunRecord, type RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 import type { AuditEntry, AuditFilters, AuditPage, Baseline, Campaign, DemoDriver, DemoScenario, DemoScenarioId, DispatchBatch, DriverView, Offer, OperationsReport, OperationsReportFilters, OperatorDataAdapter, PersistentNotification, Proposal, ScenarioComparison, Snapshot } from '@/features/operator-data/model/types'
 
 const baseZones = createZones()
+const replayBucketMs = 5 * 60_000
 const scenarios: readonly DemoScenario[] = [
   { id: 'normal', label: 'Ngày thường 09:30', description: 'Cầu ổn định trong giờ bình thường.', regime: 'normal', startTime: '2026-08-05T09:00:00+07:00', replaySteps: 288, responseMode: 'mixed' },
   { id: 'rain-peak', label: 'Mưa đột ngột 17:00', description: 'Kịch bản demo chính: mưa giờ cao điểm chiều.', regime: 'rain_peak', startTime: '2026-08-05T17:00:00+07:00', replaySteps: 288, responseMode: 'mixed' },
   { id: 'holiday', label: 'Lễ hội cuối tuần', description: 'Cầu tập trung quanh trung tâm thành phố.', regime: 'peak', startTime: '2026-08-09T18:00:00+07:00', replaySteps: 288, responseMode: 'simulated' },
 ]
+
+// The mock adapter is only a local fallback, but it must still honor the replay
+// contract: selecting another bucket cannot return the baseline numbers with a
+// different timestamp. Keep the variation deterministic so tests and manual UI
+// checks are repeatable.
+function replayIndexForSource(sourceAt: string) {
+  const timestamp = Date.parse(sourceAt)
+  if (!Number.isFinite(timestamp)) return 0
+  const firstVerifiedSource = Date.parse(verifiedReplaySources[0])
+  return Math.abs(Math.floor((timestamp - firstVerifiedSource) / replayBucketMs)) % 7
+}
 const baselines: readonly Baseline[] = [{ id: 'no-action', label: 'Không điều phối (đã khóa)', fulfillmentRate: 88.4, residualGap: 66, avgWaitProxy: 7.8, frozenAt: '2026-08-03T18:00:00+07:00', source: 'simulate(moves=[], activation=false)' }, { id: 'historical-average', label: 'Trung bình lịch sử (đã khóa)', fulfillmentRate: 89.6, residualGap: 59, avgWaitProxy: 7.2, frozenAt: '2026-08-03T18:00:00+07:00', source: 'zone × hour × day_of_week' }]
 const clone = <T,>(value: T): T => structuredClone(value)
 type State = { scenarioId: DemoScenarioId; nextProposalNumber: number; plans: Proposal[]; campaigns: Campaign[]; offers: Offer[]; drivers: DemoDriver[]; audit: AuditEntry[] }
@@ -160,7 +172,10 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     state = { ...state, plans: [proposal, ...state.plans.slice(1)] }
     return { planningStatus: 'proposal_created', proposal: clone(proposal) }
   },
-  runReplayStep: async (sourceAt) => ({ ...await mockOperatorAdapter.getSnapshot('baseline'), sourceAt }),
+  runReplayStep: async (sourceAt) => ({
+    ...await mockOperatorAdapter.getSnapshot('baseline', state.scenarioId, replayIndexForSource(sourceAt)),
+    sourceAt,
+  }),
   // Mock dựng lại đúng hình dạng của cửa sổ replay thật: các mốc 5 phút lùi dần từ `sourceAt`,
   // mỗi mốc kèm tổng cầu/cung. Nhịp ngày dùng hàm sin theo giờ để có hai đỉnh sáng/chiều như
   // dataset thật — số mô phỏng, nhưng hình dạng để kiểm thử UI thì đúng.

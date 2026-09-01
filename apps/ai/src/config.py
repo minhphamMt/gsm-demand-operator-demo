@@ -74,11 +74,6 @@ class Settings(BaseSettings):
     # Số vòng tool-use tối đa cho một agent — chặn vòng lặp LLM gọi tool không dừng.
     llm_max_tool_rounds: int = Field(default=6, ge=1, le=20)
 
-    # ---- Bảo mật service-to-service (issue #12) ----
-    # Khóa dùng chung giữa apps/backend và apps/ai, kiểm ở src/api/auth.py. Rỗng nghĩa
-    # là chưa cấu hình — chỉ được phép ở development/test, xem require_service_api_key.
-    ai_service_api_key: str = ""
-
 
 @lru_cache
 def get_settings() -> Settings:

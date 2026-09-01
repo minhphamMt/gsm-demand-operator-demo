@@ -8,11 +8,10 @@ tầng dưới — đồ thị LangGraph gọi đúng các bước đó nên hai
 from typing import Literal
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import Field, model_validator
 
 from src.activation.recommendation import recommend_activation
-from src.api.auth import require_service_api_key
 from src.common.errors import (
     DatasetUnavailableError,
     PolicyOverrideRejectedError,
@@ -42,9 +41,7 @@ from src.orchestration.steps import (
     verified_model_bundle,
 )
 
-# Áp cho toàn router — 5 route dưới đây đều tốn tài nguyên hoặc lộ dữ liệu vận hành,
-# khác với GET /health (src/main.py) vốn cố tình để công khai cho healthcheck (issue #12).
-router = APIRouter(prefix="/api/v1", tags=["inference"], dependencies=[Depends(require_service_api_key)])
+router = APIRouter(prefix="/api/v1", tags=["inference"])
 
 
 class DatasetSnapshotRequest(ContractModel):
