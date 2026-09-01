@@ -1605,17 +1605,29 @@
 }
 
 .nf-map-overlay-top .nf-map-controls {
-  display:flex;
-  flex-wrap:wrap;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(174px,188px) minmax(158px,172px);
   align-items:stretch;
   gap:6px;
   min-width:0;
+  width:100%;
 }
 
 .nf-map-overlay-top .nf-map-controls > .seg {
+  display:flex;
   min-width:0;
   max-width:100%;
-  flex:0 1 auto;
+  width:100%;
+}
+
+.nf-map-overlay-top .nf-map-controls .seg-opt {
+  min-width:0;
+  flex:1;
+  justify-content:center;
+  overflow:hidden;
+  padding-inline:8px;
+  font-size:11px;
+  text-overflow:ellipsis;
 }
 
 .nf-map-overlay-top .nf-zone-finder {
@@ -1661,5 +1673,13 @@
     justify-self:end;
     width:min(232px,100%);
     max-height:min(328px,calc(100vh - 170px));
+  }
+
+  .nf-ops .nf-live-map-heading {
+    top:126px;
+  }
+
+  .nf-ops .nf-live-map-legend {
+    top:183px;
   }
 }
