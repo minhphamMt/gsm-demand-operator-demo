@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { operatorAdapter } from '@/features/operator-data/api/operatorAdapter'
 import { operatorQueryKeys } from '@/features/operator-data/api/operatorQueries'
-import type { AskAgentInput, Campaign, ForecastHorizon, PersistentNotification, Proposal, RejectPlanRequest, ResponseMode, RevisePlanRequest } from '@/features/operator-data/model/types'
+import type { AskAgentInput, Campaign, ForecastHorizon, PersistentNotification, PolicyOverrides, Proposal, RejectPlanRequest, ResponseMode, RevisePlanRequest } from '@/features/operator-data/model/types'
 import { AppError } from '@/shared/api/client'
 
 export function useOperatorActions() {
@@ -73,7 +73,7 @@ export function useOperatorActions() {
       },
     }),
     optimizeAiDecision: useMutation({
-      mutationFn: ({ snapshotId, horizonMinutes }: { snapshotId: number; horizonMinutes: ForecastHorizon }) => operatorAdapter.optimizeAiDecision(snapshotId, horizonMinutes),
+      mutationFn: ({ snapshotId, horizonMinutes, policyOverrides }: { snapshotId: number; horizonMinutes: ForecastHorizon; policyOverrides?: PolicyOverrides }) => operatorAdapter.optimizeAiDecision(snapshotId, horizonMinutes, policyOverrides),
       onSuccess: async (result) => {
         if (result.planningStatus === 'proposal_created') {
           cacheProposal(result.proposal)

@@ -11,7 +11,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 def test_leader_pricing_policy_is_loaded_with_assumption_provenance() -> None:
     policy = load_policy(PROJECT_ROOT / "config" / "policy.yaml")
 
-    assert len(type(policy.rules).model_fields) == 19
+    # 20 chứ không còn 19: `zone_risk_gap_thresholds` được thêm khi gỡ thang rủi ro
+    # hard-code khỏi `snapshot.mapper.ts`. Con số này là chốt chặn có chủ đích — thêm hay
+    # bớt key mà không sửa ở đây thì test đỏ, đúng như nó sinh ra để làm.
+    assert len(type(policy.rules).model_fields) == 20
     assert policy.pricing.status == "assumption"
     assert policy.pricing.customer_driver.base_fare_first_2km_vnd == 27_000
     assert policy.pricing.customer_driver.fare_per_km_after_2km_vnd == 9_000

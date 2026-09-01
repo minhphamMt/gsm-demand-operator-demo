@@ -43,7 +43,7 @@ function projectUpperDemand(zone: Zone, minute: number) {
   return interpolate(upper10, upper15, (minute - 10) / 5)
 }
 
-export function forecastSteps(horizonMinutes: 5 | 10 | 15): readonly number[] {
+export function forecastSteps(horizonMinutes: 15 | 30): readonly number[] {
   return Array.from({ length: horizonMinutes / 5 + 1 }, (_, index) => index * 5)
 }
 

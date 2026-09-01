@@ -29,7 +29,7 @@ from tests.test_orchestration_guardrails import _FakeClient, _tool_call
 from tests.test_orchestration_parity import _Zone, _zones_at
 
 SOURCE_AT = "2026-09-25T08:30:00+07:00"
-HORIZON_MIN = 5
+HORIZON_MIN = 15
 
 # Chuỗi tool của chế độ deterministic, đúng thứ tự đã khóa ở test parity.
 EXPECTED_TOOLS = (

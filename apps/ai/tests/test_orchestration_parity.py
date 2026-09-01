@@ -21,7 +21,7 @@ from src.orchestration.tools.decision_tools import RunContext
 # Ba mốc phủ ba tình huống khác nhau: mưa cao điểm (đường bảo thủ p90), cao điểm khô, và
 # đêm không cao điểm (đường không sinh phương án). Một mốc duy nhất sẽ bỏ lọt nhánh rẽ.
 REPLAY_SOURCES = (
-    ("2026-09-25T08:30:00+07:00", 5),
+    ("2026-09-25T08:30:00+07:00", 30),
     ("2026-09-25T07:00:00+07:00", 15),
     ("2026-09-25T02:00:00+07:00", 15),
 )
@@ -92,7 +92,7 @@ def test_graph_reports_five_agent_cards_and_tool_trail() -> None:
         context = RunContext(
             zones=[_Zone(zone) for zone in zones],
             t=pd.Timestamp(source_at),
-            horizon_min=5,
+            horizon_min=15,
             replay_source_at=pd.Timestamp(source_at),
             policy=get_policy(settings.policy_path),
             settings=settings,

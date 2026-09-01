@@ -16,6 +16,7 @@ import {
   parseEntity,
 } from '@/features/operator-data/api/responseGuards'
 import { runIdempotentCommand } from '@/features/operator-data/api/commandIdempotency'
+import { readPolicyMetrics } from '@/features/operator-data/model/policyMetrics'
 import type { AuditFilters, DemoScenario, OperationsReportFilters, OperatorDataAdapter, Proposal } from '@/features/operator-data/model/types'
 import {
   latestAgentProposalForSnapshot,
@@ -70,8 +71,16 @@ export const httpOperatorAdapter: OperatorDataAdapter = {
       : snapshotId
     return parseEntity(await requestJson(`/operator/snapshots/${refreshedSnapshotId}?scenario=baseline`), isSnapshot, 'snapshot dự báo')
   },
-  optimizeAiDecision: async (snapshotId, horizonMinutes) => {
-    const result = await requestJson('/operator/ai/optimize', { method: 'POST', body: body({ snapshotId, horizonMinutes }) })
+  getPolicy: async () => {
+    const metrics = readPolicyMetrics(await requestJson('/operator/ai/policy'))
+    if (!metrics) throw new AppError('Không đọc được bộ ngưỡng vận hành.', { code: 'INVALID_RESPONSE' })
+    return metrics
+  },
+  optimizeAiDecision: async (snapshotId, horizonMinutes, policyOverrides) => {
+    // Bỏ hẳn key khi không chỉnh gì, thay vì gửi `{}`: request của lượt chạy mặc định phải
+    // giống hệt trước khi có tính năng này.
+    const overrides = policyOverrides && Object.keys(policyOverrides).length ? { policyOverrides } : {}
+    const result = await requestJson('/operator/ai/optimize', { method: 'POST', body: body({ snapshotId, horizonMinutes, ...overrides }) })
     const decision = isRecord(result) && isRecord(result.decision) ? result.decision : undefined
     if (decision?.planning_status === 'not_required') {
       return {

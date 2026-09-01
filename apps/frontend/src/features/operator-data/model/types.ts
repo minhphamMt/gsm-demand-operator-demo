@@ -10,7 +10,7 @@ export type DemoScenarioId = 'normal' | 'rain-peak' | 'holiday'
 export type ResponseMode = 'human' | 'simulated' | 'mixed'
 export type DriverStatus = 'offline' | 'online_idle' | 'online_busy' | 'en_route' | 'activated' | 'on_trip'
 export type OfferStatus = 'Open' | 'Accepted' | 'Declined' | 'Expired' | 'Cancelled'
-export type ForecastHorizon = 5 | 10 | 15
+export type ForecastHorizon = 15 | 30
 
 export type Zone = { id: string; aiZoneId: number; zoneCode: string; label: string; tier: string; areaKm2: number; center: [longitude: number, latitude: number]; boundary: [longitude: number, latitude: number][]; dataStatus: 'live' | 'missing'; supply: number | null; demand: number | null; gap: number | null; operationalGap?: number; severity: Severity | string; confidence: number | null; confidence5?: number | null; confidence10?: number | null; confidence15?: number | null; confidence30?: number | null; rainMmH: number; rainForecast15: number; rainForecast30: number; forecast5?: number; forecast10?: number; forecast15: number; forecast30: number; forecastSupply5?: number; forecastSupply10?: number; forecastSupply15?: number; forecastSupply30?: number; demandRange5?: readonly [number, number] | null; demandRange10?: readonly [number, number] | null; demandRange15?: readonly [number, number] | null; demandRange30?: readonly [number, number] | null; supplyRange5?: readonly [number, number] | null; supplyRange10?: readonly [number, number] | null; supplyRange15?: readonly [number, number] | null; supplyRange30?: readonly [number, number] | null }
 export type Hotspot = { zoneId: string; rank: number; reason: string; etaMinutes: number; isPersistent: boolean; forecastRunId?: string; severity?: Severity; policyVersion?: string; reasonCodes?: readonly string[]; threshold?: number; contributingFeatures?: { demand: number; supply: number; gap: number } }
@@ -181,10 +181,34 @@ export type ForecastEvaluation = {
 export type ScenarioComparison = { id: string; commonInputHash: string; snapshotId: string; forecastRunId: string; modelVersion: string; policyVersion: string; scenarios: readonly { type: 'NO_ACTION' | 'RELOCATION' | 'ACTIVATION' | 'HYBRID'; estimatedMetrics: Record<string, unknown>; observedMetrics: Record<string, unknown> | null; uncertainty: Record<string, unknown>; responseSource: string }[]; forecastEvaluation?: ForecastEvaluation; hasObservedRevenue: false; revenueNotice: string }
 export type PersistentNotification = { id: string; ownerId: string | null; severity: 'INFO' | 'WARNING' | 'CRITICAL'; category: string; title: string; message: string; entityType: string | null; entityId: string | null; requestId: string | null; status: 'UNREAD' | 'READ' | 'ACKNOWLEDGED' | 'RESOLVED'; escalateAt: string | null; createdAt: string }
 
+/**
+ * Một ngưỡng vận hành như bảng chỉ số nhìn thấy nó.
+ *
+ * `verified` và `assumption` không phải trang trí: chúng phân biệt số đã được Data/BA chốt
+ * với số tài liệu mới đề xuất, và điều phối viên cần thấy khác biệt đó TRƯỚC khi kéo thanh
+ * trượt. `tunable` do server quyết chứ không phải giao diện tự suy — xem `PolicyMetrics`.
+ */
+export type PolicyRule = {
+  key: string
+  value: number | readonly number[] | string
+  // `| undefined` tường minh vì `exactOptionalPropertyTypes` đang bật: metadata của một key
+  // có thể vắng trong policy.yaml, và mapper phải gán được `undefined` cho chỗ vắng đó.
+  unit?: string | undefined
+  usedBy: readonly string[]
+  verified: boolean
+  owner?: string | undefined
+  assumption?: string | undefined
+  tunable: boolean
+}
+export type PolicyMetrics = { version: string; frozenAt: string; rules: readonly PolicyRule[] }
+/** Ngưỡng điều phối viên chỉnh cho MỘT lượt chạy. Không ghi vào policy.yaml (§13.2). */
+export type PolicyOverrides = Readonly<Record<string, number>>
+
 export type OperatorDataAdapter = {
   getCapabilities: () => Promise<OperatorCapabilities>
   generateAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon) => Promise<Snapshot>
-  optimizeAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon) => Promise<OptimizationResult>
+  optimizeAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon, policyOverrides?: PolicyOverrides) => Promise<OptimizationResult>
+  getPolicy: () => Promise<PolicyMetrics>
   runReplayStep: (sourceAt: string) => Promise<Snapshot>
   getReplayWindow: (sourceAt: string, lookbackMinutes?: number) => Promise<readonly ReplayTimelineStep[]>
   getSnapshot: (scenario: Scenario, demoScenarioId?: DemoScenarioId, replayIndex?: number) => Promise<Snapshot>

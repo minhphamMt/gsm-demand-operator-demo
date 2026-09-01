@@ -22,6 +22,7 @@ from src.common.policy import Policy
 from src.config import Settings
 from src.contracts.forecast import HorizonMin
 from src.contracts.plan import PlanTotals
+from src.hotspot.detector import meets_condition
 from src.optimizer.constraints import limits_from_policy
 from src.optimizer.greedy import PlanStrategy, SolveResult, solve
 from src.orchestration.steps import (
@@ -41,6 +42,7 @@ from src.orchestration.tools.registry import (
     ToolRegistry,
     ToolSpec,
 )
+from src.simulation.metrics import system_metrics, unmet
 
 
 @dataclass
@@ -170,8 +172,77 @@ def build_registry(context: RunContext) -> ToolRegistry:
             "max_distance_km": limits.max_distance,
         }
 
+    def get_current_shortage() -> dict[str, Any]:
+        """Zone đang thiếu xe NGAY LÚC NÀY — đọc thẳng snapshot, không đi qua dự báo.
+
+        Tách khỏi `get_supply_state` vì hai câu hỏi khác nhau ở **thì**, không phải ở mức chi
+        tiết. `get_supply_state` chạy Model 2 trên forecast nên trả hotspot ở +horizon phút;
+        câu "zone nào đang thiếu xe" hỏi về hiện tại. Trước khi có tool này, câu hỏi hiện tại
+        bị trả lời bằng số +15 phút mà không có dấu hiệu nào trên màn hình — người vận hành
+        đọc ra một danh sách zone và tin rằng đó là tình trạng đang diễn ra.
+
+        **Cùng LUẬT, khác MỐC.** Dùng lại `meets_condition` (§4.3) và `unmet`/`system_metrics`
+        của `simulation/metrics.py` thay vì viết công thức thứ hai — cài lại phép tính ở đây
+        làm mọi so sánh giữa "bây giờ" và "dự báo" mất hiệu lực (CLAUDE.md §2, §5.2).
+
+        Cung đếm bằng `idle_supply`, KHÔNG cộng `enroute_supply`: xe đang trên đường chưa đón
+        được khách lúc này, cộng vào là lại trộn tương lai vào một câu hỏi về hiện tại.
+        """
+        min_supply = context.policy.rules.min_supply_per_zone
+        rows: list[dict[str, Any]] = []
+        for zone in context.zones:
+            demand = float(zone.demand_observed)
+            supply = float(zone.idle_supply)
+            gap = unmet(demand, supply)
+            meets_policy = meets_condition(
+                predicted_supply=supply,
+                gap=gap,
+                predicted_demand=demand,
+                min_supply_per_zone=min_supply,
+            )
+            # Giữ cả zone chỉ hụt nhẹ. Chạy thật cho ra "0 zone đang thiếu xe" ngay cạnh
+            # "cầu chưa phục vụ 22.0" — một câu tự mâu thuẫn, vì luật §4.3 lọc theo TỶ LỆ nên
+            # cầu hụt rải mỏng dưới ngưỡng bị rơi hết. Báo hai tập tách bạch thì người vận
+            # hành thấy đúng cả hai sự thật: không ai vượt ngưỡng, mà vẫn có khách chưa phục vụ.
+            if gap > 0 or meets_policy:
+                rows.append(
+                    {
+                        "zone_id": zone.zone_id,
+                        "demand_observed": zone.demand_observed,
+                        "idle_supply": zone.idle_supply,
+                        "gap": gap,
+                        "meets_policy_condition": meets_policy,
+                    }
+                )
+        # Thiếu nặng nhất lên đầu; `zone_id` phá hoà để cùng một snapshot luôn cho cùng một
+        # thứ tự, không phụ thuộc thứ tự zone đi vào (CLAUDE.md §3 #4).
+        rows.sort(key=lambda row: (-float(row["gap"]), int(row["zone_id"])))
+        totals = system_metrics((float(zone.demand_observed), float(zone.idle_supply)) for zone in context.zones)
+        return {
+            "status": "ok",
+            "observed_at": context.t.isoformat(),
+            # Vượt ngưỡng chính sách §4.3 — cùng luật hotspot dùng, chỉ khác mốc thời gian.
+            "shortage_zone_ids": [row["zone_id"] for row in rows if row["meets_policy_condition"]],
+            "shortage_zone_count": sum(1 for row in rows if row["meets_policy_condition"]),
+            # Có cầu chưa phục vụ được, dù chưa vượt ngưỡng. Không phải tập cha của tập trên:
+            # zone dưới `min_supply_per_zone` mà cầu bằng 0 vượt ngưỡng nhưng `gap` vẫn là 0.
+            "unmet_zone_ids": [row["zone_id"] for row in rows if row["gap"] > 0],
+            "unmet_zone_count": sum(1 for row in rows if row["gap"] > 0),
+            "zone_shortages": rows,
+            "total_unmet_now": totals.unmet_demand,
+            "total_demand_observed": totals.total_demand,
+            "total_idle_supply": sum(context.idle_supply.values()),
+            "min_supply_per_zone": min_supply,
+        }
+
     def get_supply_state() -> dict[str, Any]:
-        """Kiểm kê cung hiện tại, hotspot chính sách và zone dư."""
+        """Hotspot chính sách và zone dư **ở +horizon phút** — chạy Model 2 trên forecast.
+
+        Chữ "hiện tại" từng nằm ở dòng này và đó là một lời nói dối có hậu quả: `policy_hotspot_ids`
+        và `risk_zone_ids` là kết quả của `detect_hotspots(forecast, ...)`, tức tương lai. LLM đọc
+        mô tả rồi viết "các zone ĐANG thiếu xe" lên số +15 phút. Câu hỏi về hiện tại thuộc về
+        `get_current_shortage`; trường duy nhất ở đây thuộc về hiện tại là `total_idle_supply`.
+        """
         if context.selection is None:
             return {"status": "error", "message": "Chưa có dự báo; gọi run_forecast trước."}
         hotspot_output = detect_hotspots(context.selection.forecast, context.zones, context.policy)
@@ -179,6 +250,9 @@ def build_registry(context: RunContext) -> ToolRegistry:
         context.targets = targets
         return {
             "status": "ok",
+            # Mốc đi kèm số, không để narration tự suy: thiếu nó thì một danh sách hotspot
+            # tương lai lại xuất hiện trần trụi cạnh câu hỏi hiện tại, đúng lỗi vừa sửa.
+            "horizon_min": hotspot_output.horizon_min,
             "policy_hotspot_ids": sorted(targets.policy_hotspot_ids),
             "risk_zone_ids": [risk.zone_id for risk in targets.risk_zones],
             "surplus_zone_count": len(hotspot_output.surplus_zones),
@@ -239,8 +313,14 @@ def build_registry(context: RunContext) -> ToolRegistry:
             get_travel_conditions,
         ),
         ToolSpec(
+            "get_current_shortage",
+            "Zone ĐANG thiếu xe ngay lúc này, đọc từ snapshot. Dùng cho câu hỏi về hiện tại; không cần dự báo.",
+            NO_ARGS,
+            get_current_shortage,
+        ),
+        ToolSpec(
             "get_supply_state",
-            "Kiểm kê cung, hotspot chính sách và zone dư.",
+            "Hotspot chính sách và zone dư DỰ BÁO ở +horizon phút. Cần chạy run_forecast trước.",
             NO_ARGS,
             get_supply_state,
         ),
@@ -262,7 +342,7 @@ def build_registry(context: RunContext) -> ToolRegistry:
 
     registry.allow(
         AGENT_ASSESSMENT,
-        frozenset({"run_forecast", "get_weather", "get_travel_conditions", "get_supply_state"}),
+        frozenset({"run_forecast", "get_weather", "get_travel_conditions", "get_current_shortage", "get_supply_state"}),
     )
     registry.allow(AGENT_DISPATCH, frozenset({"compute_relocation"}))
     registry.allow(AGENT_EXPLANATION, frozenset({"render_explanation"}))
@@ -280,7 +360,9 @@ def build_registry(context: RunContext) -> ToolRegistry:
 
 # Allowlist của agent quan sát. Khai báo trên cùng để test tĩnh so được nó với allowlist của
 # Assessment mà không phải dựng registry.
-OBSERVER_TOOLS: frozenset[str] = frozenset({"run_forecast", "get_weather", "get_travel_conditions", "get_supply_state"})
+OBSERVER_TOOLS: frozenset[str] = frozenset(
+    {"run_forecast", "get_weather", "get_travel_conditions", "get_current_shortage", "get_supply_state"}
+)
 
 # Chuỗi tool cố định của chế độ deterministic. Thứ tự này là ràng buộc dữ liệu thật, không
 # phải quy ước: `get_supply_state` cần forecast, `compute_relocation` cần tập đích.

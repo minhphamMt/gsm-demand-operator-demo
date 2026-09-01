@@ -24,6 +24,54 @@ describe('mapAiZone', () => {
     });
   });
 
+  describe('thang rủi ro bốn mức', () => {
+    // Ngưỡng đến từ `policy.yaml::zone_risk_gap_thresholds`, không viết trong mapper nữa.
+    const thresholds = [1, 6, 11] as const;
+    const observe = (demand: number, supply: number) => mapAiZone(
+      zone,
+      { data_status: 'live', idle_supply: supply, demand_observed: demand, rain_mm_h: 0, rain_forecast_15: 0, rain_forecast_30: 0 },
+      undefined,
+      thresholds,
+    ).severity;
+
+    it('chấm theo đúng ngưỡng nhận vào', () => {
+      expect(observe(10, 10)).toBe('Low');
+      expect(observe(11, 10)).toBe('Medium');
+      expect(observe(16, 10)).toBe('High');
+      expect(observe(21, 10)).toBe('Critical');
+    });
+
+    it('mỗi mức nhận đúng biên dưới của nó', () => {
+      // Biên là chỗ dễ lệch một đơn vị nhất, và lệch ở đây làm cả bảng phân bố sai một cột.
+      expect(observe(15, 10)).toBe('Medium');
+      expect(observe(20, 10)).toBe('High');
+    });
+
+    it('zone thừa xe vẫn là Low, không âm', () => {
+      expect(observe(4, 30)).toBe('Low');
+    });
+
+    it('đổi ngưỡng thì kết quả đổi theo — không có số nào cứng trong mapper', () => {
+      const strict = mapAiZone(
+        zone,
+        { data_status: 'live', idle_supply: 10, demand_observed: 13, rain_mm_h: 0, rain_forecast_15: 0, rain_forecast_30: 0 },
+        undefined,
+        [1, 2, 3] as const,
+      ).severity;
+
+      expect(strict).toBe('Critical');
+    });
+
+    it('thiếu ngưỡng thì trả Unknown chứ không đoán', () => {
+      // Rơi về một bộ số dự phòng chính là bản sao vừa được gỡ bỏ; 'Unknown' là câu trả lời
+      // trung thực khi chưa đọc được policy.
+      expect(mapAiZone(
+        zone,
+        { data_status: 'live', idle_supply: 1, demand_observed: 99, rain_mm_h: 0, rain_forecast_15: 0, rain_forecast_30: 0 },
+      ).severity).toBe('Unknown');
+    });
+  });
+
   it('keeps a materialized zone record unavailable until real observations arrive', () => {
     expect(mapAiZone({ ...zone, zone_id: 30, zone_code: 'AI-Z30', zone_name: 'Sơn Tây' }, { data_status: 'missing' })).toMatchObject({
       id: 'AI-Z30', dataStatus: 'missing', supply: null, demand: null, gap: null, severity: 'Unknown',

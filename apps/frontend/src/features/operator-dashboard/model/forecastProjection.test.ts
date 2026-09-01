@@ -59,7 +59,7 @@ describe('projectZonesAtMinute', () => {
 
   it('builds one selectable tick for every five minutes in the real model horizon', () => {
     expect(forecastSteps(15)).toEqual([0, 5, 10, 15])
-    expect(forecastSteps(10)).toEqual([0, 5, 10])
+    expect(forecastSteps(30)).toEqual([0, 5, 10, 15, 20, 25, 30])
     expect(meanRainAtMinute([zone], 10)).toBe(0.7)
   })
 

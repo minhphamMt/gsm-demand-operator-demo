@@ -1,5 +1,5 @@
 import { assertNoActiveExecution } from '../operator/active-execution.guard';
-import { AiService, proposalOperationalWindow, replaySourceAtIso } from './ai.service';
+import { AiService, policyVersionFor, proposalOperationalWindow, replaySourceAtIso } from './ai.service';
 
 jest.mock('../operator/active-execution.guard', () => ({ assertNoActiveExecution: jest.fn() }));
 
@@ -18,6 +18,108 @@ function eligibleDriverQuery(count: number) {
   chain.select.mockReturnValue(chain);
   return chain;
 }
+
+describe('AiService.zoneRiskThresholds', () => {
+  const withPolicy = (payload: unknown) => {
+    const service = new AiService({} as never);
+    const request = jest.spyOn(service as never, 'request').mockResolvedValue(payload as never);
+    return { request, service };
+  };
+
+  it('đọc ngưỡng từ policy của AI service', async () => {
+    const { service } = withPolicy({ rules: { zone_risk_gap_thresholds: [1, 6, 11] } });
+
+    await expect(service.zoneRiskThresholds()).resolves.toEqual([1, 6, 11]);
+  });
+
+  it('chỉ hỏi một lần rồi giữ lại — I-08 khoá policy trong một lần chạy', async () => {
+    const { request, service } = withPolicy({ rules: { zone_risk_gap_thresholds: [2, 5, 9] } });
+
+    await service.zoneRiskThresholds();
+    await service.zoneRiskThresholds();
+
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('từ chối payload sai hình dạng thay vì dựng một thang méo', async () => {
+    // Ba số là một thang; nhận thiếu hoặc nhận số lẻ sẽ chấm sai lặng lẽ ở mọi zone.
+    for (const broken of [{ rules: {} }, { rules: { zone_risk_gap_thresholds: [1, 6] } },
+      { rules: { zone_risk_gap_thresholds: [1, 6, 11.5] } }, {}]) {
+      const { service } = withPolicy(broken);
+      await expect(service.zoneRiskThresholds()).resolves.toBeUndefined();
+    }
+  });
+
+  it('AI service hỏng thì trả undefined, không bịa ngưỡng', async () => {
+    const service = new AiService({} as never);
+    jest.spyOn(service as never, 'request').mockRejectedValue(new Error('AI service down') as never);
+
+    await expect(service.zoneRiskThresholds()).resolves.toBeUndefined();
+  });
+});
+
+describe('policyVersionFor', () => {
+  it('giữ nhãn cũ khi chạy bằng policy.yaml nguyên bản', () => {
+    // Lượt chạy không chỉnh gì phải băm và gắn nhãn y như trước khi có tính năng này,
+    // nếu không thì mọi bản ghi cũ trông như đã đổi chính sách.
+    expect(policyVersionFor()).toBe('policy-v1');
+    expect(policyVersionFor({})).toBe('policy-v1');
+  });
+
+  it('ghi cả tên lẫn giá trị ngưỡng đã chỉnh', () => {
+    // Biết `budget_cap` bị chỉnh mà không biết chỉnh thành bao nhiêu thì vẫn không
+    // dựng lại được lượt chạy — dấu vết như vậy là dấu vết rỗng.
+    expect(policyVersionFor({ budget_cap: 400000 })).toBe('policy-v1+ovr(budget_cap=400000)');
+  });
+
+  it('cùng bộ override cho ra cùng một nhãn bất kể thứ tự key', () => {
+    expect(policyVersionFor({ max_distance: 5.5, budget_cap: 400000 }))
+      .toBe(policyVersionFor({ budget_cap: 400000, max_distance: 5.5 }));
+  });
+});
+
+describe('AiService.readPolicy', () => {
+  it('proxy thẳng policy của AI service, không tự parse YAML', async () => {
+    // CLAUDE.md §3 #2: chỉ src/common/policy.py được đọc file. Backend parse YAML =
+    // người đọc thứ hai, và một bản sao ngưỡng trôi khỏi bản gốc.
+    const service = new AiService({} as never);
+    const request = jest.spyOn(service as never, 'request').mockResolvedValue({ rules: {}, tunable: [] } as never);
+
+    await service.readPolicy();
+
+    expect(request).toHaveBeenCalledWith('/api/v1/policy', { method: 'GET' });
+  });
+
+  it('không cache — bảng chỉ số phải đọc số đang thật', async () => {
+    const service = new AiService({} as never);
+    const request = jest.spyOn(service as never, 'request').mockResolvedValue({ rules: {} } as never);
+
+    await service.readPolicy();
+    await service.readPolicy();
+
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('AiService.optimize', () => {
+  it('chuyển ngưỡng đã chỉnh xuống lượt chạy', async () => {
+    const service = new AiService({} as never);
+    const generate = jest.spyOn(service, 'generate').mockResolvedValue({} as never);
+
+    await service.optimize(7, 15, { budget_cap: 400000 });
+
+    expect(generate).toHaveBeenCalledWith(15, 7, true, true, { budget_cap: 400000 });
+  });
+
+  it('không chỉnh gì thì không gửi override', async () => {
+    const service = new AiService({} as never);
+    const generate = jest.spyOn(service, 'generate').mockResolvedValue({} as never);
+
+    await service.optimize(7, 15);
+
+    expect(generate).toHaveBeenCalledWith(15, 7, true, true, undefined);
+  });
+});
 
 describe('AiService persistence', () => {
   it('normalizes replay source time to a five-minute UTC identity', () => {
@@ -114,7 +216,7 @@ describe('AiService persistence', () => {
     const persistProposal = jest.spyOn(service as never, 'persistProposal');
     jest.spyOn(service as never, 'completeForecastRun').mockResolvedValue(undefined as never);
 
-    await service.generate(5, 7, true, true);
+    await service.generate(15, 7, true, true);
 
     expect(persistForecast).toHaveBeenCalledTimes(1);
     expect(persistOptimizerRun).not.toHaveBeenCalled();
@@ -433,7 +535,7 @@ describe('AiService persistence', () => {
     const service = new AiService(db as never);
     jest.spyOn(service as never, 'request').mockResolvedValue({ forecast_mode: 'live_snapshot_baseline' } as never);
 
-    await expect(service.generate(5, 7, false, false)).rejects.toMatchObject({
+    await expect(service.generate(15, 7, false, false)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'REPLAY_MODEL_REQUIRED' }),
     });
     expect(inputUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'FAILED' }));
@@ -501,7 +603,7 @@ describe('AiService persistence', () => {
     jest.spyOn(service as never, 'validateLiveZones').mockReturnValue([] as never);
     const request = jest.spyOn(service as never, 'request').mockResolvedValue({ run_id: 'r-2', status: 'RUNNING' } as never);
 
-    await expect(service.startRun(10, 7)).resolves.toEqual({ runId: 'r-2', status: 'RUNNING' });
+    await expect(service.startRun(30, 7)).resolves.toEqual({ runId: 'r-2', status: 'RUNNING' });
 
     expect(assertNoActiveExecution).toHaveBeenCalledWith(db);
     expect(request).toHaveBeenCalledWith('/api/v1/runs', {
@@ -510,7 +612,7 @@ describe('AiService persistence', () => {
       body: JSON.stringify({
         snapshot_id: 7,
         t: '2026-08-15T00:00:00.000Z',
-        horizon_min: 10,
+        horizon_min: 30,
         data_source: 'supabase:ai_zone_observations:7',
         replay_source_at: undefined,
         zones: [],

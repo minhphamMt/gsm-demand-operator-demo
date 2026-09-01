@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AgentInteractionLog } from '@/features/operator-console/components/AgentInteractionLog'
+import type { ConsoleStatus } from '@/features/operator-console/model/logCommands'
 import type { LogRow } from '@/features/operator-console/model/logRows'
 
 const row = (seq: number, patch: Partial<LogRow> = {}): LogRow => ({
@@ -22,10 +23,24 @@ const row = (seq: number, patch: Partial<LogRow> = {}): LogRow => ({
   ...patch,
 })
 
+const status: ConsoleStatus = {
+  observedAt: '2026-08-28T17:02:05+07:00',
+  isLiveEdge: true,
+  isStale: false,
+  regime: 'rain_peak',
+  zoneCount: 30,
+  missingZoneCount: 0,
+  forecastReady: true,
+  horizonMinutes: 15,
+  stage: 'plan',
+  plan: { id: 'PLAN_B', version: 1, status: 'Proposed' },
+  awaitingApproval: true,
+}
+
 function show(rows: readonly LogRow[], props: Partial<Parameters<typeof AgentInteractionLog>[0]> = {}) {
   const onAsk = vi.fn()
   const view = render(
-    <AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={rows} thinking={[]} {...props} />,
+    <AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={rows} status={status} thinking={[]} {...props} />,
   )
   // Existing cases exercise the expanded log. Open it explicitly so those assertions
   // remain focused on log content rather than the initial-visibility contract.
@@ -38,15 +53,16 @@ describe('AgentInteractionLog', () => {
 
   it('mặc định thu gọn dù chưa chạy lượt nào, nhưng vẫn có thanh mở nhật ký', () => {
     const onAsk = vi.fn()
-    render(<AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={[]} thinking={[]} />)
+    render(<AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={[]} status={status} thinking={[]} />)
 
     expect(screen.queryByRole('log')).not.toBeInTheDocument()
-    expect(screen.queryByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Nhật ký agent/ })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Nhật ký agent/ }))
+    expect(screen.getByRole('log')).toBeInTheDocument()
     expect(screen.getByRole('log')).toHaveTextContent('Gõ chạy phân tích để agent bắt đầu')
-    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })).toBeInTheDocument()
   })
 
   it('dựng đúng khuôn [giờ] [ACTOR] > nội dung', () => {
@@ -157,10 +173,10 @@ describe('AgentInteractionLog', () => {
   it('gửi câu đã gõ rồi xoá ô nhập', async () => {
     const { onAsk } = show([])
 
-    await userEvent.type(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' }), 'zone nào thiếu xe{Enter}')
+    await userEvent.type(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' }), 'zone nào thiếu xe{Enter}')
 
     expect(onAsk).toHaveBeenCalledWith('zone nào thiếu xe')
-    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })).toHaveValue('')
   })
 
   it('mở nhật ký và gửi ngay lệnh nhanh từ bảng điều hành', async () => {
@@ -174,18 +190,19 @@ describe('AgentInteractionLog', () => {
         onAsk={onAsk}
         quickCommand={{ id: 1, text: 'chạy dự báo' }}
         rows={[]}
+        status={status}
         thinking={[]}
       />,
     )
 
     await waitFor(() => expect(onAsk).toHaveBeenCalledWith('chạy dự báo'))
     expect(screen.getByRole('log')).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })).toHaveValue('')
   })
 
   it('không gửi câu rỗng hay chỉ có khoảng trắng', async () => {
     const { onAsk } = show([])
-    const box = screen.getByRole('textbox', { name: 'Ra lệnh hoặc hỏi agent' })
+    const box = screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })
 
     await userEvent.type(box, '{Enter}')
     await userEvent.type(box, '    {Enter}')
@@ -232,7 +249,7 @@ describe('AgentInteractionLog', () => {
     expect(screen.queryByRole('log')).not.toBeInTheDocument()
 
     rerender(
-      <AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2), row(3), row(4)]} thinking={[]} />,
+      <AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2), row(3), row(4)]} status={status} thinking={[]} />,
     )
 
     expect(screen.getByRole('button')).toHaveTextContent('2 dòng mới')
@@ -241,7 +258,7 @@ describe('AgentInteractionLog', () => {
   it('mở lại từ thanh thu gọn và xoá số dòng chưa đọc', async () => {
     const { rerender, onAsk } = show([row(1)], { isRunning: true })
     await userEvent.click(screen.getByRole('button', { name: 'Thu gọn nhật ký' }))
-    rerender(<AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2)]} thinking={[]} />)
+    rerender(<AgentInteractionLog isBusy={false} isRunning onAsk={onAsk} rows={[row(1), row(2)]} status={status} thinking={[]} />)
 
     await userEvent.click(screen.getByRole('button', { name: /Nhật ký agent/ }))
 
@@ -271,5 +288,330 @@ describe('AgentInteractionLog', () => {
     show([row(1)])
 
     expect(screen.queryByText(/đang suy nghĩ/)).not.toBeInTheDocument()
+  })
+
+  // --- lệnh gạch chéo ---
+
+  const type = (text: string) =>
+    userEvent.type(screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' }), text)
+
+  it('/clear xoá nhật ký khỏi màn hình mà không gửi gì cho agent', async () => {
+    const { onAsk } = show([row(1), row(2), row(3)])
+
+    await type('/clear{Enter}')
+
+    const log = screen.getByRole('log')
+    expect(log).not.toHaveTextContent('dòng 1')
+    expect(log).toHaveTextContent('đã xoá 3 dòng khỏi màn hình')
+    // Ranh giới của cả tính năng: lệnh của màn hình không đi qua cửa của agent.
+    expect(onAsk).not.toHaveBeenCalled()
+  })
+
+  it('/clear nói rõ bản ghi kiểm toán không đổi — nó dọn màn hình, không xoá dấu vết', async () => {
+    show([row(1)])
+
+    await type('/clear{Enter}')
+
+    expect(screen.getByRole('log')).toHaveTextContent('Bản ghi kiểm toán ở CSDL không đổi')
+  })
+
+  it('dòng tới sau /clear vẫn hiện', async () => {
+    const { rerender, onAsk } = show([row(1), row(2)])
+    await type('/clear{Enter}')
+
+    rerender(
+      <AgentInteractionLog isBusy={false} isRunning={false} onAsk={onAsk} rows={[row(1), row(2), row(9)]} status={status} thinking={[]} />,
+    )
+
+    expect(screen.getByRole('log')).toHaveTextContent('dòng 9')
+    expect(screen.getByRole('log')).not.toHaveTextContent('dòng 1')
+  })
+
+  it('/clear GIỮ dòng chờ duyệt còn treo — không được dọn mất một việc chưa làm', async () => {
+    const { container } = show([
+      row(1),
+      row(2, { origin: 'gate', kind: 'awaiting_approval', text: '⏸ chờ người vận hành duyệt PLAN_B' }),
+    ])
+
+    await type('/clear{Enter}')
+
+    expect(screen.getByRole('log')).toHaveTextContent('⏸ chờ người vận hành duyệt PLAN_B')
+    expect(container.querySelectorAll('.is-waiting')).toHaveLength(1)
+    expect(screen.getByText('chờ bạn duyệt')).toBeInTheDocument()
+  })
+
+  it('/help liệt kê lệnh và nói rõ không phê duyệt được từ ô nhập', async () => {
+    const { onAsk } = show([])
+
+    await type('/help{Enter}')
+
+    const log = screen.getByRole('log')
+    expect(log).toHaveTextContent('/clear')
+    expect(log).toHaveTextContent('KHÔNG gõ được ở đây')
+    expect(onAsk).not.toHaveBeenCalled()
+  })
+
+  it('lệnh lạ dừng ở màn hình, không tiêu một lượt gọi agent', async () => {
+    const { onAsk } = show([])
+
+    await type('/approve{Enter}')
+
+    expect(screen.getByRole('log')).toHaveTextContent('không có lệnh /approve')
+    expect(onAsk).not.toHaveBeenCalled()
+  })
+
+  it('câu thường vẫn đi tới agent như cũ', async () => {
+    const { onAsk } = show([])
+
+    await type('zone nào thiếu xe{Enter}')
+
+    expect(onAsk).toHaveBeenCalledWith('zone nào thiếu xe')
+  })
+
+  it('/export chép nhật ký đang hiện vào clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    show([row(1, { actor: 'dispatch', text: '3 chặng, 6 xe' })])
+
+    await type('/export{Enter}')
+
+    expect(writeText).toHaveBeenCalledWith('[17:02:01] [DISPATCH_AGENT] > 3 chặng, 6 xe')
+    expect(await screen.findByText(/đã chép \d+ dòng vào clipboard/)).toBeInTheDocument()
+    vi.unstubAllGlobals()
+  })
+
+  it('↑ gọi lại câu vừa gõ, ↓ trả về dòng trắng', async () => {
+    show([])
+    const box = screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })
+
+    await userEvent.type(box, 'chạy dự báo{Enter}')
+    await userEvent.type(box, '{ArrowUp}')
+    expect(box).toHaveValue('chạy dự báo')
+
+    await userEvent.type(box, '{ArrowDown}')
+    expect(box).toHaveValue('')
+  })
+
+  it('↑ đi ngược dần qua lịch sử', async () => {
+    show([])
+    const box = screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })
+
+    await userEvent.type(box, 'câu một{Enter}')
+    await userEvent.type(box, 'câu hai{Enter}')
+
+    await userEvent.type(box, '{ArrowUp}')
+    expect(box).toHaveValue('câu hai')
+    await userEvent.type(box, '{ArrowUp}')
+    expect(box).toHaveValue('câu một')
+  })
+
+  it('/status in trạng thái vận hành mà không gọi agent', async () => {
+    const { onAsk } = show([])
+
+    await type('/status{Enter}')
+
+    const log = screen.getByRole('log')
+    expect(log).toHaveTextContent('17:02:05')
+    expect(log).toHaveTextContent('rain_peak')
+    expect(log).toHaveTextContent('PLAN_B v1 · Proposed')
+    expect(onAsk).not.toHaveBeenCalled()
+  })
+
+  it('/gates chỉ giữ quyết định của con người, bỏ tường thuật của đồ thị', async () => {
+    show([
+      row(1, { actor: 'optimization', text: '3 phương án đã chấm' }),
+      row(2, { origin: 'action', kind: 'operator_action', actor: 'operator', text: 'đã phê duyệt PLAN_B', ok: true, code: 'GATE_PLAN_APPROVED' }),
+      row(3, { origin: 'audit', kind: 'audit_record', actor: 'driver', text: '[LƯU] tài xế nhận offer' }),
+    ])
+
+    await type('/gates{Enter}')
+
+    const log = screen.getByRole('log')
+    expect(log).toHaveTextContent('đã phê duyệt PLAN_B')
+    expect(log).toHaveTextContent('tài xế nhận offer')
+    expect(log).not.toHaveTextContent('3 phương án đã chấm')
+  })
+
+  it('/gates hiện huy hiệu trên tiêu đề — nhật ký lọc âm thầm là nhật ký nói dối', async () => {
+    show([row(1)])
+
+    await type('/gates{Enter}')
+
+    expect(screen.getByText('chỉ quyết định')).toBeInTheDocument()
+  })
+
+  it('/gates lần thứ hai tắt bộ lọc và hiện lại đủ', async () => {
+    show([row(1, { text: 'tường thuật của đồ thị' })])
+
+    await type('/gates{Enter}')
+    expect(screen.getByRole('log')).not.toHaveTextContent('tường thuật của đồ thị')
+
+    await type('/gates{Enter}')
+    expect(screen.getByRole('log')).toHaveTextContent('tường thuật của đồ thị')
+    expect(screen.queryByText('chỉ quyết định')).not.toBeInTheDocument()
+  })
+
+  it('/gates trên nhật ký chưa có quyết định nào vẫn nói rõ vì sao trống', async () => {
+    show([row(1, { text: 'chỉ có tường thuật' })])
+
+    await type('/gates{Enter}')
+
+    // Không có dòng nào lọt bộ lọc, nhưng câu xác nhận của chính ô nhập thì phải còn —
+    // màn hình trống trơn không lời giải thích sẽ bị đọc thành hỏng.
+    expect(screen.getByRole('log')).toHaveTextContent('chưa có quyết định nào')
+  })
+
+  it('/export chép đúng phần đang hiện, nên /gates rồi /export ra biên bản quyết định', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    show([
+      row(1, { actor: 'optimization', text: '3 phương án đã chấm' }),
+      row(2, { origin: 'action', kind: 'operator_action', actor: 'operator', text: 'đã phê duyệt PLAN_B', ok: true }),
+    ])
+
+    await type('/gates{Enter}')
+    await type('/export{Enter}')
+
+    const copied = writeText.mock.calls[0]![0] as string
+    expect(copied).toContain('đã phê duyệt PLAN_B')
+    expect(copied).not.toContain('3 phương án đã chấm')
+    vi.unstubAllGlobals()
+  })
+
+  // --- menu gõ `/` ---
+
+  const box = () => screen.getByRole('combobox', { name: 'Ra lệnh hoặc hỏi agent' })
+
+  it('gõ / bật menu đủ bảng lệnh, kèm mô tả từng lệnh', async () => {
+    show([])
+
+    await type('/')
+
+    const options = screen.getAllByRole('option')
+    expect(options.map((option) => option.textContent)).toEqual([
+      expect.stringContaining('/clear'),
+      expect.stringContaining('/export'),
+      expect.stringContaining('/gates'),
+      expect.stringContaining('/status'),
+      expect.stringContaining('/help'),
+    ])
+    expect(options[0]).toHaveTextContent('bản ghi ở CSDL không đổi')
+    expect(box()).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('lọc dần theo chữ gõ thêm', async () => {
+    show([])
+
+    await type('/g')
+
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+    expect(screen.getByRole('option')).toHaveTextContent('/gates')
+  })
+
+  it('không bật menu khi đang viết câu hỏi cho agent', async () => {
+    show([])
+
+    await type('zone nào')
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(box()).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('↑↓ lái menu và công bố mục đang tô cho trình đọc màn hình', async () => {
+    show([])
+    await type('/')
+
+    expect(box()).toHaveAttribute('aria-activedescendant', 'nf-agent-log-cmd-clear')
+
+    await type('{ArrowDown}')
+    expect(box()).toHaveAttribute('aria-activedescendant', 'nf-agent-log-cmd-export')
+
+    await type('{ArrowUp}')
+    expect(box()).toHaveAttribute('aria-activedescendant', 'nf-agent-log-cmd-clear')
+  })
+
+  it('↑ ở đầu danh sách vòng xuống cuối, không kẹt', async () => {
+    show([])
+    await type('/')
+
+    await type('{ArrowUp}')
+
+    expect(box()).toHaveAttribute('aria-activedescendant', 'nf-agent-log-cmd-help')
+  })
+
+  it('Enter chạy lệnh ĐANG TÔ, nên gõ /g rồi Enter ra /gates', async () => {
+    show([row(1, { text: 'tường thuật của đồ thị' })])
+
+    await type('/g{Enter}')
+
+    expect(screen.getByText('chỉ quyết định')).toBeInTheDocument()
+  })
+
+  it('Enter khi mới gõ / chạy lệnh đầu danh sách, không báo "không có lệnh"', async () => {
+    show([row(1), row(2)])
+
+    await type('/{Enter}')
+
+    expect(screen.getByRole('log')).toHaveTextContent('đã xoá 2 dòng khỏi màn hình')
+  })
+
+  it('Tab điền nốt tên lệnh mà chưa chạy — còn kịp đọc lại trước khi Enter', async () => {
+    show([])
+
+    await type('/s{Tab}')
+
+    expect(box()).toHaveValue('/status')
+    expect(screen.getByRole('log')).not.toHaveTextContent('Mốc đang xem')
+  })
+
+  it('bấm chuột vào một mục thì chạy đúng lệnh đó', async () => {
+    show([])
+    await type('/')
+
+    await userEvent.click(screen.getByRole('option', { name: /\/status/ }))
+
+    expect(screen.getByRole('log')).toHaveTextContent('rain_peak')
+  })
+
+  it('Esc đóng menu mà không xoá chữ đang gõ', async () => {
+    show([])
+    await type('/cl')
+
+    await type('{Escape}')
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(box()).toHaveValue('/cl')
+  })
+
+  it('gõ tiếp sau Esc thì menu mở lại — Esc bỏ qua gợi ý, không tắt hẳn tính năng', async () => {
+    show([])
+    await type('/cl{Escape}')
+
+    await type('e')
+
+    expect(screen.getByRole('option')).toHaveTextContent('/clear')
+  })
+
+  it('menu mở thì ↑ lái menu chứ không gọi lại lịch sử', async () => {
+    show([])
+    await userEvent.type(box(), 'chạy dự báo{Enter}')
+
+    await type('/')
+    await type('{ArrowUp}')
+
+    // Chữ trong ô vẫn là `/`; nếu ↑ gọi lịch sử thì nó đã thành 'chạy dự báo'.
+    expect(box()).toHaveValue('/')
+  })
+
+  it('vẫn không có nút hành động nào sau khi thêm lệnh — lệnh gõ, không bấm', async () => {
+    show([row(1)])
+
+    await type('/help{Enter}')
+
+    const region = within(screen.getByRole('region', { name: 'Nhật ký agent' }))
+    expect(region.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Thu gọn nhật ký',
+      'Gửi',
+    ])
   })
 })

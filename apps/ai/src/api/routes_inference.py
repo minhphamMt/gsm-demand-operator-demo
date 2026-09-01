@@ -15,12 +15,13 @@ from src.activation.recommendation import recommend_activation
 from src.api.auth import require_service_api_key
 from src.common.errors import (
     DatasetUnavailableError,
+    PolicyOverrideRejectedError,
     ReplayModelUnavailableError,
     ReplayProvenanceMismatchError,
     ReplaySourceNotFoundError,
 )
 from src.common.haversine import get_zone_coords
-from src.common.policy import get_policy
+from src.common.policy import apply_overrides, get_policy
 from src.config import get_settings
 from src.contracts import ContractModel, StepAlignedDatetime, ZoneId, ensure_full_zone_coverage
 from src.contracts.forecast import HorizonMin
@@ -123,6 +124,11 @@ class DecisionRequest(ContractModel):
     data_source: str = Field(min_length=1)
     replay_source_at: StepAlignedDatetime | None = None
     zones: tuple[LiveZoneInput, ...]
+    # Ngưỡng điều phối viên chỉnh cho ĐÚNG lượt chạy này. Optional và mặc định rỗng nên
+    # contract cũ không đổi (CLAUDE.md §3 #1). Đi theo request thay vì nằm ở state server
+    # vì một override sống ngoài request là state ẩn: lượt chạy sau sẽ dùng ngưỡng khác mà
+    # không ai thấy trong input.
+    policy_overrides: dict[str, float] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_zone_coverage(self) -> "DecisionRequest":
@@ -154,6 +160,14 @@ def trained_model_readiness() -> dict[str, object]:
 def generate_decision(request: DecisionRequest) -> dict[str, object]:
     settings = get_settings()
     policy = get_policy(settings.policy_path)
+    try:
+        policy = apply_overrides(policy, request.policy_overrides)
+    except PolicyOverrideRejectedError as error:
+        # 422 chứ không 400: request đúng cú pháp, giá trị mới là thứ bị từ chối.
+        raise HTTPException(
+            status_code=422,
+            detail={"code": error.error_code, "message": error.message, **error.detail},
+        ) from error
     replay_source_at = pd.Timestamp(request.replay_source_at) if request.replay_source_at else None
 
     try:
@@ -241,4 +255,5 @@ def generate_decision(request: DecisionRequest) -> dict[str, object]:
         source_kind=source_kind,
         planning_status=planning_status,
         reason_code=reason_code,
+        policy_overrides=request.policy_overrides,
     )

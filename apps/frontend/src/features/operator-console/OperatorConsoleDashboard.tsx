@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
-  ChevronRight,
   Circle,
+  ChevronRight,
   CloudRain,
   LoaderCircle,
   Pause,
@@ -35,6 +35,7 @@ import {
   operationalGapFor,
   plansQuery,
   offersQuery,
+  policyQuery,
   replaySnapshotQuery,
   replayWindowQuery,
   snapshotQuery,
@@ -44,8 +45,10 @@ import {
   isProposalReviewable,
 } from "@/features/operator-data";
 import { operatorQueryKeys } from "@/features/operator-data/api/operatorQueries";
-import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, Proposal, Snapshot, Zone } from "@/features/operator-data";
+import type { AuditEntry, Campaign, DemoDriver, DispatchBatch, ForecastHorizon, Offer, PolicyOverrides, Proposal, Snapshot, Zone } from "@/features/operator-data";
 import { projectZonesAtMinute } from "@/features/operator-dashboard/model/forecastProjection";
+import { PolicyPanel } from "./components/PolicyPanel";
+import { pendingOverrides } from "./model/policyControls";
 import { PipelineModal, type PipelineTabId } from "@/features/operator-pipeline";
 import { usePipelineRun } from "@/features/operator-pipeline/hooks/usePipelineRun";
 import { useObserverSession } from "@/features/operator-pipeline/hooks/useObserverSession";
@@ -55,6 +58,7 @@ import { AgentInteractionLog } from "@/features/operator-console/components/Agen
 import { awaitingApprovalRow, conversationRows, mergeLogRows, thinkingRows } from "@/features/operator-console/model/logRows";
 import { auditLogRows } from "@/features/operator-console/model/auditLogRows";
 import { useOperatorActionLog } from "@/features/operator-console/hooks/useOperatorActionLog";
+import type { ConsoleStatus } from "@/features/operator-console/model/logCommands";
 import type { OperatorAction } from "@/features/operator-console/model/operatorLog";
 import { AiImpactChart } from "./components/AiImpactChart";
 import { DemandTrendChart } from "./components/DemandTrendChart";
@@ -77,14 +81,14 @@ import { useServerClock } from "./hooks/useServerClock";
 import { SnapshotStaleAlert } from "@/features/operator-dashboard/components/SnapshotStaleAlert";
 import {
   planningHorizonFor,
-  stageAtLeast,
   stageHasPlan,
+  stageAtLeast,
   resolveWorkflowStage,
   type OperatorWorkflowStage,
 } from "./model/operatorWorkflow";
 import { operatorMapFlowState } from "./operatorMapFlowState";
 import { proposalCoverageForStage } from "./model/proposalCoverage";
-import { scenarioPresentation } from "./model/scenarioPresentation";
+import { regimeWeatherLabel } from "./model/regimeWeatherLabel";
 import { fleetBalanceSummary } from "./model/fleetBalanceSummary";
 import { isSameReplayInstant, observedAtForReplaySource } from "./model/replayClock";
 import "./operator-dashboard.css";
@@ -125,7 +129,7 @@ export function OperatorConsoleDashboard({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [opsTheme, setOpsTheme] = useState<OpsTheme>(readStoredOpsTheme);
-  const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(5);
+  const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(15);
   const [replaySnapshot, setReplaySnapshot] = useState<Snapshot>();
   const [selectedZoneId, setSelectedZoneId] = useState<string>();
   const [search, setSearch] = useState("");
@@ -133,10 +137,10 @@ export function OperatorConsoleDashboard({
   // visible; the zone list is opened only when the operator needs to inspect it.
   const [finderOpen, setFinderOpen] = useState(false);
   const [insightOpen, setInsightOpen] = useState(true);
+  const [replayTargetAt, setReplayTargetAt] = useState<string>();
   const [layer, setLayer] = useState<MapLayer>("gap");
   const [mapView, setMapView] = useState<MapView>("city");
   const [mapSource, setMapSource] = useState<MapSource>("observed");
-  const [replayTargetAt, setReplayTargetAt] = useState<string>();
   const [forecastRun, setForecastRun] = useState<{
     horizon: ForecastHorizon;
     sourceAt: string;
@@ -155,6 +159,11 @@ export function OperatorConsoleDashboard({
   const [pipelineTab, setPipelineTab] = useState<PipelineTabId>("agents");
   const [quickAgentCommand, setQuickAgentCommand] = useState<{ id: number; text: string }>();
   const quickAgentCommandIdRef = useRef(0);
+  // Ngưỡng điều phối viên đang kéo, sống trong state của màn hình chứ không ghi đi đâu.
+  // Đặt ở đây thay vì trong PolicyPanel vì lượt tính (`optimizeFor`) mới là nơi dùng nó —
+  // panel chỉ là chỗ nhập, và state nằm trong panel sẽ mất mỗi lần cột chỉ huy đóng lại.
+  const [policyDraft, setPolicyDraft] = useState<PolicyOverrides>({});
+  const [pipelineSummaryOpen, setPipelineSummaryOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -166,6 +175,7 @@ export function OperatorConsoleDashboard({
 
   const snapshot = useQuery(snapshotQuery("baseline", "rain-peak", 0, planningSourceAt === undefined));
   const capabilities = useQuery(capabilitiesQuery());
+  const policy = useQuery(policyQuery());
   const replayAnchorAt = useCurrentReplayAnchor(
     capabilities.data?.serverTime,
     capabilities.isError,
@@ -194,7 +204,6 @@ export function OperatorConsoleDashboard({
       || lastAutoReplayAtRef.current === replayAnchorAt
     ) return;
     lastAutoReplayAtRef.current = replayAnchorAt;
-    setReplayTargetAt(replayAnchorAt);
     setDrawerOpen(false);
     actions.runReplayStep.mutate(replayAnchorAt, {
       onSuccess: (nextSnapshot) => {
@@ -467,17 +476,17 @@ export function OperatorConsoleDashboard({
     const cachedSnapshot = queryClient.getQueryData<Snapshot>(operatorQueryKeys.replaySnapshot(nextSourceAt));
     if (cachedSnapshot && !forceRefresh) {
       actions.runReplayStep.reset();
+      setReplayTargetAt(undefined);
       setReplaySnapshot(cachedSnapshot);
       setForecastRun(null);
       setOptimizationStopReason(undefined);
       setWorkflowStage("observe");
       setMapSource("observed");
-      setReplayTargetAt(undefined);
       setDrawerOpen(false);
       return;
     }
-    setReplayTargetAt(nextSourceAt);
     setDrawerOpen(false);
+    setReplayTargetAt(nextSourceAt);
     actions.runReplayStep.mutate(nextSourceAt, {
       onSuccess: (nextSnapshot) => {
         const normalizedSnapshot = nextSnapshot.sourceAt === nextSourceAt
@@ -535,8 +544,12 @@ export function OperatorConsoleDashboard({
     if (!isLiveEdge || (requireForecast && !forecastReady) || !dataComplete || snapshotStale || hasExecution) return;
     const parsedSnapshotId = Number(activeSnapshot.replayStep);
     const snapshotId = Number.isInteger(parsedSnapshotId) ? parsedSnapshotId : 0;
+    // Chỉ gửi những ngưỡng THỰC SỰ khác `policy.yaml`: kéo đi rồi kéo về chỗ cũ không phải
+    // là một thay đổi, và gắn nhãn override cho một lượt chạy đúng chính sách gốc sẽ làm
+    // mọi so sánh KPI về sau tưởng đó là hai chính sách khác nhau.
+    const overrides = pendingOverrides(policy.data, policyDraft);
     actions.optimizeAiDecision.mutate(
-      { snapshotId, horizonMinutes: planningHorizonFor(displayedHorizon) },
+      { snapshotId, horizonMinutes: planningHorizonFor(displayedHorizon), policyOverrides: overrides },
       {
         onError: (cause) => operatorLog.noteFailed("optimize", cause),
         onSuccess: (result) => {
@@ -751,6 +764,29 @@ export function OperatorConsoleDashboard({
       forecastReady ? undefined : "chưa có dự báo cho mốc này — gõ \"chạy dự báo\" trước đã"),
   };
 
+  // Ảnh chụp trạng thái cho lệnh `/status` của popup nhật ký. Dựng ở đây vì đây là chỗ duy nhất
+  // biết đủ cả sáu nguồn; popup không được tự đi hỏi query nào, nếu không nó thành nguồn sự
+  // thật thứ hai cạnh màn hình chính và hai bên sẽ lệch đúng lúc người ta cần tin nhất.
+  //
+  // `displaySourceAt` chứ không phải `sourceAt`: mọi chỗ khác trên màn hình đã chiếu mốc replay
+  // về đồng hồ vận hành, và `/status` mà in giờ thô của dataset thì nó mâu thuẫn với chính cái
+  // header người ta đang nhìn.
+  const consoleStatus: ConsoleStatus = {
+    observedAt: displaySourceAt,
+    isLiveEdge,
+    isStale: snapshotStale,
+    regime: activeSnapshot.regime,
+    zoneCount: zones.length,
+    missingZoneCount,
+    forecastReady,
+    horizonMinutes: displayedHorizon,
+    stage: activeStage,
+    plan: planReady && plan
+      ? { id: plan.id, version: plan.version, status: plan.status }
+      : undefined,
+    awaitingApproval: canReviewPlan,
+  };
+
   // Gộp một lần rồi dùng cho cả hai việc: `conversationRows` lọc ra thứ để đọc,
   // `thinkingRows` suy ra ai đang chạy. Gộp hai lần thì hai bên có thể nhìn hai mảng khác
   // nhau trong cùng một lần render.
@@ -797,9 +833,6 @@ export function OperatorConsoleDashboard({
       />
       <ScenarioBar
         forecastMinutes={displayedHorizon}
-        fleet={activeSnapshot.kpis.fleetAvailable}
-        generatedAt={displaySourceAt}
-        modelVersion={forecastRunForHorizon(activeSnapshot.ai, displayedHorizon)?.modelVersion ?? activeSnapshot.ai?.modelVersion}
         horizons={forecastHorizons}
         executionActive={hasExecution}
         isForecasting={actions.generateAiDecision.isPending}
@@ -810,7 +843,6 @@ export function OperatorConsoleDashboard({
           else setReplaySnapshot(undefined);
         }}
         regime={activeSnapshot.regime}
-        zoneCount={zones.length}
       />
       <div className="nf-ops-workspace">
         <aside aria-label="Biểu đồ vận hành" className={`nf-insight-column${insightOpen ? "" : " is-collapsed"}`}>
@@ -993,20 +1025,40 @@ export function OperatorConsoleDashboard({
                 requests={activeSnapshot.kpis.requests}
                 stage={activeStage}
               />
-              <Pipeline
-                campaign={campaign}
-                dispatch={dispatch}
-                forecastReady={forecastReady}
-                forecastStale={forecastStale}
-                isForecasting={actions.generateAiDecision.isPending}
-                isOptimizing={actions.optimizeAiDecision.isPending}
-                isScanning={actions.runReplayStep.isPending}
-                optimizationStopReason={optimizationStopReason}
-                plan={planReady ? plan : undefined}
-                onOpenPlan={() => setDrawerOpen(true)}
-                onOpenExecution={() => navigate(routes.operator.execution)}
-                replayTargetAt={replayTargetAt ? displayTimeForSource(replayTargetAt) : undefined}
-                stage={activeStage}
+              <details
+                className="nf-pipeline-accessory"
+                onToggle={(event) => setPipelineSummaryOpen(event.currentTarget.open)}
+                open={pipelineSummaryOpen}
+              >
+                <summary>
+                  <span>XEM TIẾN TRÌNH</span>
+                  <small>{forecastReady ? "đã có dự báo" : "đang chờ thao tác"}</small>
+                </summary>
+                {pipelineSummaryOpen && (
+                  <Pipeline
+                    campaign={campaign}
+                    dispatch={dispatch}
+                    forecastReady={forecastReady}
+                    forecastStale={forecastStale}
+                    isForecasting={actions.generateAiDecision.isPending}
+                    isOptimizing={actions.optimizeAiDecision.isPending}
+                    isScanning={actions.runReplayStep.isPending}
+                    optimizationStopReason={optimizationStopReason}
+                    onOpenExecution={() => navigate(routes.operator.execution)}
+                    onOpenPlan={() => setDrawerOpen(true)}
+                    plan={planReady ? plan : undefined}
+                    replayTargetAt={replayTargetAt ? displayTimeForSource(replayTargetAt) : undefined}
+                    stage={activeStage}
+                  />
+                )}
+              </details>
+              <PolicyPanel
+                draft={policyDraft}
+                hasError={Boolean(policy.error)}
+                isLoading={policy.isPending}
+                metrics={policy.data}
+                onChange={(key, value) => setPolicyDraft((current) => ({ ...current, [key]: value }))}
+                onReset={() => setPolicyDraft({})}
               />
               <RailActions
                 activeDispatch={dispatch}
@@ -1052,6 +1104,7 @@ export function OperatorConsoleDashboard({
           onAsk={(text) => observer.ask(text, { ...pipelineInput, handlers: chatHandlers })}
           quickCommand={quickAgentCommand}
           rows={conversationRows(mergedLogRows)}
+          status={consoleStatus}
           thinking={thinkingRows(mergedLogRows)}
       />
       {pipelineOpen && (
@@ -1120,45 +1173,32 @@ export function OperatorConsoleDashboard({
 
 export function ScenarioBar({
   executionActive = false,
-  fleet,
   forecastMinutes,
-  generatedAt,
   horizons,
   isForecasting = false,
-  modelVersion,
   onForecastChange,
   onRefresh,
   regime,
-  zoneCount,
 }: {
   executionActive?: boolean;
-  fleet: number;
   forecastMinutes: ForecastHorizon;
-  generatedAt: string;
   horizons: readonly ForecastHorizon[];
   isForecasting?: boolean;
-  modelVersion: string | null | undefined;
   onForecastChange: (value: ForecastHorizon) => void;
   onRefresh: () => void;
   regime: string;
-  zoneCount: number;
 }) {
-  const scenario = scenarioPresentation(regime, generatedAt);
   return (
     <div className="nf-scenario-bar">
       <span>
-        <CloudRain size={14} /> {scenario.weather}
+        <CloudRain size={14} /> {regimeWeatherLabel(regime)}
       </span>
-      <i />
-      <span>
-        Đội xe {fleet} · {zoneCount}/30 zone
-      </span>
-      <span className="nf-model">MODEL {modelVersion ?? "CHƯA XÁC ĐỊNH"}</span>
       {executionActive ? (
         <span className="nf-execution-lock" role="status">ĐANG ĐIỀU HÀNH · DỰ BÁO ĐÃ KHÓA</span>
       ) : (
         <>
-          <small>HORIZON DỰ BÁO</small>
+          {/* Không còn nhãn "HORIZON DỰ BÁO": ba lựa chọn đã tự đọc là "5 phút / 10 phút /
+              15 phút", và `aria-label` của nhóm vẫn nói rõ cho trình đọc màn hình. */}
           <div className="seg" role="group" aria-label="Horizon dự báo">
             {horizons.map((minute) => (
               <label className="seg-opt" key={minute}>

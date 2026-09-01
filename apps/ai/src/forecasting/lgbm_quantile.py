@@ -2,9 +2,10 @@
 
 **Bao nhiêu model.** §5.2 chốt "2 model riêng cho horizon 15/30", còn T1 AC #2 chốt
 "cả demand và supply, mỗi cái 3 objective quantile — 6 model". Hai câu này nhân với nhau:
-**6 booster cho mỗi horizon, 18 booster tất cả** sau khi replay thêm horizon 5 phút.
-Không thể gộp các horizon vào một model vì target khác nhau, và không thể bỏ phía cung
-vì §5.2 ghi rõ "model supply BẮT BUỘC dự báo song song với demand".
+**6 booster cho mỗi horizon, 12 booster tất cả**. Bản trước chạy {5, 10, 15} và vì thế có
+18 booster; con số đó lệch DATA_CONTRACT §4.2, mục ghi rõ `horizon_min ∈ {15, 30}` —
+"không giá trị nào khác". Không thể gộp các horizon vào một model vì target khác nhau, và
+không thể bỏ phía cung vì §5.2 ghi rõ "model supply BẮT BUỘC dự báo song song với demand".
 
 **Quantile crossing.** Ba objective train độc lập nên p10 > p50 xảy ra được trên một số
 dòng — validator Pydantic của §4.2 sẽ ném ngay tại chỗ. Xử lý ở `predict()` bằng cách sắp
@@ -170,7 +171,9 @@ def verify_model_bundle(
     artifacts = raw.get("artifacts")
     checksums = raw.get("artifact_sha256")
     if not isinstance(artifacts, dict) or set(artifacts) != expected_names:
-        raise ValueError("Model bundle manifest must declare exactly all 18 runtime artifacts")
+        # Số artifact suy ra từ `HORIZONS`, không viết cứng: đổi tập horizon mà thông báo vẫn
+        # đòi "18" thì người đọc log sẽ đi tìm 6 file không còn tồn tại.
+        raise ValueError(f"Model bundle manifest must declare exactly all {len(expected_names)} runtime artifacts")
     if not isinstance(checksums, dict) or set(checksums) != expected_names:
         raise ValueError("Model bundle manifest must contain a checksum for every runtime artifact")
 

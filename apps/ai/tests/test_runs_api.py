@@ -40,7 +40,7 @@ def _payload(zones: list[dict[str, object]]) -> dict[str, Any]:
     return {
         "snapshot_id": "runs-api",
         "t": SOURCE_AT,
-        "horizon_min": 5,
+        "horizon_min": 15,
         "data_source": "AI_PARQUET_REPLAY:runs-api",
         "replay_source_at": SOURCE_AT,
         "zones": zones,
