@@ -123,7 +123,7 @@ describe('snapshot mang bucket replay', () => {
   })
 
   it('dự báo cũng vậy — đây là chỗ đã hỏng', async () => {
-    laBucket5Phut((await mockOperatorAdapter.generateAiDecision(1, 5)).sourceAt)
+    laBucket5Phut((await mockOperatorAdapter.generateAiDecision(1, 15)).sourceAt)
   })
 
   it('runReplayStep vẫn ghi đè bằng bucket được yêu cầu', async () => {

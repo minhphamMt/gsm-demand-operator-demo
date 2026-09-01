@@ -37,7 +37,7 @@ const snapshot: Snapshot = {
   scenario: 'baseline',
   demoScenarioId: 'rain-peak',
   regime: 'rain_peak',
-  ai: { zoneContract: 'AI_ZONE_1_30', registeredZones: 2, liveZones: 2, forecastedZones: 2, horizons: [5, 10, 15], modelVersion: 'lgbm_v2_rainpeak', forecastMode: 'trained_model_replay', dataSource: 'replay', forecastAt: null },
+  ai: { zoneContract: 'AI_ZONE_1_30', registeredZones: 2, liveZones: 2, forecastedZones: 2, horizons: [15, 30], modelVersion: 'lgbm_v2_rainpeak', forecastMode: 'trained_model_replay', dataSource: 'replay', forecastAt: null },
   zones: [zone(1, 30, 10, 36), zone(2, 12, 14, 12)],
   hotspots: [],
   kpis: { fleetAvailable: 24, requests: 42, fulfillmentRate: 52.4, residualGap: 20, avgWaitProxy: 8.4 },
@@ -45,8 +45,8 @@ const snapshot: Snapshot = {
 
 // Tab do bên ngoài giữ (thanh icon dọc cũng chọn tab), nên test bọc bằng một chủ sở hữu state.
 const forecastControl = {
-  horizons: [5, 10, 15] as const,
-  horizon: 5 as const,
+  horizons: [15, 30] as const,
+  horizon: 15 as const,
   isRunning: false,
   blockedReason: undefined,
   auto: { isEnabled: false, intervalMinutes: 5, isAutoPlan: false },

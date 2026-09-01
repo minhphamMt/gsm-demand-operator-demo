@@ -125,7 +125,7 @@ export function OperatorConsoleDashboard({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [opsTheme, setOpsTheme] = useState<OpsTheme>(readStoredOpsTheme);
-  const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(5);
+  const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(15);
   const [replaySnapshot, setReplaySnapshot] = useState<Snapshot>();
   const [selectedZoneId, setSelectedZoneId] = useState<string>();
   const [search, setSearch] = useState("");

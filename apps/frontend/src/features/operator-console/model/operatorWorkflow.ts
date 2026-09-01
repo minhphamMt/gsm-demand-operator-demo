@@ -31,8 +31,8 @@ export const stageHasPlan = (stage: OperatorWorkflowStage) =>
 
 /** Keep optimization bound to the exact forecast visible to the operator. */
 export const planningHorizonFor = (
-  displayedHorizon: 5 | 10 | 15,
-): 5 | 10 | 15 => displayedHorizon;
+  displayedHorizon: 15 | 30,
+): 15 | 30 => displayedHorizon;
 
 export const resolveWorkflowStage = (
   localStage: OperatorWorkflowStage,

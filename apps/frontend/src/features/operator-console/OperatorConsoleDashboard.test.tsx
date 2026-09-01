@@ -58,11 +58,10 @@ describe('operator console safety states', () => {
 
   it('renders all forecast horizons declared by the server capability', () => {
     const changeHorizon = vi.fn()
-    render(<ScenarioBar forecastMinutes={5} horizons={[5, 10, 15]} onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" />)
+    render(<ScenarioBar forecastMinutes={15} horizons={[15, 30]} onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" />)
 
-    expect(screen.getByRole('radio', { name: '5 phút' })).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: '10 phút' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '15 phút' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '30 phút' })).toBeInTheDocument()
   })
 
   it('thanh trên cùng chỉ còn bối cảnh và điều khiển', () => {
@@ -70,7 +69,7 @@ describe('operator console safety states', () => {
     // biểu đồ cầu–cung, "30/30 zone" là `zones.length` nên luôn bằng 30 kể cả khi thiếu dữ
     // liệu, "MODEL" vẫn còn ở ForecastDrawer và ForecastRunStatus, còn "HORIZON DỰ BÁO" chỉ
     // nhắc lại thứ ba nút bên cạnh đã tự nói.
-    render(<ScenarioBar forecastMinutes={5} horizons={[5, 10, 15]} onForecastChange={vi.fn()} onRefresh={vi.fn()} regime="rain_peak" />)
+    render(<ScenarioBar forecastMinutes={15} horizons={[15, 30]} onForecastChange={vi.fn()} onRefresh={vi.fn()} regime="rain_peak" />)
 
     expect(screen.getByText('Mưa lớn · giờ cao điểm')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Làm mới dữ liệu' })).toBeInTheDocument()
@@ -83,23 +82,23 @@ describe('operator console safety states', () => {
   it('keeps the selected horizon stable and runs only after explicit confirmation', async () => {
     const baseline = await mockOperatorAdapter.getSnapshot('baseline')
     if (!baseline.ai) throw new Error('Mock snapshot must include AI forecast metadata')
-    const fiveMinuteOnly = {
+    const fifteenMinuteOnly = {
       ...baseline,
       ai: {
         ...baseline.ai,
-        horizons: [5],
-        forecastRuns: baseline.ai.forecastRuns?.filter((run) => run.horizonMinutes === 5) ?? [],
+        horizons: [15],
+        forecastRuns: baseline.ai.forecastRuns?.filter((run) => run.horizonMinutes === 15) ?? [],
       },
     }
-    vi.spyOn(mockOperatorAdapter, 'getSnapshot').mockResolvedValue(fiveMinuteOnly)
-    vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...fiveMinuteOnly, sourceAt }))
+    vi.spyOn(mockOperatorAdapter, 'getSnapshot').mockResolvedValue(fifteenMinuteOnly)
+    vi.spyOn(mockOperatorAdapter, 'runReplayStep').mockImplementation(async (sourceAt) => ({ ...fifteenMinuteOnly, sourceAt }))
     const generate = vi.spyOn(mockOperatorAdapter, 'generateAiDecision')
     const queryClient = renderDashboard()
 
-    await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
+    await userEvent.click(await screen.findByRole('radio', { name: '30 phút' }, { timeout: 15_000 }))
     expect(generate).not.toHaveBeenCalled()
     await raLenh('chạy dự báo')
-    await waitFor(() => expect(generate).toHaveBeenCalledWith(expect.any(Number), 15))
+    await waitFor(() => expect(generate).toHaveBeenCalledWith(expect.any(Number), 30))
 
     queryClient.clear()
   }, 20_000)
@@ -139,13 +138,13 @@ describe('operator console safety states', () => {
   it('ghi thao tác của người vận hành vào nhật ký, tại lúc biết kết quả chứ không lúc bấm', async () => {
     const queryClient = renderDashboard()
 
-    await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
+    await userEvent.click(await screen.findByRole('radio', { name: '30 phút' }, { timeout: 15_000 }))
     const nhatKy = screen.getByRole('log')
     expect(nhatKy).not.toHaveTextContent('NGƯỜI VẬN HÀNH')
 
     await raLenh('chạy dự báo')
 
-    await waitFor(() => expect(nhatKy).toHaveTextContent('[NGƯỜI VẬN HÀNH] > đã chạy dự báo horizon 15 phút'))
+    await waitFor(() => expect(nhatKy).toHaveTextContent('[NGƯỜI VẬN HÀNH] > đã chạy dự báo horizon 30 phút'))
     queryClient.clear()
   }, 20_000)
 
@@ -153,7 +152,7 @@ describe('operator console safety states', () => {
     vi.spyOn(mockOperatorAdapter, 'generateAiDecision').mockRejectedValue(new Error('Snapshot đã cũ'))
     const queryClient = renderDashboard()
 
-    await userEvent.click(await screen.findByRole('radio', { name: '15 phút' }, { timeout: 15_000 }))
+    await userEvent.click(await screen.findByRole('radio', { name: '30 phút' }, { timeout: 15_000 }))
     await raLenh('chạy dự báo')
 
     const nhatKy = screen.getByRole('log')

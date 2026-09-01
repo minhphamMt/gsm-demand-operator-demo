@@ -41,7 +41,7 @@ def _solve_all(source_at: str) -> dict[PlanStrategy, object]:
     selection = select_forecast(
         zones=zones,
         t=t,
-        horizon_min=5,
+        horizon_min=15,
         replay_source_at=t,
         model_directory=settings.data_dir / "models",
         configured_model_version=settings.model_version,
@@ -76,7 +76,7 @@ def test_balanced_is_the_default_strategy() -> None:
     selection = select_forecast(
         zones=zones,
         t=t,
-        horizon_min=5,
+        horizon_min=15,
         replay_source_at=t,
         model_directory=settings.data_dir / "models",
         configured_model_version=settings.model_version,
@@ -170,7 +170,7 @@ def test_pipeline_reports_all_three_plans_and_flags_convergence() -> None:
     context = RunContext(
         zones=[_Zone(zone) for zone in raw_zones],
         t=pd.Timestamp(RAIN_PEAK_SOURCE),
-        horizon_min=5,
+        horizon_min=15,
         replay_source_at=pd.Timestamp(RAIN_PEAK_SOURCE),
         policy=get_policy(settings.policy_path),
         settings=settings,

@@ -8,7 +8,6 @@ hành động chạm cổng §11.1.
 import pytest
 
 from src.orchestration.intent import (
-    EXTRAPOLATED_HORIZON,
     GATE_REFUSAL,
     SUPPORTED_HORIZONS,
     UNKNOWN_HINT,
@@ -77,8 +76,15 @@ def test_tao_phuong_an_khong_con_la_lenh_phan_tich() -> None:
         ("mưa to không", "get_weather"),
         ("dự báo 15 phút tới ra sao", "run_forecast"),
         ("nhu cầu sắp tới thế nào", "run_forecast"),
-        ("tình hình cung ứng hiện tại", "get_supply_state"),
-        ("zone nào đang thiếu xe", "get_supply_state"),
+        # Hai câu này từng khai báo `get_supply_state` và đó chính là lỗi: cả hai hỏi về HIỆN
+        # TẠI, còn `get_supply_state` chạy Model 2 trên forecast nên chỉ có số ở +horizon phút.
+        ("tình hình cung ứng hiện tại", "get_current_shortage"),
+        ("zone nào đang thiếu xe", "get_current_shortage"),
+        ("zone nào thiếu xe bây giờ", "get_current_shortage"),
+        # Ngược lại, "hotspot" theo định nghĩa §4.3 LÀ kết quả chạy trên dự báo — câu hỏi này
+        # phải ở lại đường dự báo, nếu không thì việc tách tool chỉ là đổi tên.
+        ("hotspot dự báo ở đâu", "get_supply_state"),
+        ("còn zone nào dư xe không", "get_supply_state"),
         ("tốc độ di chuyển bao nhiêu", "get_travel_conditions"),
         ("eta tính kiểu gì", "get_travel_conditions"),
     ],
@@ -121,7 +127,13 @@ def test_khong_y_dinh_nao_dan_toi_tool_ngoai_pham_vi_quan_sat() -> None:
     ]
     tools = {classify(cau).tool for cau in cau_thu} - {None}
 
-    assert tools <= {"run_forecast", "get_weather", "get_travel_conditions", "get_supply_state"}
+    assert tools <= {
+        "run_forecast",
+        "get_weather",
+        "get_travel_conditions",
+        "get_current_shortage",
+        "get_supply_state",
+    }
     assert "compute_relocation" not in tools
     assert "render_explanation" not in tools
 
@@ -151,19 +163,33 @@ def test_so_khong_kem_don_vi_thoi_gian_khong_bi_doc_thanh_moc(cau: str) -> None:
     assert classify(cau).horizon is None
 
 
-def test_moc_30_bi_chan_va_noi_ro_no_la_ngoai_suy() -> None:
-    """Model 1 chỉ tới +15 phút; +30 trên bảng là ngoại suy tuyến tính, không phải output model.
+def test_moc_30_gio_la_output_model_that_nen_khong_con_bi_chan() -> None:
+    """+30 từng bị chặn vì là ngoại suy tuyến tính; giờ nó chạy trên booster `h30` thật.
 
-    Trả lời mốc này bằng số của mốc khác là sai câu hỏi; đọc số ngoại suy ra như số dự báo là
-    trình bày sai bản chất của nó. Cả hai đều phải bị chặn TRƯỚC khi LLM kịp viết gì.
+    Test hồi quy cho đúng lần đổi này: DATA_CONTRACT §4.2 chốt `horizon_min ∈ {15, 30}`, nên
+    chặn +30 là chặn một mốc mà contract bắt buộc phải phục vụ.
     """
     intent = classify("dự báo 30 phút tới ra sao")
 
+    # Câu hỏi "ra sao" là quan sát chứ không phải lệnh chạy, nên `kind` là `observe`. Điều
+    # test này khoá là mốc +30 **không còn bị chặn** và được mang nguyên vào ý định.
+    assert intent.kind != "horizon_unsupported"
+    assert intent.horizon == 30
+    assert "ngoại suy" not in intent.message
+
+
+@pytest.mark.parametrize("moc", [5, 10])
+def test_moc_cu_5_va_10_khong_con_duoc_phuc_vu(moc: int) -> None:
+    """Đối xứng với test trên: đổi sang {15, 30} thì 5 và 10 phải bị chặn, không im lặng chạy.
+
+    Không có booster `h5`/`h10` trong bundle nữa, nên nhận câu hỏi ở mốc đó rồi trả lời bằng
+    số của mốc khác là đúng loại sai mà cổng chặn này sinh ra để ngăn.
+    """
+    intent = classify(f"dự báo {moc} phút tới")
+
     assert intent.kind == "horizon_unsupported"
-    assert intent.horizon == EXTRAPOLATED_HORIZON
+    assert intent.horizon == moc
     assert intent.tool is None
-    assert "ngoại suy" in intent.message
-    assert "không được dùng để tạo hay duyệt phương án" in intent.message
 
 
 @pytest.mark.parametrize("moc", [20, 45, 60, 120])

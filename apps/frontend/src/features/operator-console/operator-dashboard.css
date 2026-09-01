@@ -540,9 +540,16 @@
 /* Dòng "đang suy nghĩ" — mờ hơn dòng thật, vì nó là trạng thái chứ không phải tin.
    Ba chấm chạy bằng `width` + `steps()` chứ không animate `content`: animate `content` chỉ
    chạy trên Chromium/WebKit và im lặng không làm gì ở nơi khác, để lại một dòng đứng yên
-   trông y hệt treo máy — đúng thứ dòng này sinh ra để bác bỏ. */
+   trông y hệt treo máy — đúng thứ dòng này sinh ra để bác bỏ.
+
+   `white-space:pre` KHÔNG thừa: hộp này là inline-block `width:0`, nên trình duyệt được phép
+   ngắt `...` thành nhiều dòng để vừa bề rộng 0. `overflow:hidden` giấu các dấu chấm đi nhưng
+   không giấu CHIỀU CAO — hộp thành 2–3 dòng, và `vertical-align:bottom` ghim đáy hộp vào đáy
+   line box nên phần cao thừa đội ngược lên trên, đẩy chữ xuống đáy. Kết quả là một khoảng
+   trống bằng cả dòng ngay phía trên "đang suy nghĩ". Cấm ngắt dòng thì hộp luôn cao đúng một
+   dòng và không còn gì để đội lên. */
 .nf-agent-log__line.is-thinking{color:var(--nf-ops-muted)}
-.nf-agent-log__dots::after{content:'...';display:inline-block;width:0;overflow:hidden;vertical-align:bottom;animation:nf-agent-log-dots 1.2s steps(4,end) infinite}
+.nf-agent-log__dots::after{content:'...';display:inline-block;width:0;overflow:hidden;white-space:pre;vertical-align:bottom;animation:nf-agent-log-dots 1.2s steps(4,end) infinite}
 @keyframes nf-agent-log-dots{to{width:1.2em}}
 @media(prefers-reduced-motion:reduce){.nf-agent-log__dots::after{width:1.2em;animation:none}}
 

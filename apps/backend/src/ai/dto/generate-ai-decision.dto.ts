@@ -3,14 +3,14 @@ import { IsDateString, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Le
 
 export class GenerateAiDecisionDto {
   @Transform(({ value }) => Number(value))
-  @IsIn([5, 10, 15])
-  horizonMinutes: 5 | 10 | 15 = 10;
+  @IsIn([15, 30])
+  horizonMinutes: 15 | 30 = 15;
 }
 
 export class OptimizeAiDecisionDto {
   @Transform(({ value }) => Number(value))
-  @IsIn([5, 10, 15])
-  horizonMinutes: 5 | 10 | 15 = 10;
+  @IsIn([15, 30])
+  horizonMinutes: 15 | 30 = 15;
 
   @Transform(({ value }) => Number(value))
   @IsInt()
@@ -53,8 +53,8 @@ export class RunReplayAiDecisionDto {
 
 export class RunPipelineDto {
   @Transform(({ value }) => Number(value))
-  @IsIn([5, 10, 15])
-  horizonMinutes: 5 | 10 | 15 = 10;
+  @IsIn([15, 30])
+  horizonMinutes: 15 | 30 = 15;
 
   @IsOptional()
   @Transform(({ value }) => Number(value))
@@ -80,8 +80,8 @@ export class AskAgentDto {
   text!: string;
 
   @Transform(({ value }) => Number(value))
-  @IsIn([5, 10, 15])
-  horizonMinutes: 5 | 10 | 15 = 10;
+  @IsIn([15, 30])
+  horizonMinutes: 15 | 30 = 15;
 
   @IsOptional()
   @Transform(({ value }) => Number(value))

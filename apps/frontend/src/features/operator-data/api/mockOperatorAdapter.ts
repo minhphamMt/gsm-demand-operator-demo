@@ -81,7 +81,7 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     serverTime: new Date().toISOString(),
     timezone: 'Asia/Ho_Chi_Minh' as const,
     capabilities: {
-      forecastHorizons: { available: true, enabled: true, values: [5, 10, 15] },
+      forecastHorizons: { available: true, enabled: true, values: [15, 30] },
       proposalReview: { available: true, enabled: true },
       dispatchRelease: { available: true, enabled: true },
       dispatchReconciliation: { available: true, enabled: true },
@@ -152,10 +152,10 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
       regime: scenario.regime,
       ai: {
         zoneContract: 'AI_ZONE_1_30', registeredZones: 30, liveZones: 30, forecastedZones: 30,
-        horizons: [5, 10, 15], modelVersion: 'mock-forecast-v1', forecastMode: 'simulated',
+        horizons: [15, 30], modelVersion: 'mock-forecast-v1', forecastMode: 'simulated',
         dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), forecastRunId: `mock-${replayIndex}`,
         forecastStatus: 'COMPLETED',
-        forecastRuns: ([5, 10, 15] as const).map((horizonMinutes) => ({
+        forecastRuns: ([15, 30] as const).map((horizonMinutes) => ({
           id: `mock-${replayIndex}-${horizonMinutes}`, horizonMinutes, status: 'COMPLETED' as const,
           modelVersion: 'mock-forecast-v1', featureVersion: 'mock-feature-v1', policyVersion: 'mock-policy-v1', inputHash: `mock-input-${replayIndex}-${horizonMinutes}`,
           forecastMode: 'simulated', dataSource: 'mock snapshot engine', forecastAt: new Date().toISOString(), completedAt: new Date().toISOString(), zoneCount: 30,
@@ -420,17 +420,15 @@ function mockAnswer(text: string): { action: string | null; events: MockLine[] }
       }],
     }
   }
-  // Mốc ngoài tầm Model 1 bị chặn trước mọi nhánh khác, y như bản thật: model chỉ dự báo tới
-  // +15 phút, còn +30 trên bảng là ngoại suy tuyến tính chứ không phải output model.
+  // Mốc ngoài tầm Model 1 bị chặn trước mọi nhánh khác, y như bản thật: DATA_CONTRACT §4.2
+  // chốt `horizon_min ∈ {15, 30}` và model chỉ có booster cho đúng hai mốc đó.
   const moc = /(\d{1,3})\s*(?:phút|phut|p|min)/.exec(t)
-  if (moc && ![5, 10, 15].includes(Number(moc[1]))) {
+  if (moc && ![15, 30].includes(Number(moc[1]))) {
     return {
       action: null,
       events: [{
         kind: 'narration', actor: observer, source: 'system', ok: false, code: 'HORIZON_NOT_FORECAST',
-        text: Number(moc[1]) === 30
-          ? 'Model 1 chỉ dự báo tới +15 phút. Mốc +30 phút có trên bảng nhưng là ngoại suy tuyến tính, không phải output model — và theo thiết kế thì nó không được dùng để tạo hay duyệt phương án.'
-          : `Không có dự báo cho mốc +${moc[1]} phút. Model 1 chỉ chạy ở 5 phút, 10 phút, 15 phút.`,
+        text: `Không có dự báo cho mốc +${moc[1]} phút. Model 1 chỉ chạy ở 15 phút, 30 phút.`,
       }],
     }
   }

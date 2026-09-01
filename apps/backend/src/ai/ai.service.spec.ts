@@ -216,7 +216,7 @@ describe('AiService persistence', () => {
     const persistProposal = jest.spyOn(service as never, 'persistProposal');
     jest.spyOn(service as never, 'completeForecastRun').mockResolvedValue(undefined as never);
 
-    await service.generate(5, 7, true, true);
+    await service.generate(15, 7, true, true);
 
     expect(persistForecast).toHaveBeenCalledTimes(1);
     expect(persistOptimizerRun).not.toHaveBeenCalled();
@@ -535,7 +535,7 @@ describe('AiService persistence', () => {
     const service = new AiService(db as never);
     jest.spyOn(service as never, 'request').mockResolvedValue({ forecast_mode: 'live_snapshot_baseline' } as never);
 
-    await expect(service.generate(5, 7, false, false)).rejects.toMatchObject({
+    await expect(service.generate(15, 7, false, false)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'REPLAY_MODEL_REQUIRED' }),
     });
     expect(inputUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'FAILED' }));
@@ -603,7 +603,7 @@ describe('AiService persistence', () => {
     jest.spyOn(service as never, 'validateLiveZones').mockReturnValue([] as never);
     const request = jest.spyOn(service as never, 'request').mockResolvedValue({ run_id: 'r-2', status: 'RUNNING' } as never);
 
-    await expect(service.startRun(10, 7)).resolves.toEqual({ runId: 'r-2', status: 'RUNNING' });
+    await expect(service.startRun(30, 7)).resolves.toEqual({ runId: 'r-2', status: 'RUNNING' });
 
     expect(assertNoActiveExecution).toHaveBeenCalledWith(db);
     expect(request).toHaveBeenCalledWith('/api/v1/runs', {
@@ -612,7 +612,7 @@ describe('AiService persistence', () => {
       body: JSON.stringify({
         snapshot_id: 7,
         t: '2026-08-15T00:00:00.000Z',
-        horizon_min: 10,
+        horizon_min: 30,
         data_source: 'supabase:ai_zone_observations:7',
         replay_source_at: undefined,
         zones: [],

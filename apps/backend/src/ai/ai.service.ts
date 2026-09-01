@@ -131,27 +131,27 @@ export class AiService {
     return this.request('/health', { method: 'GET' });
   }
 
-  async runNext(horizonMinutes: 5 | 10 | 15, regime?: DatasetRegime) {
+  async runNext(horizonMinutes: 15 | 30, regime?: DatasetRegime) {
     await assertNoActiveExecution(this.db);
     const snapshot = await this.ingestNext(regime);
     const decision = await this.generate(horizonMinutes, snapshot.id, false, true);
     return { snapshot, decision };
   }
 
-  async optimize(snapshotId: number, horizonMinutes: 5 | 10 | 15, policyOverrides?: Record<string, number>) {
+  async optimize(snapshotId: number, horizonMinutes: 15 | 30, policyOverrides?: Record<string, number>) {
     await assertNoActiveExecution(this.db);
     const decision = await this.generate(horizonMinutes, snapshotId, true, true, policyOverrides);
     return { decision };
   }
 
-  async forecast(snapshotId: number, horizonMinutes: 5 | 10 | 15) {
+  async forecast(snapshotId: number, horizonMinutes: 15 | 30) {
     await assertNoActiveExecution(this.db);
     const refreshedSnapshot = await this.refreshReplaySnapshot(snapshotId);
     const decision = await this.generate(horizonMinutes, Number(refreshedSnapshot.id), false, true);
     return { snapshot: refreshedSnapshot, decision };
   }
 
-  async generateForOperator(horizonMinutes: 5 | 10 | 15) {
+  async generateForOperator(horizonMinutes: 15 | 30) {
     await assertNoActiveExecution(this.db);
     return this.generate(horizonMinutes);
   }
@@ -228,7 +228,7 @@ export class AiService {
     return this.request<Record<string, unknown>>('/api/v1/policy', { method: 'GET' });
   }
 
-  async startRun(horizonMinutes: 5 | 10 | 15, snapshotId?: number) {
+  async startRun(horizonMinutes: 15 | 30, snapshotId?: number) {
     await assertNoActiveExecution(this.db);
     const inputPayload = await this.buildInferencePayload(horizonMinutes, snapshotId);
     const started = await this.request<{ run_id: string; status: string }>('/api/v1/runs', {
@@ -252,7 +252,7 @@ export class AiService {
    * có thi hành hay không bằng allowlist riêng của nó. Không có action nào chạm tới hai cổng
    * phê duyệt, và AI service cũng không sinh ra được action như vậy.
    */
-  async ask(sessionId: string, text: string, horizonMinutes: 5 | 10 | 15, snapshotId?: number) {
+  async ask(sessionId: string, text: string, horizonMinutes: 15 | 30, snapshotId?: number) {
     const inputPayload = await this.buildInferencePayload(horizonMinutes, snapshotId);
     return this.request<{ session_id: string; action: string | null }>('/api/v1/observe', {
       method: 'POST',
@@ -269,7 +269,7 @@ export class AiService {
   // và đường suy luận trực tiếp phải nhận đúng một input để INV-1 (khớp baseline) còn ý nghĩa.
   // Tách riêng khỏi `generate()` để không đụng vào thân hàm đó: nó vừa được sửa các lỗi
   // atomic-ingest/active-execution/replay-window thật, không đáng để refactor chung dịp này.
-  private async buildInferencePayload(horizonMinutes: 5 | 10 | 15, snapshotId?: number) {
+  private async buildInferencePayload(horizonMinutes: 15 | 30, snapshotId?: number) {
     let snapshotQuery = this.db.client.from('supply_demand_snapshots').select('*');
     snapshotQuery = snapshotId
       ? snapshotQuery.eq('id', snapshotId)
@@ -302,7 +302,7 @@ export class AiService {
   }
 
   async generate(
-    horizonMinutes: 5 | 10 | 15,
+    horizonMinutes: 15 | 30,
     snapshotId?: number,
     persistProposal = true,
     persistForecast = persistProposal,

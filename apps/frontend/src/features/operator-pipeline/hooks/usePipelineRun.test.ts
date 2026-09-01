@@ -143,7 +143,7 @@ describe('usePipelineRun', () => {
 
     getPipelineRun.mockResolvedValueOnce(running([line(1, 'lượt mới')]))
     await act(async () => {
-      handle.result.current.start({ horizonMinutes: 5 })
+      handle.result.current.start({ horizonMinutes: 15 })
     })
 
     expect(handle.result.current.events).toHaveLength(1)

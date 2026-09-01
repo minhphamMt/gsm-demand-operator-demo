@@ -95,7 +95,7 @@ export class OperatorService {
       timezone: 'Asia/Ho_Chi_Minh',
       health: { api: 'UP', database: databaseError ? 'DEGRADED' : 'UP', ai: 'AVAILABLE', map: 'CLIENT' },
       capabilities: {
-        forecastHorizons: { available: true, enabled: true, values: [5, 10, 15] },
+        forecastHorizons: { available: true, enabled: true, values: [15, 30] },
         proposalReview: { available: true, enabled: true },
         dispatchRelease: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },
         dispatchReconciliation: { available: true, enabled: enabled('OPERATOR_DISPATCH_ENABLED', false) },

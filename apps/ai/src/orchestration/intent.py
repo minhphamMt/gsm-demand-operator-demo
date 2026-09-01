@@ -38,17 +38,22 @@ IntentKind = Literal[
 
 # Tool quan sát mà một ý định có thể dẫn tới. Đúng bằng allowlist của `AGENT_OBSERVER` —
 # danh sách này không được phép rộng hơn allowlist đó.
-ObserveTool = Literal["run_forecast", "get_weather", "get_travel_conditions", "get_supply_state"]
+ObserveTool = Literal[
+    "run_forecast",
+    "get_weather",
+    "get_travel_conditions",
+    "get_current_shortage",
+    "get_supply_state",
+]
 
 
 # Mốc dự báo Model 1 thật sự cho ra. Trùng `HorizonMin` ở `src/contracts/forecast.py` — mốc
 # nào ngoài tập này thì không có số của model để trả lời.
-SUPPORTED_HORIZONS: tuple[int, ...] = (5, 10, 15)
-
-# Mốc +30 có trên panel nhưng là **ngoại suy tuyến tính**, không chạy model và không được dùng
-# để tạo hay duyệt phương án (`ForecastConfig.tsx`). Nó được gọi tên riêng để câu từ chối nói
-# đúng chuyện đang xảy ra thay vì chỉ báo "không hỗ trợ".
-EXTRAPOLATED_HORIZON = 30
+#
+# DATA_CONTRACT §4.2 chốt `horizon_min ∈ {15, 30}` — "không giá trị nào khác". Mốc +30 trước
+# đây là **ngoại suy tuyến tính** nên có hằng số riêng và một câu từ chối riêng; giờ nó là
+# output model thật, chạy trên bộ booster `h30`, nên cả hai thứ đó không còn chỗ đứng.
+SUPPORTED_HORIZONS: tuple[int, ...] = (15, 30)
 
 
 @dataclass(frozen=True)
@@ -130,10 +135,22 @@ _RUN_KEYWORDS: tuple[str, ...] = (
 )
 
 # Mỗi tool một chùm từ khoá. Chỉ dùng khi LLM hỏng, nên chọn từ phổ thông thay vì tên tool.
+#
+# **Thứ tự trong tuple là thứ tự ưu tiên** — `classify` lấy nhóm khớp đầu tiên. `get_current_shortage`
+# vì thế phải đứng trước `get_supply_state`: câu "zone nào đang thiếu xe" chứa cả "thieu xe" (nhóm
+# hiện tại) lẫn "zone" (nhóm dự báo), và trả nhầm sang nhóm sau là trả lời câu hỏi hiện tại bằng số
+# +horizon phút — đúng lỗi đã gặp khi chạy thật.
+#
+# Từ chỉ tương lai (`hotspot`, `diem nong`, `du bao`) ở lại nhóm dự báo: hotspot theo định nghĩa
+# §4.3 là kết quả chạy Model 2 trên forecast, hỏi "hotspot" là hỏi về tương lai.
 _OBSERVE_KEYWORDS: tuple[tuple[ObserveTool, tuple[str, ...]], ...] = (
     ("get_weather", ("thoi tiet", "mua", "rain", "ngap")),
     ("get_travel_conditions", ("di chuyen", "toc do", "giao thong", "eta", "quang duong", "khoang cach")),
-    ("get_supply_state", ("cung", "xe roi", "xe ranh", "thieu xe", "hotspot", "diem nong", "ton kho", "zone")),
+    (
+        "get_current_shortage",
+        ("dang thieu", "thieu xe", "hien tai", "bay gio", "hien gio", "luc nay", "hien dang", "dang the nao"),
+    ),
+    ("get_supply_state", ("cung", "xe roi", "xe ranh", "hotspot", "diem nong", "ton kho", "zone")),
     ("run_forecast", ("du bao", "forecast", "sap toi", "nhu cau", "cau")),
 )
 
@@ -156,13 +173,6 @@ def parse_horizon(text: str) -> int | None:
 
 def horizon_refusal(horizon: int) -> str:
     """Vì sao không trả lời được ở mốc này. Nói đúng chuyện, không nói chung chung."""
-    if horizon == EXTRAPOLATED_HORIZON:
-        return (
-            f"Model 1 chỉ dự báo tới +{SUPPORTED_HORIZONS[-1]} phút. Mốc +{EXTRAPOLATED_HORIZON} phút có trên "
-            "bảng nhưng là ngoại suy tuyến tính, không phải output model — và theo thiết kế thì nó "
-            "không được dùng để tạo hay duyệt phương án. Tôi không đọc số ngoại suy ra như số dự báo. "
-            f"Hỏi lại ở {', '.join(f'{value} phút' for value in SUPPORTED_HORIZONS)} thì tôi trả lời được."
-        )
     return (
         f"Không có dự báo cho mốc +{horizon} phút. Model 1 chỉ chạy ở "
         f"{', '.join(f'{value} phút' for value in SUPPORTED_HORIZONS)}."
