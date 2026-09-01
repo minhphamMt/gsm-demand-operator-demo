@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from src.common.errors import ConfigError
 
@@ -64,6 +64,30 @@ class PolicyRules(BaseModel):
 
     # ---- Key thêm mới (quyết định A-03) ----
     conservative_gap_mode: Literal["p90_p50", "p90_p10"]
+
+    # ---- Nhóm Giám sát vận hành ----
+    # Thang bốn mức của bảng phân bố rủi ro, đọc theo `gap = max(0, demand − supply)` quan sát.
+    # Là MỘT key chứ không phải ba: ba số này là một thang, và ba key rời có thể trôi ra khỏi
+    # thứ tự mà không gì phát hiện. Ngưỡng dưới của: theo dõi | bất thường | thiếu xe.
+    #
+    # KHÔNG dùng cho việc sinh hotspot — luật đó ở SPEC §4.3 và tính theo tỉ lệ, không theo
+    # số tuyệt đối. Trùng tên "severity" nhưng là hai thang khác nhau.
+    zone_risk_gap_thresholds: tuple[int, int, int]
+
+    @field_validator("zone_risk_gap_thresholds")
+    @classmethod
+    def _thresholds_must_ascend(cls, value: tuple[int, int, int]) -> tuple[int, int, int]:
+        """Ba mức phải tăng nghiêm ngặt và bắt đầu từ ≥ 1.
+
+        Không có ràng buộc này thì một thang sai thứ tự vẫn nạp được và chạy im lặng: mức
+        nặng hơn sẽ không bao giờ với tới, nên bảng điều hành mất hẳn một màu mà không báo gì.
+        Ngưỡng đầu ≥ 1 vì `gap = 0` là định nghĩa của "ổn định" — cho phép 0 sẽ xoá mức đó.
+        """
+        if value[0] < 1:
+            raise ValueError("zone_risk_gap_thresholds: ngưỡng đầu phải ≥ 1")
+        if not value[0] < value[1] < value[2]:
+            raise ValueError("zone_risk_gap_thresholds: ba ngưỡng phải tăng nghiêm ngặt")
+        return value
 
 
 class PolicyKeyMeta(BaseModel):

@@ -71,10 +71,14 @@ export function calculateSnapshotKpis(observations: readonly ZoneObservationRow[
   }
 }
 
+/** Ngưỡng DƯỚI của ba mức nặng dần, đọc từ `policy.yaml::zone_risk_gap_thresholds`. */
+export type ZoneRiskThresholds = readonly [watch: number, abnormal: number, shortage: number]
+
 export function mapAiZone(
   zone: AiZoneRow,
   observation?: ZoneObservationRow,
   forecasts?: { horizon5?: AiForecastRow; horizon10?: AiForecastRow; horizon15?: AiForecastRow },
+  riskThresholds?: ZoneRiskThresholds,
 ) {
   const hasLiveData = observation?.data_status === 'live'
   // A missing observation is an unknown value, not a zero-value operational fact.
@@ -109,7 +113,10 @@ export function mapAiZone(
     supply,
     demand,
     gap,
-    severity: gap === null ? 'Unknown' : severityForGap(gap),
+    // Thiếu ngưỡng thì trả 'Unknown', KHÔNG rơi về một bộ số viết sẵn ở đây: một bản sao dự
+    // phòng chính là thứ vừa được gỡ bỏ, và nó sẽ trôi khỏi `policy.yaml` mà không ai thấy.
+    // 'Unknown' đã có sẵn đường đi — cùng đường với zone chưa có quan sát.
+    severity: gap === null || !riskThresholds ? 'Unknown' : severityForGap(gap, riskThresholds),
     confidence: activeForecast?.confidence === null || activeForecast?.confidence === undefined
       ? null
       : numeric(activeForecast.confidence) * 100,
@@ -139,9 +146,9 @@ export function mapAiZone(
   }
 }
 
-function severityForGap(gap: number) {
-  if (gap >= 11) return 'Critical'
-  if (gap >= 6) return 'High'
-  if (gap >= 1) return 'Medium'
+function severityForGap(gap: number, [watch, abnormal, shortage]: ZoneRiskThresholds) {
+  if (gap >= shortage) return 'Critical'
+  if (gap >= abnormal) return 'High'
+  if (gap >= watch) return 'Medium'
   return 'Low'
 }

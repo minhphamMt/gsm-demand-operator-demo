@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { BadGatewayException, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 
 import { SupabaseService } from '../supabase/supabase.service';
 import { assertNoActiveExecution } from '../operator/active-execution.guard';
@@ -105,6 +105,11 @@ const requiredLiveFields = [
 export class AiService {
   private readonly aiServiceUrl = (process.env.AI_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
 
+  private readonly logger = new Logger(AiService.name);
+
+  // I-08 khoá `policy.yaml`, nên đọc một lần là đủ cho cả vòng đời tiến trình.
+  private zoneRiskThresholds_?: readonly [number, number, number];
+
   constructor(private readonly db: SupabaseService) {}
 
   async status() {
@@ -162,6 +167,37 @@ export class AiService {
    */
   async llmHealth() {
     return this.request('/api/v1/llm/health', { method: 'GET' });
+  }
+
+  /** Ngưỡng thang rủi ro của bảng điều hành, đọc từ `policy.yaml` qua AI service.
+   *
+   * Backend **không** tự parse `policy.yaml`: CLAUDE.md §3 #2 chốt rằng chỉ
+   * `src/common/policy.py` được đọc file đó. Người đọc thứ hai nghĩa là một bản sao ngưỡng
+   * lặng lẽ trôi khỏi bản gốc — đúng thứ luật ấy sinh ra để cấm.
+   *
+   * Cache suốt vòng đời tiến trình vì I-08 khoá file: policy không đổi trong một lần chạy.
+   * Đó cũng là lý do `get_policy` phía Python cache, nên hai bên hết hạn cùng nhau khi
+   * restart chứ không lệch nhịp.
+   *
+   * Trả `undefined` khi không lấy được, và bên gọi hiện 'Unknown'. KHÔNG có giá trị dự
+   * phòng viết sẵn ở đây: một bộ số cứng chính là thứ vừa được gỡ đi.
+   */
+  async zoneRiskThresholds(): Promise<readonly [number, number, number] | undefined> {
+    if (this.zoneRiskThresholds_) return this.zoneRiskThresholds_;
+    try {
+      const policy = await this.request<{ rules?: Record<string, unknown> }>('/api/v1/policy', { method: 'GET' });
+      const raw = policy.rules?.zone_risk_gap_thresholds;
+      if (!Array.isArray(raw) || raw.length !== 3 || !raw.every((value) => Number.isInteger(value))) {
+        this.logger.warn('policy.zone_risk_gap_thresholds không hợp lệ; thang rủi ro sẽ hiện Unknown');
+        return undefined;
+      }
+      this.zoneRiskThresholds_ = [raw[0] as number, raw[1] as number, raw[2] as number] as const;
+      return this.zoneRiskThresholds_;
+    } catch (cause) {
+      // Không nuốt im lặng (CLAUDE.md §9 #3): bảng rủi ro trống là triệu chứng, đây là lý do.
+      this.logger.warn(`Không đọc được policy từ AI service: ${cause instanceof Error ? cause.message : 'lỗi không rõ'}`);
+      return undefined;
+    }
   }
 
   async startRun(horizonMinutes: 5 | 10 | 15, snapshotId?: number) {

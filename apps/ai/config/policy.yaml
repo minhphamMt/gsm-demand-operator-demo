@@ -201,6 +201,19 @@ rules:
     src: "SPEC §4.3 mục ⬜ CẦN CHỐT trước 09/08. Mặc định giữ nguyên v1.3; đo cả hai ở W4 rồi chốt bằng số"
     assumption: "ASSUMPTION-27"
 
+  # ---- Nhóm Giám sát vận hành ----
+  zone_risk_gap_thresholds:
+    value: [1, 6, 11] # ngưỡng DƯỚI của: theo dõi | bất thường | thiếu xe
+    unit: "xe"
+    used_by: ["console.risk_distribution"]
+    verified: false
+    owner: "Data/BA"
+    due: "W4"
+    src: "Chuyển nguyên giá trị từ hard-code `snapshot.mapper.ts::severityForGap`, không đổi
+      hành vi. Chưa có mục trong ASSUMPTION register — cần Data/BA cấp mã và chốt số. KHÁC luật
+      sinh hotspot ở SPEC §4.3 (`supply < min_supply_per_zone` HOẶC `gap/demand ≥ 0.3`): đây là
+      thang hiển thị bốn mức trên bảng điều hành, tính theo gap tuyệt đối"
+
 # ---- Hằng dẫn xuất — KHÔNG phải ngưỡng vận hành, không thuộc 19 key ----
 derived:
   rain_threshold_mm_h: 0.5 # ASSUMPTION-18 · ngưỡng regime `rain`

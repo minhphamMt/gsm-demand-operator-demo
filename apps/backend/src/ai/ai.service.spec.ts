@@ -19,6 +19,45 @@ function eligibleDriverQuery(count: number) {
   return chain;
 }
 
+describe('AiService.zoneRiskThresholds', () => {
+  const withPolicy = (payload: unknown) => {
+    const service = new AiService({} as never);
+    const request = jest.spyOn(service as never, 'request').mockResolvedValue(payload as never);
+    return { request, service };
+  };
+
+  it('đọc ngưỡng từ policy của AI service', async () => {
+    const { service } = withPolicy({ rules: { zone_risk_gap_thresholds: [1, 6, 11] } });
+
+    await expect(service.zoneRiskThresholds()).resolves.toEqual([1, 6, 11]);
+  });
+
+  it('chỉ hỏi một lần rồi giữ lại — I-08 khoá policy trong một lần chạy', async () => {
+    const { request, service } = withPolicy({ rules: { zone_risk_gap_thresholds: [2, 5, 9] } });
+
+    await service.zoneRiskThresholds();
+    await service.zoneRiskThresholds();
+
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('từ chối payload sai hình dạng thay vì dựng một thang méo', async () => {
+    // Ba số là một thang; nhận thiếu hoặc nhận số lẻ sẽ chấm sai lặng lẽ ở mọi zone.
+    for (const broken of [{ rules: {} }, { rules: { zone_risk_gap_thresholds: [1, 6] } },
+      { rules: { zone_risk_gap_thresholds: [1, 6, 11.5] } }, {}]) {
+      const { service } = withPolicy(broken);
+      await expect(service.zoneRiskThresholds()).resolves.toBeUndefined();
+    }
+  });
+
+  it('AI service hỏng thì trả undefined, không bịa ngưỡng', async () => {
+    const service = new AiService({} as never);
+    jest.spyOn(service as never, 'request').mockRejectedValue(new Error('AI service down') as never);
+
+    await expect(service.zoneRiskThresholds()).resolves.toBeUndefined();
+  });
+});
+
 describe('AiService persistence', () => {
   it('normalizes replay source time to a five-minute UTC identity', () => {
     expect(replaySourceAtIso('2026-09-25T08:35:00+07:00')).toBe('2026-09-25T01:35:00.000Z');
