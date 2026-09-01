@@ -3,6 +3,7 @@ import { useLocation } from 'react-router'
 
 import { ExecutionSectionNav } from '@/features/operator-execution/components/ExecutionSectionNav'
 import { routes } from '@/shared/config/routes'
+import { useAppTheme } from '@/shared/theme/useAppTheme'
 import './operator-workspace-page.css'
 
 type OperatorWorkspacePageProps = {
@@ -17,13 +18,12 @@ type OperatorWorkspacePageProps = {
 
 export function OperatorWorkspacePage({ children, description, eyebrow, icon, statusLabel, subNavigation, title }: OperatorWorkspacePageProps) {
   const location = useLocation()
+  const { theme } = useAppTheme()
   const showExecutionNavigation = location.pathname.startsWith(routes.operator.execution)
-  const useOperationsDarkTheme = showExecutionNavigation
-    || location.pathname.startsWith(routes.operator.reports)
-    || location.pathname.startsWith(routes.operator.history)
+  const useOperationsDarkTheme = theme === 'dark'
 
   return (
-    <div className={`nf-workspace-page${useOperationsDarkTheme ? ' nf-workspace-page--dark' : ''}`}>
+    <div className={`nf-workspace-page${useOperationsDarkTheme ? ' nf-workspace-page--dark' : ''}`} data-theme={theme}>
       <header className="nf-workspace-heading">
         <span aria-hidden="true" className="nf-workspace-heading-icon">{icon}</span>
         <div className="nf-workspace-heading-copy">

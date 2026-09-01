@@ -11,6 +11,7 @@ import { proposalCoverageForStage } from '@/features/operator-console/model/prop
 import { mockOperatorAdapter } from '@/features/operator-data/api/mockOperatorAdapter'
 import { createAgentPlans } from '@/features/operator-data/model/mockProposalEngine'
 import type { Zone } from '@/features/operator-data'
+import { AppThemeProvider } from '@/shared/theme/AppThemeProvider'
 
 /** Ra lệnh bằng cách gõ vào nhật ký agent — hai bước quy trình không còn nút bấm nào.
  *
@@ -32,7 +33,7 @@ function renderDashboard({ withActiveExecution = false }: { withActiveExecution?
     )
   }
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(<QueryClientProvider client={queryClient}><MemoryRouter><OperatorConsoleDashboard /></MemoryRouter></QueryClientProvider>)
+  render(<QueryClientProvider client={queryClient}><AppThemeProvider><MemoryRouter><OperatorConsoleDashboard /></MemoryRouter></AppThemeProvider></QueryClientProvider>)
   return queryClient
 }
 
@@ -258,7 +259,7 @@ describe('operator console safety states', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const dashboard = () => (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter><OperatorConsoleDashboard /></MemoryRouter>
+        <AppThemeProvider><MemoryRouter><OperatorConsoleDashboard /></MemoryRouter></AppThemeProvider>
       </QueryClientProvider>
     )
     const view = render(dashboard())

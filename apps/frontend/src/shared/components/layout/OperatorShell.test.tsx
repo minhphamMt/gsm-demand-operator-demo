@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router'
 
 import type { OperatorCapabilities } from '@/features/operator-data'
+import { AppThemeProvider } from '@/shared/theme/AppThemeProvider'
 import { OperatorShell } from './OperatorShell'
 
 const capabilities: OperatorCapabilities = {
@@ -36,9 +37,11 @@ describe('OperatorShell server clock', () => {
     // Các workspace dark dùng header chung với trang Điều hành.
     const { container } = render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/operator/history']}>
-          <OperatorShell />
-        </MemoryRouter>
+        <AppThemeProvider>
+          <MemoryRouter initialEntries={['/operator/history']}>
+            <OperatorShell />
+          </MemoryRouter>
+        </AppThemeProvider>
       </QueryClientProvider>,
     )
     const clock = () => container.querySelector('.nf-ops-clock')
@@ -55,9 +58,11 @@ describe('OperatorShell server clock', () => {
     queryClient.setQueryData(['operator', 'capabilities'], capabilities)
     const renderAt = (path: string) => render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[path]}>
-          <OperatorShell />
-        </MemoryRouter>
+        <AppThemeProvider>
+          <MemoryRouter initialEntries={[path]}>
+            <OperatorShell />
+          </MemoryRouter>
+        </AppThemeProvider>
       </QueryClientProvider>,
     ).container
 
@@ -74,9 +79,11 @@ describe('OperatorShell server clock', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/operator/execution/offers/CMP-017']}>
-          <OperatorShell />
-        </MemoryRouter>
+        <AppThemeProvider>
+          <MemoryRouter initialEntries={['/operator/execution/offers/CMP-017']}>
+            <OperatorShell />
+          </MemoryRouter>
+        </AppThemeProvider>
       </QueryClientProvider>,
     )
 
@@ -89,13 +96,36 @@ describe('OperatorShell server clock', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/operator/execution/plan/PLAN-017']}>
-          <OperatorShell />
-        </MemoryRouter>
+        <AppThemeProvider>
+          <MemoryRouter initialEntries={['/operator/execution/plan/PLAN-017']}>
+            <OperatorShell />
+          </MemoryRouter>
+        </AppThemeProvider>
       </QueryClientProvider>,
     )
 
     expect(screen.getByRole('link', { name: 'Đang vận hành' })).toHaveClass('is-active')
     expect(screen.getByRole('link', { name: 'Điều hành' })).not.toHaveClass('is-active')
+  })
+
+  it('switches theme in place on workspace routes', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    queryClient.setQueryData(['operator', 'capabilities'], capabilities)
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AppThemeProvider>
+          <MemoryRouter initialEntries={['/operator/history']}>
+            <OperatorShell />
+          </MemoryRouter>
+        </AppThemeProvider>
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /giao diện tối/i }))
+
+    expect(screen.getByRole('button', { name: /giao diện sáng/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Nhật ký' })).toHaveClass('is-active')
+    expect(document.querySelector('.nf-console[data-theme="dark"]')).not.toBeNull()
   })
 })

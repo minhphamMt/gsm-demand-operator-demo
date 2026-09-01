@@ -49,7 +49,7 @@ export function OperatorHeader({
 }: OperatorHeaderProps) {
   const location = useLocation()
 
-  return <header className="nf-ops-header">
+  return <header className="nf-ops-header" data-theme={theme}>
     <div className="nf-ops-brand">
       <img alt="" aria-hidden="true" className="nf-ops-brand__mark" src={novafourOpsMark} />
       <strong>NOVAFOUR <em>OPS</em></strong>

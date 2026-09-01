@@ -79,6 +79,7 @@ import { simulatedDispatchDrivers, simulatedDriverMovementLabel, simulatedDriver
 import { useCurrentReplayAnchor } from "./hooks/useCurrentReplayAnchor";
 import { useServerClock } from "./hooks/useServerClock";
 import { SnapshotStaleAlert } from "@/features/operator-dashboard/components/SnapshotStaleAlert";
+import { useAppTheme } from "@/shared/theme/useAppTheme";
 import {
   planningHorizonFor,
   stageHasPlan,
@@ -104,21 +105,9 @@ type MapSource = "observed" | "forecast";
 type DialogKind = "approve" | "release" | "dispatch" | "reject" | null;
 type ActiveStopTarget = { id: string; kind: "campaign" | "dispatch" };
 type ActiveExecution = NonNullable<ReturnType<typeof activeExecutionPlan>>;
-type OpsTheme = "dark" | "light";
-
-const OPS_THEME_STORAGE_KEY = "novafour-ops-theme";
-
 // Đọc theme đã lưu ngay lúc khởi tạo state để tránh nháy màu tối rồi mới chuyển sáng.
 // Lần truy cập đầu tiên mặc định dùng giao diện sáng; lựa chọn tối của người dùng
 // vẫn được giữ lại qua localStorage.
-function readStoredOpsTheme(): OpsTheme {
-  try {
-    return localStorage.getItem(OPS_THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
-  } catch {
-    return "light";
-  }
-}
-
 export function OperatorConsoleDashboard({
   notifications,
   onSignOut,
@@ -130,7 +119,7 @@ export function OperatorConsoleDashboard({
 } = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [opsTheme, setOpsTheme] = useState<OpsTheme>(readStoredOpsTheme);
+  const { theme: opsTheme, toggleTheme } = useAppTheme();
   const [forecastMinutes, setForecastMinutes] = useState<ForecastHorizon>(15);
   const [replaySnapshot, setReplaySnapshot] = useState<Snapshot>();
   const [selectedZoneId, setSelectedZoneId] = useState<string>();
@@ -169,7 +158,7 @@ export function OperatorConsoleDashboard({
 
   useEffect(() => {
     try {
-      localStorage.setItem(OPS_THEME_STORAGE_KEY, opsTheme);
+      localStorage.setItem("novafour-ops-theme", opsTheme);
     } catch {
       // localStorage có thể bị chặn (chế độ ẩn danh) — chấp nhận không nhớ lựa chọn.
     }
@@ -828,7 +817,7 @@ export function OperatorConsoleDashboard({
         notifications={notifications}
         onOpenAgentFlow={() => { setPipelineTab("agents"); setPipelineOpen(true); }}
         onSignOut={onSignOut}
-        onToggleTheme={() => setOpsTheme((current) => (current === "dark" ? "light" : "dark"))}
+        onToggleTheme={toggleTheme}
         serverTimeLabel={serverNow ? formatTimeLabel(serverNow) : undefined}
         theme={opsTheme}
         userEmail={userEmail}
