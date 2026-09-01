@@ -91,6 +91,25 @@ export const mockOperatorAdapter: OperatorDataAdapter = {
     },
   })),
   generateAiDecision: async () => mockOperatorAdapter.getSnapshot('baseline'),
+  // Bộ ngưỡng demo phản chiếu `config/policy.yaml` để bảng chỉ số dựng được ở chế độ mock.
+  // Chỉ `avg_vehicle_speed_kmh` là `verified` — giống hệt file thật, nên nhánh "khoá vì đã
+  // chốt" của giao diện có đường chạy trong demo thay vì chỉ tồn tại trên giấy.
+  getPolicy: async () => ({
+    version: '1.1',
+    frozenAt: '2026-08-08',
+    rules: [
+      { key: 'min_supply_per_zone', value: 3, unit: 'xe', usedBy: ['hotspot.detector'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-01', tunable: true },
+      { key: 'budget_cap', value: 500000, unit: 'VNĐ/plan', usedBy: ['optimizer.greedy'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-02', tunable: true },
+      { key: 'max_distance', value: 7, unit: 'km', usedBy: ['optimizer.constraints'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-03', tunable: true },
+      { key: 'max_supply_move_pct', value: 0.4, unit: 'tỷ lệ 0–1', usedBy: ['optimizer.constraints'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-04', tunable: true },
+      { key: 'avg_vehicle_speed_kmh', value: 25, unit: 'km/h', usedBy: ['optimizer.greedy', 'activation.engine'], verified: true, owner: 'Data/BA', tunable: false },
+      { key: 'incentive_budget_cap', value: 1000000, unit: 'VNĐ/plan', usedBy: ['activation.engine'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-09', tunable: true },
+      { key: 'incentive_base', value: 20000, unit: 'VNĐ', usedBy: ['activation.engine'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-10', tunable: true },
+      { key: 'offer_ttl_minutes', value: 10, unit: 'phút', usedBy: ['activation.engine'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-14', tunable: true },
+      { key: 'assumed_accept_rate', value: 0.6, unit: 'tỷ lệ 0–1', usedBy: ['activation.engine'], verified: false, owner: 'Data/BA', assumption: 'ASSUMPTION-17', tunable: true },
+      { key: 'priority_zones', value: [], unit: 'list[int] 1–30', usedBy: ['optimizer.greedy'], verified: false, owner: 'BA', assumption: 'ASSUMPTION-06', tunable: false },
+    ],
+  }),
   optimizeAiDecision: async () => {
     const proposal = { ...clone(state.plans[0]!), inputSnapshotId: '17:00' }
     state = { ...state, plans: [proposal, ...state.plans.slice(1)] }

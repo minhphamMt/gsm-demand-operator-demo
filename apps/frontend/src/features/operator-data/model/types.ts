@@ -181,10 +181,34 @@ export type ForecastEvaluation = {
 export type ScenarioComparison = { id: string; commonInputHash: string; snapshotId: string; forecastRunId: string; modelVersion: string; policyVersion: string; scenarios: readonly { type: 'NO_ACTION' | 'RELOCATION' | 'ACTIVATION' | 'HYBRID'; estimatedMetrics: Record<string, unknown>; observedMetrics: Record<string, unknown> | null; uncertainty: Record<string, unknown>; responseSource: string }[]; forecastEvaluation?: ForecastEvaluation; hasObservedRevenue: false; revenueNotice: string }
 export type PersistentNotification = { id: string; ownerId: string | null; severity: 'INFO' | 'WARNING' | 'CRITICAL'; category: string; title: string; message: string; entityType: string | null; entityId: string | null; requestId: string | null; status: 'UNREAD' | 'READ' | 'ACKNOWLEDGED' | 'RESOLVED'; escalateAt: string | null; createdAt: string }
 
+/**
+ * Một ngưỡng vận hành như bảng chỉ số nhìn thấy nó.
+ *
+ * `verified` và `assumption` không phải trang trí: chúng phân biệt số đã được Data/BA chốt
+ * với số tài liệu mới đề xuất, và điều phối viên cần thấy khác biệt đó TRƯỚC khi kéo thanh
+ * trượt. `tunable` do server quyết chứ không phải giao diện tự suy — xem `PolicyMetrics`.
+ */
+export type PolicyRule = {
+  key: string
+  value: number | readonly number[] | string
+  // `| undefined` tường minh vì `exactOptionalPropertyTypes` đang bật: metadata của một key
+  // có thể vắng trong policy.yaml, và mapper phải gán được `undefined` cho chỗ vắng đó.
+  unit?: string | undefined
+  usedBy: readonly string[]
+  verified: boolean
+  owner?: string | undefined
+  assumption?: string | undefined
+  tunable: boolean
+}
+export type PolicyMetrics = { version: string; frozenAt: string; rules: readonly PolicyRule[] }
+/** Ngưỡng điều phối viên chỉnh cho MỘT lượt chạy. Không ghi vào policy.yaml (§13.2). */
+export type PolicyOverrides = Readonly<Record<string, number>>
+
 export type OperatorDataAdapter = {
   getCapabilities: () => Promise<OperatorCapabilities>
   generateAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon) => Promise<Snapshot>
-  optimizeAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon) => Promise<OptimizationResult>
+  optimizeAiDecision: (snapshotId: number, horizonMinutes: ForecastHorizon, policyOverrides?: PolicyOverrides) => Promise<OptimizationResult>
+  getPolicy: () => Promise<PolicyMetrics>
   runReplayStep: (sourceAt: string) => Promise<Snapshot>
   getReplayWindow: (sourceAt: string, lookbackMinutes?: number) => Promise<readonly ReplayTimelineStep[]>
   getSnapshot: (scenario: Scenario, demoScenarioId?: DemoScenarioId, replayIndex?: number) => Promise<Snapshot>

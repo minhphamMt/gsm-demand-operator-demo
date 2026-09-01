@@ -7,6 +7,7 @@
 //   · `action`   — thao tác người vận hành đã bấm, ghi khi biết kết quả (MA-6.8)
 //   · `audit`    — bản ghi đã bền hoá ở DB, gồm cả bước sau duyệt và phản hồi tài xế (MA-6.9)
 //   · `gate`     — dòng chờ người duyệt, dựng từ chính phương án trong CSDL (Chặng 6)
+//   · `console`  — trả lời của chính ô nhập cho lệnh gạch chéo (`/help`, `/clear`), thuần client
 //
 // `operator` và `action` tách nhau chứ không gộp: một câu gõ vào là *ý muốn*, một thao tác đã
 // xong là *sự việc*. Trên màn hình chúng cũng hiện khác nhau, và trộn lại là làm mờ đúng chỗ
@@ -22,7 +23,7 @@
 import { APPROVAL_RESOLVING_CODES } from '@/features/operator-console/model/operatorLog'
 import type { RunEvent } from '@/features/operator-pipeline/model/pipelineRun'
 
-export type LogOrigin = 'run' | 'session' | 'operator' | 'action' | 'audit' | 'gate'
+export type LogOrigin = 'run' | 'session' | 'operator' | 'action' | 'audit' | 'gate' | 'console'
 
 export type LogRow = RunEvent & { origin: LogOrigin }
 

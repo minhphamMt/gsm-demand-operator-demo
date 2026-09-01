@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -58,11 +58,26 @@ describe('operator console safety states', () => {
 
   it('renders all forecast horizons declared by the server capability', () => {
     const changeHorizon = vi.fn()
-    render(<ScenarioBar fleet={214} forecastMinutes={5} generatedAt="2026-08-14T08:55:00Z" horizons={[5, 10, 15]} modelVersion="lgbm" onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" zoneCount={30} />)
+    render(<ScenarioBar forecastMinutes={5} horizons={[5, 10, 15]} onForecastChange={changeHorizon} onRefresh={vi.fn()} regime="rain_peak" />)
 
     expect(screen.getByRole('radio', { name: '5 phút' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '10 phút' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '15 phút' })).toBeInTheDocument()
+  })
+
+  it('thanh trên cùng chỉ còn bối cảnh và điều khiển', () => {
+    // Bốn nhãn bị gỡ vì không giúp người vận hành quyết định gì: "Đội xe" lặp lại con số của
+    // biểu đồ cầu–cung, "30/30 zone" là `zones.length` nên luôn bằng 30 kể cả khi thiếu dữ
+    // liệu, "MODEL" vẫn còn ở ForecastDrawer và ForecastRunStatus, còn "HORIZON DỰ BÁO" chỉ
+    // nhắc lại thứ ba nút bên cạnh đã tự nói.
+    render(<ScenarioBar forecastMinutes={5} horizons={[5, 10, 15]} onForecastChange={vi.fn()} onRefresh={vi.fn()} regime="rain_peak" />)
+
+    expect(screen.getByText('Mưa lớn · giờ cao điểm')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Làm mới dữ liệu' })).toBeInTheDocument()
+    expect(screen.queryByText(/Đội xe/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/zone$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^MODEL/)).not.toBeInTheDocument()
+    expect(screen.queryByText('HORIZON DỰ BÁO')).not.toBeInTheDocument()
   })
 
   it('keeps the selected horizon stable and runs only after explicit confirmation', async () => {
@@ -88,6 +103,36 @@ describe('operator console safety states', () => {
 
     queryClient.clear()
   }, 20_000)
+
+  // Bảng chỉ số chính sách thay bảng TIẾN TRÌNH HỆ THỐNG cũ ở cột chỉ huy.
+  //
+  // Hai test dưới giữ đúng lời hứa của màn đó: ngưỡng kéo được, và giá trị đã kéo THỰC SỰ
+  // đi theo lượt tính. Một bảng chỉ đổi con số trên màn hình mà không đổi lượt chạy là thứ
+  // tệ hơn không có bảng — người vận hành tin là mình đã siết ngân sách trong khi không.
+  it('bảng chỉ số chính sách thay chỗ bảng tiến trình cũ', async () => {
+    const queryClient = renderDashboard()
+
+    expect(await screen.findByRole('region', { name: 'Chỉ số chính sách' }, { timeout: 15_000 })).toBeInTheDocument()
+    expect(screen.queryByText('TIẾN TRÌNH HỆ THỐNG')).not.toBeInTheDocument()
+    queryClient.clear()
+  }, 20_000)
+
+  it('gửi ngưỡng đã chỉnh theo lượt tính phương án', async () => {
+    const optimize = vi.spyOn(mockOperatorAdapter, 'optimizeAiDecision')
+    const queryClient = renderDashboard()
+
+    await screen.findByRole('region', { name: 'Chỉ số chính sách' }, { timeout: 15_000 })
+    fireEvent.change(screen.getByLabelText('Ngân sách điều chuyển'), { target: { value: '400000' } })
+    await raLenh('chạy dự báo')
+    await raLenh('tính phương án')
+
+    await waitFor(() => expect(optimize).toHaveBeenCalledWith(
+      expect.any(Number),
+      expect.any(Number),
+      { budget_cap: 400000 },
+    ))
+    queryClient.clear()
+  }, 25_000)
 
   // MA-6.8: thao tác của người vận hành phải nằm cùng dòng chảy với việc agent làm. Trước
   // đó nhật ký im bặt đúng lúc con người ra quyết định, và mạch ở §1 đọc không ra.
