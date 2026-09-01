@@ -28,6 +28,25 @@ describe('mock operator adapter', () => {
     expect(audit.map((entry) => entry.action)).toEqual(expect.arrayContaining(['Revised', 'Approved', 'ActivationStarted', 'CampaignCancelled']))
   })
 
+  it('keeps a cancelled campaign after the mock adapter is reloaded', async () => {
+    await mockOperatorAdapter.resetDemo()
+    await mockOperatorAdapter.cancelCampaign('CMP-017')
+
+    const stored = JSON.parse(window.localStorage.getItem('novafour.operator.mock-state.v1') ?? '{}') as {
+      campaigns?: Array<{ id: string; status: string }>
+      offers?: Array<{ campaignId: string; status: string }>
+    }
+    expect(stored.campaigns?.find((campaign) => campaign.id === 'CMP-017')?.status).toBe('Cancelled')
+    expect(stored.offers?.filter((offer) => offer.campaignId === 'CMP-017').every((offer) => offer.status !== 'Open')).toBe(true)
+
+    vi.resetModules()
+    const reloaded = await import('@/features/operator-data/api/mockOperatorAdapter')
+    const offersAfterReload = await reloaded.mockOperatorAdapter.listOffers('CMP-017')
+    expect(offersAfterReload.every((offer) => offer.status !== 'Open')).toBe(true)
+
+    await reloaded.mockOperatorAdapter.resetDemo()
+  })
+
   it('closes remaining offers when the acceptance target is reached', async () => {
     await mockOperatorAdapter.resetDemo()
     const original = await mockOperatorAdapter.getPlan('PLN-042')

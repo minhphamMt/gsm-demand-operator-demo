@@ -20,10 +20,55 @@ const clone = <T,>(value: T): T => structuredClone(value)
 type State = { scenarioId: DemoScenarioId; nextProposalNumber: number; plans: Proposal[]; campaigns: Campaign[]; offers: Offer[]; drivers: DemoDriver[]; audit: AuditEntry[] }
 const initialState = (): State => createSeededOperatorState()
 const scenarioState = (scenarioId: DemoScenarioId): State => { const plans = createAgentPlans(scenarioId); const seeded = createSeededOperatorState(); const availableStatuses: readonly DemoDriver['status'][] = ['online_idle', 'offline', 'online_idle', 'offline', 'online_busy', 'offline', 'online_idle', 'offline']; return { ...seeded, scenarioId, plans, campaigns: [], offers: [], drivers: seeded.drivers.map((driver, index) => ({ ...driver, status: availableStatuses[index] ?? 'offline', acceptedOfferIds: [], rewardTotal: 0 })), audit: plans.map((plan, index) => ({ id: `AUD-00${index + 1}`, planId: plan.id, action: 'Created', actor: 'GSM-14 Agent', occurredAt: new Date().toISOString(), detail: `Agent sinh phương án ${index + 1}/3 từ snapshot ${plan.inputSnapshotId}.` })) } }
-let state = initialState()
+const MOCK_STATE_STORAGE_KEY = 'novafour.operator.mock-state.v1'
+
+function browserStorage(): Storage | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function isState(value: unknown): value is State {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<State>
+  return typeof candidate.scenarioId === 'string'
+    && typeof candidate.nextProposalNumber === 'number'
+    && Array.isArray(candidate.plans)
+    && Array.isArray(candidate.campaigns)
+    && Array.isArray(candidate.offers)
+    && Array.isArray(candidate.drivers)
+    && Array.isArray(candidate.audit)
+}
+
+function loadState(): State {
+  const storage = browserStorage()
+  if (!storage) return initialState()
+  try {
+    const raw = storage.getItem(MOCK_STATE_STORAGE_KEY)
+    if (!raw) return initialState()
+    const parsed: unknown = JSON.parse(raw)
+    return isState(parsed) ? parsed : initialState()
+  } catch {
+    return initialState()
+  }
+}
+
+let state = loadState()
 let dispatches: DispatchBatch[] = []
 let notifications: PersistentNotification[] = []
-const audit = (planId: string, action: AuditEntry['action'], actor: string, detail: string) => { state = { ...state, audit: [{ id: `AUD-${state.audit.length + 1}`, planId, action, actor, occurredAt: new Date().toISOString(), detail }, ...state.audit] } }
+const persistState = () => {
+  const storage = browserStorage()
+  if (!storage) return
+  try {
+    storage.setItem(MOCK_STATE_STORAGE_KEY, JSON.stringify(state))
+  } catch (error) {
+    console.warn('[mockOperatorAdapter] khÃ´ng lÆ°u Ä‘Æ°á»£c state demo:', error)
+  }
+}
+const audit = (planId: string, action: AuditEntry['action'], actor: string, detail: string) => { state = { ...state, audit: [{ id: `AUD-${state.audit.length + 1}`, planId, action, actor, occurredAt: new Date().toISOString(), detail }, ...state.audit] }; persistState() }
 const planFor = (id: string) => state.plans.find((plan) => plan.id === id)
 const refreshStaleProposals = () => { state = refreshStaleProposalQueue(state) }
 const refreshCampaign = (campaignId: string) => {
